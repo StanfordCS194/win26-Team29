@@ -1,3 +1,6 @@
+packages:
+  - 'scrape'
+
 onlyBuiltDependencies:
   - '@parcel/watcher'
   - esbuild
