@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import { Context, Effect, Layer, Schedule } from 'effect'
 import { HttpClient, HttpClientRequest, HttpClientResponse } from '@effect/platform'
-import { parse } from 'node-html-parser'
+import { HTMLElement, parse } from 'node-html-parser'
 import { z } from 'zod'
 
 // ============================================================================
@@ -28,6 +28,23 @@ export type CourseEvalInfo = {
   responded: number
   total: number
   dataIds: [string, string, string, string]
+  reportData?: ReportData
+}
+
+export type ReportTableRow = {
+  option: string
+  weight?: number
+  frequency?: number
+  percentage?: number
+}
+
+export type ReportQuestion =
+  | { questionText: string; type: 'table'; rows: Array<ReportTableRow> }
+  | { questionText: string; type: 'comments'; comments: Array<string> }
+  | { questionText: string; type: 'unknown'; rawText?: string }
+
+export type ReportData = {
+  questions: Array<ReportQuestion>
 }
 
 // ============================================================================
@@ -137,6 +154,107 @@ const parseCourseEvalInfo = (htmlFragment: string): CourseEvalInfo | null => {
   }
 }
 
+const parseNumber = (value: string): number | undefined => {
+  const normalized = value.replace(/,/g, '').trim()
+  if (normalized.length === 0) return undefined
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
+const parsePercent = (value: string): number | undefined =>
+  parseNumber(value.replace('%', ''))
+
+const findAncestorWithClass = (
+  node: HTMLElement,
+  className: string
+): HTMLElement | undefined => {
+  let current: HTMLElement | null = node
+  while (current) {
+    const classes = (current.getAttribute('class') || '').split(/\s+/)
+    if (classes.includes(className)) return current
+    current = current.parentNode as HTMLElement | null
+  }
+  return undefined
+}
+
+const extractQuestionBlocks = (root: HTMLElement) =>
+  root.querySelectorAll('h4.question-text').map((questionNode) => {
+    const questionText = questionNode.text.trim()
+    const siblings: Array<HTMLElement> = []
+
+    const heading = findAncestorWithClass(questionNode, 'panel-heading')
+    const panelBody =
+      heading?.nextElementSibling &&
+      (heading.nextElementSibling.getAttribute('class') || '').includes('panel-body')
+        ? (heading.nextElementSibling as HTMLElement)
+        : undefined
+
+    if (panelBody) {
+      siblings.push(panelBody)
+      return { questionText, siblings }
+    }
+
+    let current = questionNode.nextElementSibling
+    while (current && current.tagName !== 'H4') {
+      siblings.push(current)
+      current = current.nextElementSibling
+    }
+    return { questionText, siblings }
+  })
+
+const parseReportHtml = (html: string): ReportData => {
+  const root = parse(html)
+  const questions: Array<ReportQuestion> = []
+
+  for (const { questionText, siblings } of extractQuestionBlocks(root)) {
+    const table =
+      siblings.find((node) => node.tagName === 'TABLE' && (node.getAttribute('class') || '').includes('table')) ||
+      siblings
+        .flatMap((node) => node.querySelectorAll('table'))
+        .find((node) => (node.getAttribute('class') || '').includes('table'))
+
+    if (table) {
+      const rows: Array<ReportTableRow> = []
+      const trNodes = table.querySelectorAll('tr')
+      for (const tr of trNodes) {
+        const cells = tr.querySelectorAll('td')
+        if (cells.length < 4) continue
+        const option = cells[0].text.trim().replace(/\s+/g, ' ')
+        const weightText = cells[1].text.replace(/[()]/g, '')
+        const frequencyText = cells[2].text
+        const percentageText = cells[3].text
+        rows.push({
+          option,
+          weight: parseNumber(weightText),
+          frequency: parseNumber(frequencyText),
+          percentage: parsePercent(percentageText),
+        })
+      }
+      questions.push({ questionText, type: 'table', rows })
+      continue
+    }
+
+    const list =
+      siblings.find((node) => node.tagName === 'UL') ||
+      siblings.flatMap((node) => node.querySelectorAll('ul')).find((node) =>
+        node.getAttribute('role') === 'list'
+      )
+    if (list) {
+      const comments = list
+        .querySelectorAll('li')
+        .map((li) => li.text.trim())
+        .filter((text) => text.length > 0)
+      questions.push({ questionText, type: 'comments', comments })
+      continue
+    }
+
+    const rawText = siblings.map((node) => node.text.trim()).join('\n').trim()
+    questions.push({ questionText, type: 'unknown', rawText: rawText || undefined })
+  }
+
+  return { questions }
+}
+
 export const parseCourseEvalInfos = (
   response: unknown
 ): Effect.Effect<{ hasMore: boolean; entries: Array<CourseEvalInfo> }, Error> =>
@@ -188,6 +306,21 @@ const buildUrl = (subject: string, year: number, page: number): string =>
   `https://stanford.evaluationkit.com/AppApi/Report/PublicReport` +
   `?Course=${subject}&Year=${year}&page=${page}`
 
+const buildReportUrl = (dataIds: [string, string, string, string]): string =>
+  `https://stanford.evaluationkit.com/Reports/StudentReport.aspx?id=${dataIds.join(',')}`
+
+const getReportHeaders = () => {
+  const cookie = process.env.EVAL_COOKIE
+  if (!cookie) {
+    throw new Error('EVAL_COOKIE environment variable is required. Please set it in your .env file.')
+  }
+
+  return {
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    Cookie: cookie,
+  }
+}
+
 const fetchPage = (
   subject: string,
   year: number,
@@ -209,6 +342,21 @@ const fetchPage = (
     const json = yield* _(response.json)
 
     return yield* _(parseCourseEvalInfos(json))
+  })
+
+const fetchReportHtml = (
+  dataIds: [string, string, string, string]
+): Effect.Effect<string, Error, HttpClient.HttpClient> =>
+  Effect.gen(function* (_) {
+    const client = yield* _(HttpClient.HttpClient)
+    const url = buildReportUrl(dataIds)
+
+    const request = HttpClientRequest.get(url).pipe(
+      HttpClientRequest.setHeaders(getReportHeaders())
+    )
+
+    const response = yield* _(client.execute(request))
+    return yield* _(response.text)
   })
 
 // ============================================================================
@@ -247,7 +395,12 @@ export const fetchCourseEvalInfos = (
       // Filter and collect matching entries
       for (const entry of pageResult.entries) {
         if (matchesFilters(entry, year, quarters, subject)) {
-          results.push(entry)
+          const hasAllDataIds = entry.dataIds.every((id) => id.length > 0)
+          const reportHtml = hasAllDataIds
+            ? yield* _(fetchReportHtml(entry.dataIds))
+            : undefined
+          const reportData = reportHtml ? parseReportHtml(reportHtml) : undefined
+          results.push({ ...entry, reportData })
         }
       }
 
