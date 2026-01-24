@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import { pathToFileURL } from 'node:url'
 import { Command, Options } from '@effect/cli'
-import { Effect, Stream } from 'effect'
+import { Console, Effect, Either, pipe, Ref, Stream } from 'effect'
 import { FileSystem } from '@effect/platform'
 import { NodeContext, NodeRuntime } from '@effect/platform-node'
 import {
@@ -20,11 +20,13 @@ const parseQuarters = (
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean)
+
     if (!parts.length) {
       return yield* _(
         Effect.fail(new Error('At least one quarter must be specified')),
       )
     }
+
     const quarters: Array<Quarter> = []
     for (const part of parts) {
       const parsed = QuarterSchema.safeParse(part)
@@ -39,14 +41,15 @@ const parseQuarters = (
       }
       quarters.push(parsed.data)
     }
+
     return quarters
   })
 
 // Parse subjects from comma-separated string
 const parseSubjects = (
   subjectsStr: string,
-): Effect.Effect<Array<string>, Error> => {
-  return Effect.gen(function* (_) {
+): Effect.Effect<Array<string>, Error> =>
+  Effect.gen(function* (_) {
     const subjects = subjectsStr
       .split(',')
       .map((s) => s.trim())
@@ -60,15 +63,12 @@ const parseSubjects = (
 
     return subjects
   })
-}
 
 // Create year-quarter pairs
 const createYearQuarterPairs = (
   year: number,
   quarters: Array<Quarter>,
-): Array<YearQuarterPair> => {
-  return quarters.map((quarter) => ({ year, quarter }))
-}
+): Array<YearQuarterPair> => quarters.map((quarter) => ({ year, quarter }))
 
 // Define CLI options
 const year = Options.integer('year').pipe(
@@ -90,7 +90,7 @@ const subjects = Options.text('subjects').pipe(
   ),
 )
 
-const output = Options.text('output').pipe(
+const output = Options.file('output').pipe(
   Options.withAlias('o'),
   Options.withDescription(
     'Output file path for results (e.g., ./data/reports.json)',
@@ -123,7 +123,7 @@ const backoff = Options.integer('backoff').pipe(
 
 // Define the main command
 const processCommand = Command.make(
-  'process-reports',
+  'fetch-evals',
   {
     year,
     quarters,
@@ -135,120 +135,133 @@ const processCommand = Command.make(
     backoff,
   },
   (config) =>
-    Effect.gen(function* (_) {
-      const parsedQuarters = yield* _(parseQuarters(config.quarters))
-      const parsedSubjects = yield* _(parseSubjects(config.subjects))
+    pipe(
+      Effect.gen(function* (_) {
+        const parsedQuarters = yield* _(parseQuarters(config.quarters))
+        const parsedSubjects = yield* _(parseSubjects(config.subjects))
 
-      console.log(
-        `Processing course evaluation reports for year ${config.year}`,
-      )
-      console.log(`Subjects: ${parsedSubjects.join(', ')}`)
-      console.log(`Quarters: ${parsedQuarters.join(', ')}`)
-      console.log(`Output: ${config.output}`)
-      console.log(
-        `Configuration: concurrency=${config.concurrency}, ratelimit=${config.rateLimit} req/s, retries=${config.retries}, backoff=${config.backoff}ms`,
-      )
-      console.log('')
-
-      const fs = yield* _(FileSystem.FileSystem)
-
-      // Create output directory if needed
-      const lastSlashIndex = config.output.lastIndexOf('/')
-      if (lastSlashIndex !== -1) {
-        const outputDir = config.output.substring(0, lastSlashIndex)
-        yield* _(fs.makeDirectory(outputDir, { recursive: true }))
-      }
-
-      console.log('Fetching and processing evaluation reports...')
-
-      const yearQuarterPairs = createYearQuarterPairs(
-        config.year,
-        parsedQuarters,
-      )
-
-      // Use throttled HTTP client layer with CLI parameters
-      const ThrottledHttpLayer = makeThrottledHttpClientLayer({
-        defaultConfig: {
-          requestsPerSecond: config.rateLimit,
-          maxConcurrent: config.concurrency,
-          retrySchedule: exponentialRetrySchedule(
-            config.retries,
-            config.backoff,
+        yield* _(
+          Console.log(
+            `Processing course evaluation reports for year ${config.year}`,
           ),
-        },
-      })
-
-      let reportCount = 0
-      const reports = yield* _(
-        processReports(yearQuarterPairs, parsedSubjects).pipe(
-          Stream.tap((report) =>
-            Effect.sync(() => {
-              reportCount++
-              if (reportCount % 10 === 0) {
-                process.stdout.write(`\rProcessed ${reportCount} reports...`)
-              }
-            }),
+        )
+        yield* _(Console.log(`Subjects: ${parsedSubjects.join(', ')}`))
+        yield* _(Console.log(`Quarters: ${parsedQuarters.join(', ')}`))
+        yield* _(Console.log(`Output: ${config.output}`))
+        yield* _(
+          Console.log(
+            `Configuration: concurrency=${config.concurrency}, ratelimit=${config.rateLimit} req/s, retries=${config.retries}, backoff=${config.backoff}ms`,
           ),
-          Stream.runCollect,
-          Effect.map((chunk) => Array.from(chunk)),
-          Effect.catchAll((error) =>
-            Effect.gen(function* () {
-              // Extract the actual error message, handling UnknownException with cause
-              let errorMessage: string
-              if (typeof error === 'object' && 'cause' in error) {
-                const cause = (error as { cause?: unknown }).cause
-                if (cause instanceof Error) {
-                  errorMessage = cause.message
+        )
+        yield* _(Console.log(''))
+
+        const fs = yield* _(FileSystem.FileSystem)
+
+        // Create output directory if needed
+        const lastSlashIndex = config.output.lastIndexOf('/')
+        if (lastSlashIndex !== -1) {
+          const outputDir = config.output.substring(0, lastSlashIndex)
+          yield* _(fs.makeDirectory(outputDir, { recursive: true }))
+        }
+
+        yield* _(Console.log('Fetching and processing evaluation reports...'))
+
+        const yearQuarterPairs = createYearQuarterPairs(
+          config.year,
+          parsedQuarters,
+        )
+
+        const processedRef = yield* _(Ref.make(0))
+        const successRef = yield* _(Ref.make(0))
+        const failureRef = yield* _(Ref.make(0))
+
+        const results = yield* _(
+          pipe(
+            processReports(yearQuarterPairs, parsedSubjects),
+            Stream.mapEffect((result) =>
+              Effect.gen(function* (_) {
+                // Update counts based on result
+                yield* _(Ref.update(processedRef, (n) => n + 1))
+
+                if (Either.isRight(result)) {
+                  yield* _(Ref.update(successRef, (n) => n + 1))
                 } else {
-                  errorMessage = String(cause)
+                  yield* _(Ref.update(failureRef, (n) => n + 1))
                 }
-              } else if (error instanceof Error) {
-                errorMessage = error.message
-              } else {
-                errorMessage = String(error)
-              }
 
-              console.error(`\n\nFailed to process reports: ${errorMessage}`)
-              return yield* Effect.fail(error)
-            }),
+                // Get current counts for progress display
+                const processed = yield* _(Ref.get(processedRef))
+                const success = yield* _(Ref.get(successRef))
+                const failed = yield* _(Ref.get(failureRef))
+
+                // Display progress every 10 reports
+                if (processed % 10 === 0) {
+                  yield* _(
+                    Console.log(
+                      `Processed ${processed} reports (${success} successful, ${failed} failed)`,
+                    ),
+                  )
+                }
+
+                return result
+              }),
+            ),
+            Stream.runCollect,
+            Effect.map((chunk) => Array.from(chunk)),
           ),
-          Effect.provide(ThrottledHttpLayer),
-        ),
-      )
+        )
 
-      console.log(`\r\nProcessed ${reports.length} reports total`)
+        // Separate successful and failed results
+        const successfulReports = results
+          .filter(Either.isRight)
+          .map((either) => either.right)
 
-      const jsonContent = JSON.stringify(reports, null, 2)
-      yield* _(fs.writeFileString(config.output, jsonContent))
+        const failedReports = results
+          .filter(Either.isLeft)
+          .map((either) => either.left)
 
-      console.log(`Results written to: ${config.output}`)
+        const finalProcessed = yield* _(Ref.get(processedRef))
+        const finalSuccess = yield* _(Ref.get(successRef))
+        const finalFailure = yield* _(Ref.get(failureRef))
 
-      // Print summary statistics
-      const totalQuestions = reports.reduce(
-        (sum, r) => sum + Object.keys(r.questions).length,
-        0,
-      )
-      const numericQuestions = reports.reduce(
-        (sum, r) =>
-          sum +
-          Object.values(r.questions).filter((q) => q.type === 'numeric').length,
-        0,
-      )
-      const textQuestions = reports.reduce(
-        (sum, r) =>
-          sum +
-          Object.values(r.questions).filter((q) => q.type === 'text').length,
-        0,
-      )
+        yield* _(
+          Console.log(
+            `\nProcessing complete: ${finalSuccess} successful, ${finalFailure} failed out of ${finalProcessed} total`,
+          ),
+        )
 
-      console.log('\nSummary:')
-      console.log(`  Total reports: ${reports.length}`)
-      console.log(`  Total questions: ${totalQuestions}`)
-      console.log(`  Numeric questions: ${numericQuestions}`)
-      console.log(`  Text questions: ${textQuestions}`)
+        const jsonContent = JSON.stringify(successfulReports, null, 2)
+        yield* _(fs.writeFileString(config.output, jsonContent))
+        yield* _(Console.log(`\nResults written to: ${config.output}`))
 
-      return reports
-    }),
+        if (finalFailure > 0) {
+          const jsonFailures = JSON.stringify(failedReports, null, 2)
+          yield* _(
+            fs.writeFileString(`${config.output}.failures.json`, jsonFailures),
+          )
+          yield* _(
+            Console.log(
+              `  Failed reports written to: ${config.output}.failures.json`,
+            ),
+          )
+        }
+
+        return successfulReports
+      }),
+      // Provide the ThrottledHttpLayer to the entire command effect
+      Effect.provide(
+        makeThrottledHttpClientLayer({
+          defaultConfig: {
+            requestsPerSecond: config.rateLimit,
+            maxConcurrent: config.concurrency,
+            retrySchedule: exponentialRetrySchedule(
+              config.retries,
+              config.backoff,
+            ),
+          },
+        }),
+      ),
+    ),
 )
 
 // Set up the CLI application
