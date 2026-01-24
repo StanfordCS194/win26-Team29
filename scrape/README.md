@@ -1,38 +1,66 @@
 # Scrape Scripts
 
-This folder contains scripts for scraping course data. It has its own `package.json` with dependencies separate from the main app.
+Scripts for scraping course data and evaluations from Stanford's course systems.
 
 ## Setup
 
-Install dependencies:
+Install dependencies from the root:
 
 ```bash
-cd scrape
 pnpm install
 ```
 
-## Usage
+## Available Scripts
 
-Run the fetch script to scrape course data for a specific academic year:
+### Fetch Course Data
+
+Fetch course listings from explore-courses:
 
 ```bash
-pnpm exec tsx fetch-courses-cli.ts --year <ACADEMIC_YEAR> --output <OUTPUT_DIR>
+pnpm scrape:courses --academicYear <YEAR> [options]
 ```
 
-### Required Parameters
+**Required:**
+- `--academicYear` / `-y` - Academic year (e.g., `20232024`)
 
-- `--year` / `-y`: Academic year to fetch (e.g., `20232024`)
-- `--output` / `-o`: Output directory where course XML files will be saved
+**Optional:**
+- `--output` / `-o` - Output directory (default: `data/explore-courses`)
+- `--concurrency` / `-c` - Max concurrent requests (default: `5`)
+- `--ratelimit` / `-l` - Requests per second (default: `10`)
+- `--retries` / `-r` - Retry attempts (default: `3`)
+- `--backoff` / `-b` - Initial backoff delay in ms (default: `100`)
 
-### Optional Parameters
+**Example:**
+```bash
+pnpm scrape:courses --academicYear 20232024 --output data/courses-2023
+```
 
-- `--concurrency` / `-c`: Maximum concurrent requests (default: `5`)
-- `--ratelimit` / `-l`: Requests per second (default: `10`)
-- `--retries` / `-r`: Number of retry attempts for failed requests (default: `3`)
-- `--backoff` / `-b`: Initial backoff delay in milliseconds (default: `100`)
+### Fetch Course Evaluations
 
-The script will:
-- Fetch course data for all subjects in the specified academic year
-- Save each subject's data as an XML file in the output directory
-- Display a progress bar showing success/failure counts
-- Handle rate limiting and retries automatically
+Fetch course evaluation reports:
+
+```bash
+pnpm scrape:evals --year <YEAR> --quarters <QUARTERS> --subjects <SUBJECTS> [options]
+```
+
+**Required:**
+- `--year` / `-y` - Year (e.g., `2024`)
+- `--quarters` / `-q` - Comma-separated quarters (e.g., `Winter,Spring,Fall`)
+- `--subjects` / `-s` - Comma-separated subject codes (e.g., `CS,MATH`)
+
+**Optional:**
+- `--output` / `-o` - Output file path (default: `data/course-evals/reports.json`)
+- `--concurrency` / `-c` - Max concurrent requests (default: `3`)
+- `--ratelimit` / `-l` - Requests per second (default: `6`)
+- `--retries` / `-r` - Retry attempts (default: `3`)
+- `--backoff` / `-b` - Initial backoff delay in ms (default: `100`)
+
+**Example:**
+```bash
+pnpm scrape:evals --year 2024 --quarters Winter,Spring --subjects CS,MATH
+```
+
+## Output
+
+- **Course data**: XML files saved per subject in the output directory
+- **Evaluations**: JSON file with processed evaluation reports. Failed reports are saved to `<output>.failures.json` if any occur.
