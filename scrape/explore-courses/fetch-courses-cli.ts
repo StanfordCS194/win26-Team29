@@ -1,168 +1,154 @@
-import { pathToFileURL } from "node:url";
-import { parseArgs } from "node:util";
-import { Cause, Effect, Exit, Layer } from "effect";
-import { FileSystem } from "@effect/platform";
-import { NodeContext, NodeRuntime } from "@effect/platform-node";
-import * as cliProgress from "cli-progress";
+import { pathToFileURL } from 'node:url'
+import { Command, Options } from '@effect/cli'
+import { Effect, Console, Stream, pipe, Ref } from 'effect'
+import { FileSystem } from '@effect/platform'
+import { NodeContext, NodeRuntime } from '@effect/platform-node'
+import * as cliProgress from 'cli-progress'
 import {
   exponentialRetrySchedule,
   makeThrottledHttpClientLayer,
-} from "@scrape/shared/throttled-http-client.ts";
-import { fetchCourseTasks } from "./fetch-courses.js";
+} from '@scrape/shared/throttled-http-client.ts'
+import { streamAllCourses } from './fetch-courses.js'
+
+// Define CLI options
+const year = Options.text('year').pipe(
+  Options.withAlias('y'),
+  Options.withDescription(
+    'Academic year to fetch courses for (e.g., 20232024)',
+  ),
+)
+const output = Options.directory('output').pipe(
+  Options.withAlias('o'),
+  Options.withDescription('Output directory for course XML files'),
+)
+
+const concurrency = Options.integer('concurrency').pipe(
+  Options.withAlias('c'),
+  Options.withDescription('Maximum number of concurrent requests'),
+  Options.withDefault(5),
+)
+
+const rateLimit = Options.integer('ratelimit').pipe(
+  Options.withAlias('l'),
+  Options.withDescription('Maximum requests per second'),
+  Options.withDefault(10),
+)
+
+const retries = Options.integer('retries').pipe(
+  Options.withAlias('r'),
+  Options.withDescription('Number of retry attempts for failed requests'),
+  Options.withDefault(3),
+)
+
+const backoff = Options.integer('backoff').pipe(
+  Options.withAlias('b'),
+  Options.withDescription('Initial backoff delay in milliseconds for retries'),
+  Options.withDefault(100),
+)
+
+// Define the command
+const command = Command.make(
+  'fetch-courses',
+  { year, output, concurrency, rateLimit, retries, backoff },
+  ({ year, output, concurrency, rateLimit, retries, backoff }) =>
+    pipe(
+      Effect.gen(function* (_) {
+        yield* _(Console.log(`Fetching courses for academic year ${year}`))
+        yield* _(Console.log(`Output directory: ${output}`))
+        yield* _(
+          Console.log(
+            `Configuration: concurrency=${concurrency}, ratelimit=${rateLimit} req/s, retries=${retries}, backoff=${backoff}ms`,
+          ),
+        )
+
+        const fs = yield* _(FileSystem.FileSystem)
+
+        // Create output directory
+        yield* _(fs.makeDirectory(output, { recursive: true }))
+
+        // Create progress bar
+        const progressBar = new cliProgress.SingleBar({
+          format:
+            'Progress |{bar}| {percentage}% | {value}/{total} subjects | Success: {success} | Failed: {failed}',
+          barCompleteChar: '\u2588',
+          barIncompleteChar: '\u2591',
+          hideCursor: true,
+          noTTYOutput: true,
+          notTTYSchedule: 1000,
+        })
+
+        // Create refs for tracking progress
+        const successRef = yield* _(Ref.make(0))
+        const failureRef = yield* _(Ref.make(0))
+        const { total, stream } = yield* _(streamAllCourses(year))
+
+        // Initialize progress bar with known total
+        progressBar.start(total, 0, {
+          success: 0,
+          failed: 0,
+        })
+
+        // Process stream
+        yield* _(
+          pipe(
+            stream,
+            Stream.mapEffect((result) =>
+              Effect.gen(function* (_) {
+                if (result._tag === 'Right') {
+                  const data = result.right
+                  const filePath = `${output}/${data.subject.name}.xml`
+                  yield* _(fs.writeFileString(filePath, data.content))
+                  yield* _(Ref.update(successRef, (n) => n + 1))
+                } else {
+                  const error = result.left
+                  yield* _(Console.warn(`\nFailed to fetch subject: ${error}`))
+                  yield* _(Ref.update(failureRef, (n) => n + 1))
+                }
+
+                const success = yield* _(Ref.get(successRef))
+                const failed = yield* _(Ref.get(failureRef))
+
+                progressBar.update(success + failed, {
+                  success,
+                  failed,
+                })
+              }),
+            ),
+            Stream.runDrain,
+          ),
+        )
+
+        progressBar.stop()
+
+        const finalSuccess = yield* _(Ref.get(successRef))
+        const finalFailure = yield* _(Ref.get(failureRef))
+
+        yield* _(
+          Console.log(
+            `\nComplete: ${finalSuccess} succeeded, ${finalFailure} failed`,
+          ),
+        )
+      }),
+      // Provide the ThrottledHttpLayer to the entire command effect
+      Effect.provide(
+        makeThrottledHttpClientLayer({
+          defaultConfig: {
+            requestsPerSecond: rateLimit,
+            maxConcurrent: concurrency,
+            retrySchedule: exponentialRetrySchedule(retries, backoff),
+          },
+        }),
+      ),
+    ),
+)
+
+// Set up CLI application
+const cli = Command.run(command, {
+  name: 'Course Fetcher',
+  version: 'v1.0.0',
+})
 
 // CLI execution
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { values } = parseArgs({
-    args: process.argv.slice(2),
-    options: {
-      year: {
-        type: "string",
-        short: "y",
-      },
-      output: {
-        type: "string",
-        short: "o",
-      },
-      concurrency: {
-        type: "string",
-        short: "c",
-        default: "5",
-      },
-      ratelimit: {
-        type: "string",
-        short: "l",
-        default: "10",
-      },
-      retries: {
-        type: "string",
-        short: "r",
-        default: "3",
-      },
-      backoff: {
-        type: "string",
-        short: "b",
-        default: "100",
-      },
-    },
-  });
-
-  if (!values.year) {
-    console.error("Error: --year is required");
-    console.error(
-      "Usage: tsx fetch-courses-cli.ts --year 20232024 --output ./data [--concurrency 5] [--ratelimit 10] [--retries 3] [--backoff 100]"
-    );
-    process.exit(1);
-  }
-
-  if (!values.output) {
-    console.error("Error: --output is required");
-    console.error(
-      "Usage: tsx fetch-courses-cli.ts --year 20232024 --output ./data [--concurrency 5] [--ratelimit 10] [--retries 3] [--backoff 100]"
-    );
-    process.exit(1);
-  }
-
-  const academicYear = values.year;
-  const outputDir = values.output;
-  const concurrency = parseInt(values.concurrency, 10);
-  const rateLimit = parseInt(values.ratelimit, 10);
-  const retries = parseInt(values.retries, 10);
-  const backoffMs = parseInt(values.backoff, 10);
-
-  const program = Effect.gen(function* (_) {
-    console.log(`Fetching courses for academic year ${academicYear}`);
-    console.log(`Output directory: ${outputDir}`);
-    console.log(
-      `Configuration: concurrency=${concurrency}, ratelimit=${rateLimit} req/s, retries=${retries}, backoff=${backoffMs}ms`
-    );
-
-    const tasks = yield* _(fetchCourseTasks(academicYear));
-    console.log(`Found ${tasks.length} subjects to fetch\n`);
-
-    const fs = yield* _(FileSystem.FileSystem);
-
-    // Create output directory
-    yield* _(fs.makeDirectory(outputDir, { recursive: true }));
-
-    // Create progress bar
-    const progressBar = new cliProgress.SingleBar({
-      format:
-        "Progress |{bar}| {percentage}% | {value}/{total} subjects | Success: {success} | Failed: {failed}",
-      barCompleteChar: "\u2588",
-      barIncompleteChar: "\u2591",
-      hideCursor: true,
-      noTTYOutput: true,
-      notTTYSchedule: 1000,
-    });
-
-    let successCount = 0;
-    let failureCount = 0;
-
-    progressBar.start(tasks.length, 0, {
-      success: 0,
-      failed: 0,
-    });
-
-    const results = yield* _(
-      Effect.forEach(
-        tasks,
-        (task) =>
-          Effect.gen(function* (_) {
-            const exit = yield* _(Effect.exit(task.execute()));
-
-            yield* _(
-              Exit.match(exit, {
-                onFailure: (cause) =>
-                  Effect.sync(() => {
-                    console.warn(
-                      `\nFailed to fetch subject ${task.subject.name}: ${[
-                        ...Cause.failures(cause),
-                        ...Cause.defects(cause),
-                      ].join(", ")}`
-                    );
-                    failureCount++;
-                    progressBar.update(successCount + failureCount, {
-                      success: successCount,
-                      failed: failureCount,
-                    });
-                  }),
-                onSuccess: (data) =>
-                  Effect.gen(function* (_) {
-                    const filePath = `${outputDir}/${task.subject.name}.xml`;
-                    yield* _(fs.writeFileString(filePath, data.content));
-                    successCount++;
-                    progressBar.update(successCount + failureCount, {
-                      success: successCount,
-                      failed: failureCount,
-                    });
-                  }),
-              })
-            );
-
-            return exit;
-          }),
-        { concurrency: "unbounded" }
-      )
-    );
-
-    progressBar.stop();
-    console.log(
-      `\nComplete: ${successCount} succeeded, ${failureCount} failed`
-    );
-    return results;
-  });
-
-  // Use throttled HTTP client layer with CLI parameters
-  const MainLayer = Layer.mergeAll(
-    NodeContext.layer,
-    makeThrottledHttpClientLayer({
-      defaultConfig: {
-        requestsPerSecond: rateLimit,
-        maxConcurrent: concurrency,
-        retrySchedule: exponentialRetrySchedule(retries, backoffMs),
-      },
-    })
-  );
-
-  NodeRuntime.runMain(program.pipe(Effect.provide(MainLayer)));
+  cli(process.argv).pipe(Effect.provide(NodeContext.layer), NodeRuntime.runMain)
 }
