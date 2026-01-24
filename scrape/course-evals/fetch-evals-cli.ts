@@ -92,8 +92,9 @@ const subjects = Options.text('subjects').pipe(
 
 const output = Options.file('output').pipe(
   Options.withAlias('o'),
+  Options.withDefault('data/course-evals/reports.json'),
   Options.withDescription(
-    'Output file path for results (e.g., ./data/reports.json)',
+    'Output file path for results (default: data/course-evals/reports.json)',
   ),
 )
 

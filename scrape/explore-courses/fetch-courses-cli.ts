@@ -11,7 +11,7 @@ import {
 import { streamAllCourses } from './fetch-courses.js'
 
 // Define CLI options
-const year = Options.text('year').pipe(
+const academicYear = Options.text('academicYear').pipe(
   Options.withAlias('y'),
   Options.withDescription(
     'Academic year to fetch courses for (e.g., 20232024)',
@@ -19,7 +19,10 @@ const year = Options.text('year').pipe(
 )
 const output = Options.directory('output').pipe(
   Options.withAlias('o'),
-  Options.withDescription('Output directory for course XML files'),
+  Options.withDefault('data/explore-courses'),
+  Options.withDescription(
+    'Output directory for course XML files (default: data/explore-courses)',
+  ),
 )
 
 const concurrency = Options.integer('concurrency').pipe(
@@ -49,11 +52,11 @@ const backoff = Options.integer('backoff').pipe(
 // Define the command
 const command = Command.make(
   'fetch-courses',
-  { year, output, concurrency, rateLimit, retries, backoff },
-  ({ year, output, concurrency, rateLimit, retries, backoff }) =>
+  { academicYear, output, concurrency, rateLimit, retries, backoff },
+  ({ academicYear, output, concurrency, rateLimit, retries, backoff }) =>
     pipe(
       Effect.gen(function* (_) {
-        yield* _(Console.log(`Fetching courses for academic year ${year}`))
+        yield* _(Console.log(`Fetching courses for academic year ${academicYear}`))
         yield* _(Console.log(`Output directory: ${output}`))
         yield* _(
           Console.log(
@@ -80,7 +83,7 @@ const command = Command.make(
         // Create refs for tracking progress
         const successRef = yield* _(Ref.make(0))
         const failureRef = yield* _(Ref.make(0))
-        const { total, stream } = yield* _(streamAllCourses(year))
+        const { total, stream } = yield* _(streamAllCourses(academicYear))
 
         // Initialize progress bar with known total
         progressBar.start(total, 0, {
