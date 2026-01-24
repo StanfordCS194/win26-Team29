@@ -1,10 +1,9 @@
-import { Effect } from 'effect'
+import { Effect, Stream, pipe } from 'effect'
 import { HttpClient } from '@effect/platform'
 import { XMLParser } from 'fast-xml-parser'
 import { z } from 'zod'
-import { SubjectSchema } from './enums.js'
+import { SubjectSchema } from '@scrape/shared/enums.ts'
 
-// Types
 export type SubjectInfo = {
   name: string
   longname: string
@@ -17,7 +16,6 @@ export type SubjectCourseData = {
   content: string
 }
 
-// Define schemas for validation
 const SubjectSchemaXML = z.object({
   name: z.string(),
   longname: z.string(),
@@ -34,17 +32,15 @@ const SubjectsResponseSchema = z.object({
   }),
 })
 
-// Constants
 const ENDPOINT = 'https://explorecourses.stanford.edu/'
 const SUBJECTS_ENDPOINT = `${ENDPOINT}?view=xml-20140630`
 
-// Helper to parse and validate XML
 const parseSubjectsXML = (xml: string) =>
   Effect.gen(function* (_) {
     const parser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: '',
-      isArray: (name) => name === 'department' || name === 'school', // Force arrays
+      isArray: (name) => name === 'department' || name === 'school',
     })
     const rawResult = parser.parse(xml)
 
@@ -58,14 +54,11 @@ const parseSubjectsXML = (xml: string) =>
     }
 
     const validated = parseResult.data
-
     const schools = validated.schools.school
-
     const subjects: Array<SubjectInfo> = []
 
     for (const school of schools) {
       const schoolName = school.name
-
       for (const subject of school.department) {
         subjects.push({
           name: subject.name,
@@ -78,7 +71,6 @@ const parseSubjectsXML = (xml: string) =>
     return subjects
   })
 
-// Core fetch operations
 export const fetchSubjects = () =>
   Effect.gen(function* (_) {
     const client = yield* _(HttpClient.HttpClient)
@@ -89,7 +81,6 @@ export const fetchSubjects = () =>
 
 const fetchSubjectCourses = (subject: SubjectInfo, academicYear: string) =>
   Effect.gen(function* (_) {
-    // Validate the subject name using SubjectSchema here
     const parseResult = SubjectSchema.safeParse(subject.name)
     if (!parseResult.success) {
       return yield* _(
@@ -110,17 +101,20 @@ const fetchSubjectCourses = (subject: SubjectInfo, academicYear: string) =>
     const response = yield* _(client.get(url))
     const content = yield* _(response.text)
 
-    return { subject, academicYear, content }
+    return { subject, academicYear, content } as SubjectCourseData
   })
 
-// Main exported function - returns array of tasks
-export const fetchCourseTasks = (academicYear: string) =>
+export const streamAllCourses = (academicYear: string) =>
   Effect.gen(function* (_) {
     const subjects = yield* _(fetchSubjects())
+    const total = subjects.length
 
-    return subjects.map((subject) => ({
-      subject,
-      academicYear,
-      execute: () => fetchSubjectCourses(subject, academicYear),
-    }))
+    const stream = pipe(
+      Stream.fromIterable(subjects),
+      Stream.mapEffect((subject) =>
+        pipe(fetchSubjectCourses(subject, academicYear), Effect.either),
+      ),
+    )
+
+    return { total, stream }
   })

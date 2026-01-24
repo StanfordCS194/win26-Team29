@@ -1,7 +1,11 @@
 {
-  "name": "courses-scrape",
+  "name": "@courses/scrape",
   "private": true,
   "type": "module",
+  "scripts": {
+    "scrape:evals": "tsx course-evals/fetch-evals-cli.ts",
+    "scrape:courses": "tsx explore-courses/fetch-courses-cli.ts"
+  },
   "dependencies": {
     "@effect/cli": "^0.73.1",
     "@effect/cluster": "^0.52.0",
@@ -17,7 +21,7 @@
   },
   "devDependencies": {
     "@types/cli-progress": "^3.11.6",
-    "@types/node": "^24.10.0",
+    "@types/node": "^24.10.9",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
