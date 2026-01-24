@@ -1,0 +1,8 @@
+packages:
+  - 'scrape'
+
+onlyBuiltDependencies:
+  - '@parcel/watcher'
+  - esbuild
+  - sharp
+  - unrs-resolver
