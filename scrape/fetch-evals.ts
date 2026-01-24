@@ -1,10 +1,10 @@
-import 'dotenv/config'
-import { Chunk, Effect, Either, Option, Stream } from 'effect'
+import { Chunk, Config, Effect, Either, Option, Stream } from 'effect'
 import { HttpClient, HttpClientRequest } from '@effect/platform'
 import { parse } from 'node-html-parser'
 import { z } from 'zod'
 import { decode } from 'html-entities'
 import type { HTMLElement } from 'node-html-parser'
+import type { ConfigError } from 'effect/ConfigError'
 
 // ============================================================================
 // Core Domain Schemas
@@ -125,21 +125,6 @@ const ApiResponseSchema = z.object({
 // ============================================================================
 // Configuration
 // ============================================================================
-
-const getEvalCookie = (): Effect.Effect<string, Error> =>
-  Effect.gen(function* (_) {
-    const cookie = process.env.EVAL_COOKIE
-    if (!cookie) {
-      return yield* _(
-        Effect.fail(
-          new Error(
-            'EVAL_COOKIE environment variable is required. Please set it in your .env file.',
-          ),
-        ),
-      )
-    }
-    return cookie
-  })
 
 const createApiHeaders = (cookie: string) => ({
   Accept: 'application/json, text/javascript, */*; q=0.01',
@@ -438,12 +423,12 @@ const fetchSearchPage = (
   page: number,
 ): Effect.Effect<
   { hasMore: boolean; entries: Array<CourseEvalInfo> },
-  Error,
+  Error | ConfigError,
   HttpClient.HttpClient
 > =>
   Effect.gen(function* (_) {
     const client = yield* _(HttpClient.HttpClient)
-    const cookie = yield* _(getEvalCookie())
+    const cookie = yield* Config.string("EVAL_COOKIE")
     const url = buildSearchUrl(subject, year, quarter, page)
 
     const request = HttpClientRequest.get(url).pipe(
@@ -463,7 +448,7 @@ const streamCourseEvalInfosForSubjectYearQuarter = (
   subject: string,
   year: number,
   quarter: Quarter,
-): Stream.Stream<CourseEvalInfo, Error, HttpClient.HttpClient> =>
+): Stream.Stream<CourseEvalInfo, Error | ConfigError, HttpClient.HttpClient> =>
   Stream.paginateChunkEffect(1, (page) =>
     Effect.gen(function* (_) {
       const pageResult = yield* _(fetchSearchPage(subject, year, quarter, page))
@@ -485,7 +470,7 @@ const streamCourseEvalInfosForSubjectYearQuarter = (
 const streamCourseEvalInfos = (
   yearQuarterPairs: Array<YearQuarterPair>,
   subjects: Array<string>,
-): Stream.Stream<CourseEvalInfo, Error, HttpClient.HttpClient> => {
+): Stream.Stream<CourseEvalInfo, Error | ConfigError, HttpClient.HttpClient> => {
   const streams = subjects.flatMap((subject) =>
     yearQuarterPairs.map(({ year, quarter }) =>
       streamCourseEvalInfosForSubjectYearQuarter(subject, year, quarter),
@@ -501,10 +486,10 @@ const streamCourseEvalInfos = (
 
 const fetchReportHtml = (
   url: string,
-): Effect.Effect<string, Error, HttpClient.HttpClient> =>
+): Effect.Effect<string, Error | ConfigError, HttpClient.HttpClient> =>
   Effect.gen(function* (_) {
     const client = yield* _(HttpClient.HttpClient)
-    const cookie = yield* _(getEvalCookie())
+    const cookie = yield* Config.string("EVAL_COOKIE")
 
     const request = HttpClientRequest.get(url).pipe(
       HttpClientRequest.setHeaders(createReportHeaders(cookie)),
@@ -687,11 +672,6 @@ const parseReport = (
       )
     }
 
-    // log the current course info
-    console.log(
-      info.courseCodes.map((cc) => `${cc.subject}-${cc.number}`).join(', '),
-    )
-
     for (const { questionText, siblings } of blocks) {
       const cleanedText = cleanQuestionText(normalizeText(questionText))
       const questionKey = matchKnownQuestion(cleanedText)
@@ -767,7 +747,7 @@ const parseReport = (
 export const processReports = (
   yearQuarterPairs: Array<YearQuarterPair>,
   subjects: Array<string>,
-): Stream.Stream<ProcessedReport, Error, HttpClient.HttpClient> =>
+): Stream.Stream<ProcessedReport, Error | ConfigError, HttpClient.HttpClient> =>
   streamCourseEvalInfos(yearQuarterPairs, subjects).pipe(
     Stream.mapEffect((info) =>
       Effect.gen(function* (_) {
