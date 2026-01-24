@@ -7,7 +7,7 @@ import { NodeContext, NodeRuntime } from '@effect/platform-node'
 import {
   exponentialRetrySchedule,
   makeThrottledHttpClientLayer,
-} from './throttled-http-client.ts'
+} from '@scrape/shared/throttled-http-client.ts'
 import { Quarter, QuarterSchema, processReports } from './fetch-evals.ts'
 import type { YearQuarterPair } from './fetch-evals.ts'
 

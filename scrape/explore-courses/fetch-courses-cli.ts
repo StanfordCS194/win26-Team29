@@ -7,7 +7,7 @@ import * as cliProgress from "cli-progress";
 import {
   exponentialRetrySchedule,
   makeThrottledHttpClientLayer,
-} from "./throttled-http-client.js";
+} from "@scrape/shared/throttled-http-client.ts";
 import { fetchCourseTasks } from "./fetch-courses.js";
 
 // CLI execution

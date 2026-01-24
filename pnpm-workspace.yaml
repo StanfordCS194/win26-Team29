@@ -1,5 +1,6 @@
 packages:
   - 'scrape'
+  - 'app'
 
 onlyBuiltDependencies:
   - '@parcel/watcher'
