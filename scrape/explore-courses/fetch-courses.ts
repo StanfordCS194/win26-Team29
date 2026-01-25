@@ -1,5 +1,5 @@
-import { Effect, Stream, pipe } from 'effect'
-import { HttpClient } from '@effect/platform'
+import { Effect, Either, Stream, pipe } from 'effect'
+import { HttpClient, FileSystem, Path } from '@effect/platform'
 import { XMLParser } from 'fast-xml-parser'
 import { z } from 'zod'
 import { SubjectSchema } from '@scrape/shared/enums.ts'
@@ -11,9 +11,9 @@ export type SubjectInfo = {
 }
 
 export type SubjectCourseData = {
-  subject: SubjectInfo
+  subjectName: string
   academicYear: string
-  content: string
+  xmlContent: string
 }
 
 const SubjectSchemaXML = z.object({
@@ -99,9 +99,13 @@ const fetchSubjectCourses = (subject: SubjectInfo, academicYear: string) =>
 
     const client = yield* _(HttpClient.HttpClient)
     const response = yield* _(client.get(url))
-    const content = yield* _(response.text)
+    const xmlContent = yield* _(response.text)
 
-    return { subject, academicYear, content } as SubjectCourseData
+    return {
+      subjectName: validatedName,
+      academicYear,
+      xmlContent,
+    } as SubjectCourseData
   })
 
 export const streamAllCourses = (academicYear: string) =>
