@@ -2,13 +2,14 @@
 
 Social, functional class planning application.
 
-Team wiki: https://github.com/StanfordCS194/win26-Team29/wiki/coursetree
+Team wiki: [https://github.com/StanfordCS194/win26-Team29/wiki/coursetree](https://github.com/StanfordCS194/win26-Team29/wiki/coursetree)
 
 ## Overview
 
 CourseTree is a monorepo containing:
-- **`app/`** - The main CourseTree web application (TanStack Start)
-- **`scrape/`** - Scripts for scraping course data and evaluations
+
+- `**app/**` - The main CourseTree web application (TanStack Start)
+- `**scrape/**` - Scripts for scraping course data and evaluations
 
 ## Quick Start
 
@@ -60,5 +61,8 @@ courses/
 ```
 
 For more details, see:
+
 - [app/README.md](app/README.md) - Application documentation
 - [scrape/README.md](scrape/README.md) - Scraping scripts documentation
+
+Ignacio Fernandez
