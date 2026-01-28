@@ -1,5 +1,7 @@
 # CourseTree
 
+# Daniel Reichfeld
+
 Social, functional class planning application.
 
 Team wiki: [https://github.com/StanfordCS194/win26-Team29/wiki/coursetree](https://github.com/StanfordCS194/win26-Team29/wiki/coursetree)
