@@ -62,3 +62,5 @@ courses/
 For more details, see:
 - [app/README.md](app/README.md) - Application documentation
 - [scrape/README.md](scrape/README.md) - Scraping scripts documentation
+
+Pat Caughey
