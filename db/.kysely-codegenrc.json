@@ -1,0 +1,16 @@
+{
+  "outFile": "./src/types/db.types.ts",
+  "typeMapping": {
+    "int8": "bigint",
+    "bigint": "bigint",
+    "timestamp": "Temporal.Instant",
+    "timestamptz": "Temporal.Instant",
+    "date": "Temporal.PlainDate",
+    "time": "Temporal.PlainTime",
+    "timetz": "Temporal.PlainTime",
+    "interval": "Temporal.Duration"
+  },
+  "customImports": {
+    "Temporal": "@js-temporal/polyfill"
+  }
+}

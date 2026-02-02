@@ -7,22 +7,25 @@
     "scrape:courses": "tsx explore-courses/fetch-courses-cli.ts"
   },
   "dependencies": {
+    "@courses/db": "workspace:*",
     "@effect/cli": "^0.73.1",
-    "@effect/cluster": "^0.52.0",
-    "@effect/platform": "^0.93.8",
-    "@effect/platform-node": "^0.100.0",
+    "@effect/cluster": "^0.56.1",
+    "@effect/platform": "^0.94.2",
+    "@effect/platform-node": "^0.104.1",
+    "@js-temporal/polyfill": "^0.5.1",
     "cli-progress": "^3.12.0",
-    "dotenv": "^16.4.7",
-    "effect": "^3.19.14",
-    "fast-xml-parser": "^5.3.1",
+    "dotenv": "^17.2.3",
+    "effect": "^3.19.15",
+    "fast-xml-parser": "^5.3.4",
     "html-entities": "^2.6.0",
+    "jsonpathly": "^3.0.0",
+    "kysely": "^0.28.10",
     "node-html-parser": "^7.0.2",
-    "zod": "^4.3.5"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/cli-progress": "^3.11.6",
-    "@types/node": "^24.10.9",
-    "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "@types/node": "^25.1.0",
+    "tsx": "^4.21.0"
   }
 }
