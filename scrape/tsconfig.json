@@ -13,10 +13,9 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "paths": {
-      "@app/*": ["../src/*"],
-      "@scrape": ["."],
+      "@db/*": ["../db/*"],
       "@scrape/*": ["./*"],
     }
   },
-  "include": ["**/*.ts", "shared/index.ts"]
+  "include": ["**/*.ts"]
 }

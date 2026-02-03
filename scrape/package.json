@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "scrape:evals": "tsx course-evals/fetch-evals-cli.ts",
-    "scrape:courses": "tsx explore-courses/fetch-courses-cli.ts"
+    "scrape:courses": "tsx explore-courses/cli.ts"
   },
   "dependencies": {
     "@courses/db": "workspace:*",
