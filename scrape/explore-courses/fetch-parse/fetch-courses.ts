@@ -1,8 +1,22 @@
-import { Effect, Either, Stream, pipe } from 'effect'
-import { HttpClient, FileSystem, Path } from '@effect/platform'
+import { Effect, Either, Stream, pipe, Data } from 'effect'
+import { HttpClient } from '@effect/platform'
 import { XMLParser } from 'fast-xml-parser'
 import { z } from 'zod'
-import { SubjectSchema } from '@scrape/shared/enums.ts'
+
+export class SubjectsXMLParseError extends Data.TaggedError('SubjectsXMLParseError')<{
+  cause: unknown
+}> {}
+
+export class SubjectsFetchError extends Data.TaggedError('SubjectsFetchError')<{
+  cause: unknown
+}> {}
+
+export class CourseXMLFetchError extends Data.TaggedError('CourseXMLFetchError')<{
+  subjectName: string
+  academicYear: string
+  cause: unknown
+}> {}
+
 
 export type SubjectInfo = {
   name: string
@@ -14,6 +28,7 @@ export type SubjectCourseData = {
   subjectName: string
   academicYear: string
   xmlContent: string
+  longname?: string // only set when fetching via HTTP (not from cache)
 }
 
 const SubjectSchemaXML = z.object({
@@ -33,7 +48,6 @@ const SubjectsResponseSchema = z.object({
 })
 
 const ENDPOINT = 'https://explorecourses.stanford.edu/'
-const SUBJECTS_ENDPOINT = `${ENDPOINT}?view=xml-20140630`
 
 const parseSubjectsXML = (xml: string) =>
   Effect.gen(function* (_) {
@@ -46,11 +60,7 @@ const parseSubjectsXML = (xml: string) =>
 
     const parseResult = SubjectsResponseSchema.safeParse(rawResult)
     if (!parseResult.success) {
-      return yield* _(
-        Effect.fail(
-          new Error(`Validation failed: ${parseResult.error.message}`),
-        ),
-      )
+      return yield* _(new SubjectsXMLParseError({ cause: parseResult.error }))
     }
 
     const validated = parseResult.data
@@ -71,26 +81,20 @@ const parseSubjectsXML = (xml: string) =>
     return subjects
   })
 
-export const fetchSubjects = () =>
+export const fetchSubjects = (academicYear: string) =>
   Effect.gen(function* (_) {
+    const url = `${ENDPOINT}?view=xml-20140630&academicYear=${academicYear}`
     const client = yield* _(HttpClient.HttpClient)
-    const response = yield* _(client.get(SUBJECTS_ENDPOINT))
-    const text = yield* _(response.text)
+    const response = yield* _(
+      client.get(url).pipe(Effect.mapError((cause) => new SubjectsFetchError({ cause }))),
+    )
+    const text = yield* _(response.text.pipe(Effect.mapError((cause) => new SubjectsFetchError({ cause }))))
     return yield* _(parseSubjectsXML(text))
   })
 
 const fetchSubjectCourses = (subject: SubjectInfo, academicYear: string) =>
   Effect.gen(function* (_) {
-    const parseResult = SubjectSchema.safeParse(subject.name)
-    if (!parseResult.success) {
-      return yield* _(
-        Effect.fail(
-          new Error(`Invalid subject name: ${parseResult.error.message}`),
-        ),
-      )
-    }
-
-    const validatedName = parseResult.data
+    const validatedName = subject.name
 
     const url =
       `${ENDPOINT}search?view=xml-20140630&academicYear=${academicYear}` +
@@ -98,26 +102,47 @@ const fetchSubjectCourses = (subject: SubjectInfo, academicYear: string) =>
       `&filter-coursestatus-Active=on`
 
     const client = yield* _(HttpClient.HttpClient)
-    const response = yield* _(client.get(url))
-    const xmlContent = yield* _(response.text)
+    const response = yield* _(
+      client.get(url).pipe(
+        Effect.mapError(
+          (cause) =>
+            new CourseXMLFetchError({
+              subjectName: validatedName,
+              academicYear,
+              cause,
+            }),
+        ),
+      ),
+    )
+    const xmlContent = yield* _(
+      response.text.pipe(
+        Effect.mapError(
+          (cause) =>
+            new CourseXMLFetchError({
+              subjectName: validatedName,
+              academicYear,
+              cause,
+            }),
+        ),
+      ),
+    )
 
     return {
       subjectName: validatedName,
       academicYear,
       xmlContent,
+      longname: subject.longname,
     } as SubjectCourseData
   })
 
 export const streamAllCourses = (academicYear: string) =>
   Effect.gen(function* (_) {
-    const subjects = yield* _(fetchSubjects())
+    const subjects = yield* _(fetchSubjects(academicYear))
     const total = subjects.length
 
     const stream = pipe(
       Stream.fromIterable(subjects),
-      Stream.mapEffect((subject) =>
-        pipe(fetchSubjectCourses(subject, academicYear), Effect.either),
-      ),
+      Stream.mapEffect((subject) => pipe(fetchSubjectCourses(subject, academicYear), Effect.either)),
     )
 
     return { total, stream }
