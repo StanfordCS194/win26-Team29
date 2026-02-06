@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/results')({ component: ResultsPage })
 
@@ -80,36 +80,40 @@ function ResultsPage() {
 
         <div className="flex flex-col gap-4">
           {mockCourses.map((course) => (
-            <article
+            <Link
               key={course.code}
-              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+              to="/course/$courseId"
+              params={{ courseId: course.code }}
+              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C1515]/30"
             >
-              <div className="flex items-start justify-between gap-4">
-                <p className="text-2xl font-normal tracking-[0.15em] text-slate-900">
-                  {course.code}
+              <article>
+                <div className="flex items-start justify-between gap-4">
+                  <p className="text-2xl font-normal tracking-[0.15em] text-slate-900">
+                    {course.code}
+                  </p>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-normal text-slate-900 ${
+                      course.rating < 3
+                        ? 'bg-red-200'
+                        : course.rating < 4.5
+                          ? 'bg-yellow-200'
+                          : 'bg-green-200'
+                    }`}
+                  >
+                    {course.rating.toFixed(1)}
+                  </span>
+                </div>
+                <h2 className="mt-2 text-xl font-normal text-slate-800">
+                  {course.title}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Professor {course.professor}
                 </p>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-normal text-slate-900 ${
-                    course.rating < 3
-                      ? 'bg-red-200'
-                      : course.rating < 4.5
-                        ? 'bg-yellow-200'
-                        : 'bg-green-200'
-                  }`}
-                >
-                  {course.rating.toFixed(1)}
-                </span>
-              </div>
-              <h2 className="mt-2 text-xl font-normal text-slate-800">
-                {course.title}
-              </h2>
-              <p className="mt-1 text-sm text-slate-500">
-                Professor {course.professor}
-              </p>
-              <p className="mt-4 text-base leading-relaxed text-slate-600">
-                {course.description}
-              </p>
-            </article>
+                <p className="mt-4 text-base leading-relaxed text-slate-600">
+                  {course.description}
+                </p>
+              </article>
+            </Link>
           ))}
         </div>
       </div>
