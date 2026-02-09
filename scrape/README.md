@@ -38,7 +38,6 @@ pnpm scrape:courses --academicYear <YEAR> [options]
 **Database upsert options:**
 
 - `--upsert-to-database` – Upsert parsed courses into the database (default: `false`)
-- `--force-upsert-on-failure` – Run upsert even if some subjects failed during fetch/parse (default: `false`)
 - `--upsert-batch-size` – Batch size for course offering upserts (default: `35`)
 - `--upsert-concurrency` – Concurrency for upsert batches (default: `5`)
 

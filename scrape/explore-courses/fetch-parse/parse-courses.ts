@@ -1,7 +1,13 @@
 import { Effect, Data } from 'effect'
 import { XMLParser } from 'fast-xml-parser'
 import { z } from 'zod'
-import { EffectTemporal } from '@scrape/shared/temporal-effect.ts'
+import {
+  CourseCodeSchema,
+  naturalFromStringOrNumber,
+  QuarterSchema,
+  WeekdaySchema,
+} from '@scrape/shared/schemas.ts'
+import { EffectTemporal } from '@scrape/shared/effect-temporal.ts'
 
 export class XMLParseError extends Data.TaggedError('XMLParseError')<{
   message: string
@@ -19,6 +25,28 @@ export class SchemaValidationError extends Data.TaggedError('SchemaValidationErr
   subjectName: string
 }> {}
 
+const SPLIT_SEPARATOR_REGEX = /[,\n\t]+/
+const TIME_REGEX = /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)$/i
+const ACADEMIC_YEAR_REGEX = /^\d{4}-\d{4}$/
+const WHITESPACE_REGEX = /\s+/
+
+const xmlParser = new XMLParser({
+  ignoreAttributes: true,
+  isArray: (name) =>
+    [
+      'course',
+      'section',
+      'schedule',
+      'instructor',
+      'attribute',
+      'tag',
+      'school',
+      'department',
+      'learningObjective',
+    ].includes(name),
+  parseTagValue: false,
+})
+
 const ConsentOptionSchema = z.enum(['Y', 'N', 'I', 'D'])
 export type ConsentOption = z.infer<typeof ConsentOptionSchema>
 const FinalExamOptionSchema = z.enum(['Y', 'N', 'L'])
@@ -34,7 +62,7 @@ const emptyStringToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
 const splitToArray = (str: string): string[] => {
   if (!str || str.trim() === '') return []
   return str
-    .split(/[,\n\t]+/)
+    .split(SPLIT_SEPARATOR_REGEX)
     .map((s) => s.trim())
     .filter((s) => s.length > 0)
 }
@@ -48,18 +76,6 @@ const arrayField = <T extends z.ZodTypeAny>(itemSchema: T, fieldName: string) =>
     }
     return []
   }, z.array(itemSchema))
-
-const naturalFromStringOrNumber = z.preprocess((value) => {
-  if (typeof value === 'number') return value
-
-  if (typeof value === 'string') {
-    if (value.trim() === '') return value // let Zod fail
-    const n = Number(value)
-    return Number.isNaN(n) ? value : n
-  }
-
-  return value
-}, z.int().nonnegative())
 
 // PlainDate schema - parses "Sep 23, 2024" format
 const PlainDateSchema = z.string().transform((val, ctx) => {
@@ -91,8 +107,7 @@ const PlainDateSchema = z.string().transform((val, ctx) => {
 const PlainTimeSchema = z.string().transform((val, ctx) => {
   try {
     // Parse the time string
-    const timeRegex = /^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)$/i
-    const match = val.match(timeRegex)
+    const match = val.match(TIME_REGEX)
 
     if (!match) {
       ctx.addIssue({
@@ -124,15 +139,9 @@ const PlainTimeSchema = z.string().transform((val, ctx) => {
   }
 })
 
-const QuarterSchema = z.enum(['Autumn', 'Winter', 'Spring', 'Summer'])
-export type Quarter = z.infer<typeof QuarterSchema>
-const WeekdaySchema = z.enum(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])
-export type Weekday = z.infer<typeof WeekdaySchema>
-
 const AcademicYearSchema = z.string().refine(
   (val) => {
-    const yearRegex = /^\d{4}-\d{4}$/
-    if (!yearRegex.test(val)) return false
+    if (!ACADEMIC_YEAR_REGEX.test(val)) return false
 
     const [startYear, endYear] = val.split('-').map(Number)
     return endYear === startYear + 1
@@ -148,42 +157,19 @@ const TermSchema = z
   .refine(
     (val) => {
       // Expected format: "2022-2023 Autumn"
-      const parts = val.trim().split(/\s+/)
+      const parts = val.trim().split(WHITESPACE_REGEX)
       return parts.length === 2
     },
     {
-      message: 'Invalid term format. Expected format: "YYYY-YYYY QuarterSchema" (e.g., "2022-2023 Autumn")',
+      message: 'Invalid term format. Expected format: "YYYY-YYYY Quarter" (e.g., "2022-2023 Autumn")',
     },
   )
   .transform((val) => {
-    const parts = val.trim().split(/\s+/)
+    const parts = val.trim().split(WHITESPACE_REGEX)
     const [year, quarter] = parts
     return {
       year: AcademicYearSchema.parse(year),
       quarter: QuarterSchema.parse(quarter),
-    }
-  })
-
-const CodeSchema = z
-  .string()
-  .refine(
-    (val) => {
-      const codeRegex = /^(\d+)(.*)$/
-      return codeRegex.test(val)
-    },
-    {
-      message: 'Invalid code format. Expected format: number followed by optional suffix',
-    },
-  )
-  .transform((val) => {
-    const codeRegex = /^(\d+)(.*)$/
-    const match = val.match(codeRegex)!
-
-    const [, numberPart, suffixPart] = match
-
-    return {
-      number: parseInt(numberPart, 10),
-      suffix: suffixPart.length > 0 ? suffixPart : undefined,
     }
   })
 
@@ -279,8 +265,8 @@ const SectionSchema = z.object({
   classId: naturalFromStringOrNumber,
   term: TermSchema,
   termId: naturalFromStringOrNumber,
-  subject: z.string().min(1),
-  code: CodeSchema,
+  subject: CourseCodeSchema.shape.subject,
+  code: CourseCodeSchema.shape.code,
   units: UnitsSchema,
   sectionNumber: z.string().min(1),
   component: z.string().min(1),
@@ -327,8 +313,7 @@ const LearningObjectiveSchema = z.object({
 
 const CourseSchema = z.object({
   year: AcademicYearSchema,
-  subject: z.string().min(1),
-  code: CodeSchema,
+  ...CourseCodeSchema.shape,
   title: z.string().min(1),
   description: z.string(),
   gers: z.string().transform(splitToArray),
@@ -357,24 +342,7 @@ export const parseCoursesXML = (xml: string, subjectName: string) =>
   Effect.gen(function* (_) {
     let rawResult: unknown
     try {
-      const parser = new XMLParser({
-        ignoreAttributes: true,
-        isArray: (name) =>
-          [
-            'course',
-            'section',
-            'schedule',
-            'instructor',
-            'attribute',
-            'tag',
-            'school',
-            'department',
-            'learningObjective',
-          ].includes(name),
-        parseTagValue: false,
-      })
-
-      rawResult = parser.parse(xml)
+      rawResult = xmlParser.parse(xml)
     } catch (error) {
       return yield* _(
         Effect.fail(

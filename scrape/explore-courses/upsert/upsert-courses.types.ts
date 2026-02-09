@@ -26,7 +26,7 @@ export type UploadSchedule = OmitColumnsAndDefaults<InsertSchedule, 'section_id'
 export type UploadSectionAttribute = OmitColumnsAndDefaults<InsertSectionAttribute, 'section_id'>
 
 // Level 2
-export type UploadSection = OmitColumnsAndDefaults<InsertSection, 'course_offering_id'> & {
+export type UploadSection = OmitColumnsAndDefaults<InsertSection, 'course_offering_id' | 'cancelled'> & {
   attributes: UploadSectionAttribute[]
   schedules: UploadSchedule[]
 }

@@ -17,11 +17,10 @@ export class CourseXMLFetchError extends Data.TaggedError('CourseXMLFetchError')
   cause: unknown
 }> {}
 
-
 export type SubjectInfo = {
   name: string
-  longname: string
-  school: string
+  longname?: string
+  school?: string
 }
 
 export type SubjectCourseData = {
@@ -92,13 +91,11 @@ export const fetchSubjects = (academicYear: string) =>
     return yield* _(parseSubjectsXML(text))
   })
 
-const fetchSubjectCourses = (subject: SubjectInfo, academicYear: string) =>
+const fetchSubjectCourses = (name: string, academicYear: string, longname?: string) =>
   Effect.gen(function* (_) {
-    const validatedName = subject.name
-
     const url =
       `${ENDPOINT}search?view=xml-20140630&academicYear=${academicYear}` +
-      `&q=${validatedName}&filter-subjectcode-${validatedName}=on` +
+      `&q=${encodeURIComponent(name)}&filter-subjectcode-${encodeURIComponent(name)}=on` +
       `&filter-coursestatus-Active=on`
 
     const client = yield* _(HttpClient.HttpClient)
@@ -107,7 +104,7 @@ const fetchSubjectCourses = (subject: SubjectInfo, academicYear: string) =>
         Effect.mapError(
           (cause) =>
             new CourseXMLFetchError({
-              subjectName: validatedName,
+              subjectName: name,
               academicYear,
               cause,
             }),
@@ -119,7 +116,7 @@ const fetchSubjectCourses = (subject: SubjectInfo, academicYear: string) =>
         Effect.mapError(
           (cause) =>
             new CourseXMLFetchError({
-              subjectName: validatedName,
+              subjectName: name,
               academicYear,
               cause,
             }),
@@ -128,21 +125,32 @@ const fetchSubjectCourses = (subject: SubjectInfo, academicYear: string) =>
     )
 
     return {
-      subjectName: validatedName,
+      subjectName: name,
       academicYear,
       xmlContent,
-      longname: subject.longname,
+      longname,
     } as SubjectCourseData
   })
 
 export const streamAllCourses = (academicYear: string) =>
   Effect.gen(function* (_) {
     const subjects = yield* _(fetchSubjects(academicYear))
+
+    // PHOTON is not returned by the XML subjects API, so we manually include it
+    if (!subjects.some((s) => s.name === 'PHOTON')) {
+      subjects.push({ name: 'PHOTON' })
+    }
+
     const total = subjects.length
 
     const stream = pipe(
       Stream.fromIterable(subjects),
-      Stream.mapEffect((subject) => pipe(fetchSubjectCourses(subject, academicYear), Effect.either)),
+      Stream.mapEffect(
+        (subject) => pipe(fetchSubjectCourses(subject.name, academicYear, subject.longname), Effect.either),
+        {
+          concurrency: 'unbounded',
+        },
+      ),
     )
 
     return { total, stream }
