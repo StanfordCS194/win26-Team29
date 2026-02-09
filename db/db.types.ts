@@ -80,16 +80,21 @@ export interface AuthAuditLogEntries {
 }
 
 export interface AuthFlowState {
-  auth_code: string;
+  auth_code: string | null;
   auth_code_issued_at: Temporal.Instant | null;
   authentication_method: string;
-  code_challenge: string;
-  code_challenge_method: AuthCodeChallengeMethod;
+  code_challenge: string | null;
+  code_challenge_method: AuthCodeChallengeMethod | null;
   created_at: Temporal.Instant | null;
+  email_optional: Generated<boolean>;
   id: string;
+  invite_token: string | null;
+  linking_target_id: string | null;
+  oauth_client_state_id: string | null;
   provider_access_token: string | null;
   provider_refresh_token: string | null;
   provider_type: string;
+  referrer: string | null;
   updated_at: Temporal.Instant | null;
   user_id: string | null;
 }
@@ -186,6 +191,7 @@ export interface AuthOauthClients {
   logo_uri: string | null;
   redirect_uris: string;
   registration_type: AuthOauthRegistrationType;
+  token_endpoint_auth_method: string;
   updated_at: Generated<Temporal.Instant>;
 }
 
@@ -352,9 +358,7 @@ export interface ConsentOptions {
 }
 
 export interface CourseOfferingAttributes {
-  catalog_print: boolean;
   course_offering_id: bigint;
-  created_at: Generated<Temporal.Instant | null>;
   description: string;
   id: Generated<bigint>;
   name: string;
@@ -364,7 +368,6 @@ export interface CourseOfferingAttributes {
 
 export interface CourseOfferingGers {
   course_offering_id: bigint;
-  created_at: Generated<Temporal.Instant | null>;
   ger_id: number;
   id: Generated<bigint>;
 }
@@ -373,13 +376,11 @@ export interface CourseOfferings {
   academic_career_id: number;
   academic_group_id: number;
   academic_organization_id: number;
-  catalog_print: boolean;
   code_number: number;
   code_suffix: string | null;
   course_id: number;
   created_at: Generated<Temporal.Instant | null>;
   description: string;
-  effective_status_id: number;
   final_exam_flag_id: number;
   grading_option_id: number;
   id: Generated<bigint>;
@@ -392,26 +393,74 @@ export interface CourseOfferings {
   title: string;
   units_max: number;
   units_min: number;
-  updated_at: Generated<Temporal.Instant | null>;
   year: string;
 }
 
 export interface CourseOfferingTags {
   course_offering_id: bigint;
-  created_at: Generated<Temporal.Instant | null>;
   id: Generated<bigint>;
   name: string;
   organization: string;
 }
 
-export interface EffectiveStatuses {
+export interface EnrollStatuses {
   code: string;
   id: Generated<number>;
 }
 
-export interface EnrollStatuses {
-  code: string;
+export interface EvaluationNumericQuestions {
   id: Generated<number>;
+  question_text: string;
+}
+
+export interface EvaluationNumericResponses {
+  frequency: number;
+  id: Generated<bigint>;
+  option_text: string;
+  question_id: number;
+  report_id: bigint;
+  weight: number;
+}
+
+export interface EvaluationReports {
+  id: Generated<bigint>;
+  responded: number;
+  total: number;
+}
+
+export interface EvaluationReportSections {
+  id: Generated<bigint>;
+  report_id: bigint;
+  section_id: bigint;
+}
+
+export interface EvaluationTextQuestions {
+  id: Generated<number>;
+  question_text: string;
+}
+
+export interface EvaluationTextResponses {
+  id: Generated<bigint>;
+  question_id: number;
+  report_id: bigint;
+  response_text: string;
+}
+
+export interface ExtensionsHypopgHiddenIndexes {
+  am_name: string | null;
+  index_name: string | null;
+  indexrelid: number | null;
+  is_hypo: boolean | null;
+  schema_name: string | null;
+  table_name: string | null;
+}
+
+export interface ExtensionsHypopgListIndexes {
+  am_name: string | null;
+  index_name: string | null;
+  indexrelid: number | null;
+  schema_name: string | null;
+  table_name: string | null;
 }
 
 export interface ExtensionsPgStatStatements {
@@ -492,7 +541,6 @@ export interface InstructorRoles {
 }
 
 export interface Instructors {
-  created_at: Generated<Temporal.Instant | null>;
   first_name: string | null;
   id: Generated<bigint>;
   last_name: string | null;
@@ -503,7 +551,6 @@ export interface Instructors {
 
 export interface LearningObjectives {
   course_offering_id: bigint;
-  created_at: Generated<Temporal.Instant | null>;
   description: string;
   id: Generated<bigint>;
   requirement_code: string;
@@ -526,6 +573,7 @@ export interface RealtimeSchemaMigrations {
 }
 
 export interface RealtimeSubscription {
+  action_filter: Generated<string | null>;
   claims: Json;
   claims_role: Generated<string>;
   created_at: Generated<Temporal.Instant>;
@@ -536,7 +584,6 @@ export interface RealtimeSubscription {
 }
 
 export interface ScheduleInstructors {
-  created_at: Generated<Temporal.Instant | null>;
   id: Generated<bigint>;
   instructor_id: bigint;
   instructor_role_id: number;
@@ -544,7 +591,6 @@ export interface ScheduleInstructors {
 }
 
 export interface Schedules {
-  created_at: Generated<Temporal.Instant | null>;
   days: ArrayType<WeekdayType> | null;
   end_date: Temporal.PlainDate | null;
   end_time: Temporal.PlainTime | null;
@@ -556,8 +602,6 @@ export interface Schedules {
 }
 
 export interface SectionAttributes {
-  catalog_print: boolean;
-  created_at: Generated<Temporal.Instant | null>;
   description: string;
   id: Generated<bigint>;
   name: string;
@@ -568,10 +612,10 @@ export interface SectionAttributes {
 
 export interface Sections {
   add_consent_id: number;
+  cancelled: Generated<boolean>;
   class_id: number;
   component_type_id: number;
   course_offering_id: bigint;
-  created_at: Generated<Temporal.Instant | null>;
   current_class_size: number;
   current_waitlist_size: number;
   drop_consent_id: number;
@@ -587,7 +631,6 @@ export interface Sections {
   section_number: string;
   term_id: number;
   term_quarter: QuarterType;
-  term_year: string;
   units_max: number | null;
   units_min: number | null;
 }
@@ -737,41 +780,6 @@ export interface VaultSecrets {
   updated_at: Generated<Temporal.Instant>;
 }
 
-export interface VCourseOfferingsResolved {
-  academic_career_code: string | null;
-  academic_group_code: string | null;
-  academic_organization_code: string | null;
-  catalog_print: boolean | null;
-  code_number: number | null;
-  code_suffix: string | null;
-  course_id: number | null;
-  created_at: Temporal.Instant | null;
-  description: string | null;
-  effective_status_code: string | null;
-  final_exam_option_code: string | null;
-  grading_option_code: string | null;
-  id: bigint | null;
-  max_times_repeat: number | null;
-  max_units_repeat: number | null;
-  offer_number: number | null;
-  repeatable: boolean | null;
-  schedule_print: boolean | null;
-  subject_code: string | null;
-  title: string | null;
-  units_max: number | null;
-  units_min: number | null;
-  updated_at: Temporal.Instant | null;
-  year: string | null;
-}
-
-export interface VScheduleInstructorsResolved {
-  created_at: Temporal.Instant | null;
-  id: bigint | null;
-  instructor_id: bigint | null;
-  instructor_role_code: string | null;
-  schedule_id: bigint | null;
-}
-
 export interface DB {
   academic_careers: AcademicCareers;
   academic_groups: AcademicGroups;
@@ -802,8 +810,15 @@ export interface DB {
   course_offering_gers: CourseOfferingGers;
   course_offering_tags: CourseOfferingTags;
   course_offerings: CourseOfferings;
-  effective_statuses: EffectiveStatuses;
   enroll_statuses: EnrollStatuses;
+  evaluation_numeric_questions: EvaluationNumericQuestions;
+  evaluation_numeric_responses: EvaluationNumericResponses;
+  evaluation_report_sections: EvaluationReportSections;
+  evaluation_reports: EvaluationReports;
+  evaluation_text_questions: EvaluationTextQuestions;
+  evaluation_text_responses: EvaluationTextResponses;
+  "extensions.hypopg_hidden_indexes": ExtensionsHypopgHiddenIndexes;
+  "extensions.hypopg_list_indexes": ExtensionsHypopgListIndexes;
   "extensions.pg_stat_statements": ExtensionsPgStatStatements;
   "extensions.pg_stat_statements_info": ExtensionsPgStatStatementsInfo;
   final_exam_options: FinalExamOptions;
@@ -831,8 +846,6 @@ export interface DB {
   subjects: Subjects;
   "supabase_migrations.schema_migrations": SupabaseMigrationsSchemaMigrations;
   "supabase_migrations.seed_files": SupabaseMigrationsSeedFiles;
-  v_course_offerings_resolved: VCourseOfferingsResolved;
-  v_schedule_instructors_resolved: VScheduleInstructorsResolved;
   "vault.decrypted_secrets": VaultDecryptedSecrets;
   "vault.secrets": VaultSecrets;
 }

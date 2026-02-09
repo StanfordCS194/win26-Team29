@@ -38,6 +38,7 @@ const streamCachedCourses = (academicYear: string, xmlDir: string) =>
           }),
           Effect.either,
         ),
+        { concurrency: 'unbounded' }
       ),
     )
 
@@ -81,12 +82,13 @@ export const streamCoursesWithCache = (
   FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | never
 > =>
   Effect.gen(function* (_) {
+    const cacheValid = xmlDir ? yield* _(checkCacheValid(xmlDir)) : false
     const result =
-      !xmlDir || !(yield* _(checkCacheValid(xmlDir)))
+      !xmlDir || !cacheValid
         ? yield* _(streamAllCourses(academicYear))
         : yield* _(streamCachedCourses(academicYear, xmlDir))
 
-    const source = !xmlDir || !(yield* _(checkCacheValid(xmlDir))) ? ('http' as const) : ('cache' as const)
+    const source = !xmlDir || !cacheValid ? ('http' as const) : ('cache' as const)
 
     return { ...result, source }
   })

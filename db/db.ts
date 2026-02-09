@@ -1,4 +1,4 @@
-import { Kysely, PostgresDialect, PostgresPool } from 'kysely'
+import { Kysely, PostgresDialect } from 'kysely'
 import { types, Pool } from 'pg'
 import type { DB } from './db.types.ts'
 import { Temporal } from '@js-temporal/polyfill'
@@ -67,6 +67,14 @@ types.setTypeParser(1184, (value) => {
 types.setTypeParser(1083, (value) => {
   return value === null ? null : Temporal.PlainTime.from(value)
 })
+
+const parseEnumArray = (value: string) => {
+  if (value === null) return null
+  return value.slice(1, -1).split(',').filter((s) => s.length > 0)
+}
+
+types.setTypeParser(18378 as any, parseEnumArray)
+types.setTypeParser(18387 as any, parseEnumArray)
 
 export function createDb(connectionString: string) {
   return new Kysely<DB>({

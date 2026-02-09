@@ -1,6 +1,7 @@
 import { Effect, Console, Chunk, Stream, pipe, Ref, Either } from 'effect'
 import { FileSystem, Path } from '@effect/platform'
 import * as cliProgress from 'cli-progress'
+import { appendFile } from 'node:fs/promises'
 import { parseCoursesXML } from './fetch-parse/parse-courses.ts'
 import { streamCoursesWithCache } from './fetch-parse/courses-cached.ts'
 import type { ParsedCourse } from './fetch-parse/parse-courses.ts'
@@ -29,15 +30,16 @@ function processCourseData(
   return Effect.gen(function* (_) {
     const { writeXml, writeJson, xmlDir, parsedDir, path, fs } = options
 
-    if (writeXml) {
-      const xmlFilePath = path.join(xmlDir, `${data.subjectName}.xml`)
-      yield* _(fs.writeFileString(xmlFilePath, data.xmlContent))
-    }
+    const xmlFilePath = path.join(xmlDir, `${data.subjectName}.xml`)
+    const jsonFilePath = path.join(parsedDir, `${data.subjectName}.json`)
 
-    const courses = yield* _(parseCoursesXML(data.xmlContent, data.subjectName))
+    const writeXmlEffect = writeXml ? fs.writeFileString(xmlFilePath, data.xmlContent) : Effect.void
+
+    const parseEffect = parseCoursesXML(data.xmlContent, data.subjectName)
+
+    const [, courses] = yield* _(Effect.all([writeXmlEffect, parseEffect], { concurrency: 2 }))
 
     if (writeJson) {
-      const jsonFilePath = path.join(parsedDir, `${data.subjectName}.json`)
       yield* _(fs.writeFileString(jsonFilePath, JSON.stringify(courses, null, 2)))
     }
 
@@ -45,9 +47,41 @@ function processCourseData(
   })
 }
 
+function formatError(error: any) {
+  if ('_tag' in error) {
+    switch (error._tag) {
+      case 'SchemaValidationError':
+        return {
+          type: 'SchemaValidationError',
+          subjectName: error.subjectName,
+          message: error.message,
+          issues: error.issues,
+        }
+      case 'XMLParseError':
+        return {
+          type: 'XMLParseError',
+          subjectName: error.subjectName,
+          message: error.message,
+          cause: String(error.cause),
+        }
+      case 'CourseXMLFetchError':
+        return {
+          type: 'CourseXMLFetchError',
+          subjectName: error.subjectName,
+          academicYear: error.academicYear,
+          cause: String(error.cause),
+        }
+    }
+  }
+  return {
+    type: error._tag,
+    error: String(error),
+  }
+}
+
 export const fetchAndParseFlow = ({
   academicYear,
-  baseDataDir,
+  outputsDir,
   writeXml,
   writeJson,
   useCache,
@@ -57,7 +91,7 @@ export const fetchAndParseFlow = ({
   backoff,
 }: {
   academicYear: string
-  baseDataDir: string
+  outputsDir: string
   writeXml: boolean
   writeJson: boolean
   useCache: boolean
@@ -70,16 +104,11 @@ export const fetchAndParseFlow = ({
     const path = yield* _(Path.Path)
     const fs = yield* _(FileSystem.FileSystem)
 
-    const outputsDir = path.join(baseDataDir, academicYear)
     const xmlDir = path.join(outputsDir, 'xml')
     const parsedDir = path.join(outputsDir, 'parsed')
 
     yield* _(Console.log(`Fetching courses for academic year ${academicYear}`))
-    yield* _(Console.log(`Data directory: ${baseDataDir}`))
-
-    if (writeXml || writeJson) {
-      yield* _(Console.log(`Output directory: ${outputsDir}`))
-    }
+    yield* _(Console.log(`Output directory: ${outputsDir}`))
 
     yield* _(fs.makeDirectory(outputsDir, { recursive: true }))
     if (writeXml) {
@@ -87,6 +116,12 @@ export const fetchAndParseFlow = ({
     }
     if (writeJson) {
       yield* _(fs.makeDirectory(parsedDir, { recursive: true }))
+    }
+
+    // Initialize failure file - delete if exists to start fresh
+    const failuresPath = path.join(outputsDir, 'fetch-parse-failures.jsonl')
+    if (yield* _(fs.exists(failuresPath))) {
+      yield* _(fs.remove(failuresPath))
     }
 
     const cacheXmlDir = useCache ? xmlDir : undefined
@@ -100,6 +135,11 @@ export const fetchAndParseFlow = ({
           `HTTP client configuration: concurrency=${concurrency}, ratelimit=${rateLimit} req/s, retries=${retries}, backoff=${backoff}ms`,
         ),
       )
+      if (writeXml) {
+        // delete all files in the xmlDir
+        const files = yield* _(fs.readDirectory(xmlDir))
+        yield* _(Effect.forEach(files, (file) => fs.remove(path.join(xmlDir, file))))
+      }
     }
 
     const progressBar = new cliProgress.SingleBar({
@@ -122,30 +162,39 @@ export const fetchAndParseFlow = ({
     const results = yield* _(
       pipe(
         stream,
-        Stream.mapEffect((either) =>
-          pipe(
-            Effect.gen(function* (_) {
-              if (Either.isLeft(either)) {
-                return yield* _(Effect.fail(either.left)) // pass along error
-              }
+        Stream.mapEffect(
+          (either) =>
+            pipe(
+              Effect.gen(function* (_) {
+                if (Either.isLeft(either)) {
+                  return yield* _(Effect.fail(either.left)) // pass along error
+                }
 
-              const data = either.right
-              return yield* _(
-                processCourseData(data, {
-                  writeXml,
-                  writeJson,
-                  xmlDir,
-                  parsedDir,
-                  path,
-                  fs,
-                }),
-              )
-            }),
-            Effect.either,
-          ),
+                const data = either.right
+                return yield* _(
+                  processCourseData(data, {
+                    writeXml: writeXml && source === 'http',
+                    writeJson,
+                    xmlDir,
+                    parsedDir,
+                    path,
+                    fs,
+                  }),
+                )
+              }),
+              Effect.either,
+            ),
+          { concurrency: 'unbounded' },
         ),
         Stream.tap((result) =>
           Effect.gen(function* (_) {
+            // Write failures to JSONL as they happen
+            if (Either.isLeft(result)) {
+              const errorReport = formatError(result.left)
+              const jsonLine = JSON.stringify(errorReport) + '\n'
+              yield* _(Effect.promise(() => appendFile(failuresPath, jsonLine, 'utf-8')))
+            }
+
             const progress = yield* _(
               Ref.updateAndGet(progressRef, ({ success, failed }) =>
                 Either.isRight(result) ? { success: success + 1, failed } : { success, failed: failed + 1 },
@@ -155,10 +204,8 @@ export const fetchAndParseFlow = ({
           }),
         ),
         Stream.runCollect,
-      ),
+      ).pipe(Effect.ensuring(Effect.sync(() => progressBar.stop()))),
     )
-
-    progressBar.stop()
 
     const resultArray = Chunk.toReadonlyArray(results)
     const failures = resultArray.filter((r) => Either.isLeft(r)).map((r) => r.left)
@@ -166,46 +213,13 @@ export const fetchAndParseFlow = ({
 
     const { success, failed } = yield* _(Ref.get(progressRef))
 
-    const failuresPath = path.join(outputsDir, 'failures.json')
-    if (failures.length === 0) {
+    // Clean up failures file if no failures occurred
+    if (failed === 0) {
       if (yield* _(fs.exists(failuresPath))) {
         yield* _(fs.remove(failuresPath))
       }
     } else {
-      const failureReport = failures.map((error) => {
-        if ('_tag' in error) {
-          switch (error._tag) {
-            case 'SchemaValidationError':
-              return {
-                type: 'SchemaValidationError',
-                subjectName: error.subjectName,
-                message: error.message,
-                issues: error.issues,
-              }
-            case 'XMLParseError':
-              return {
-                type: 'XMLParseError',
-                subjectName: error.subjectName,
-                message: error.message,
-                cause: String(error.cause),
-              }
-            case 'CourseXMLFetchError':
-              return {
-                type: 'CourseXMLFetchError',
-                subjectName: error.subjectName,
-                academicYear: error.academicYear,
-                cause: String(error.cause),
-              }
-          }
-        }
-        return {
-          type: error._tag,
-          error: String(error),
-        }
-      })
-
-      yield* _(fs.writeFileString(failuresPath, JSON.stringify(failureReport, null, 2)))
-      yield* _(Console.log(`\nErrors: ${failures.length} subjects failed to process. See ${failuresPath}`))
+      yield* _(Console.log(`\nErrors: ${failed} subjects failed to process. See ${failuresPath}`))
     }
 
     yield* _(

@@ -2,7 +2,7 @@ import { Effect } from 'effect'
 import { DbService } from '@scrape/shared/db-layer.ts'
 import { ParsedInstructor } from '../fetch-parse/parse-courses.ts'
 
-const BATCH_SIZE = 500
+const BATCH_SIZE = 1000
 
 /**
  * Upserts instructors into the instructors table (conflict on sunet).
