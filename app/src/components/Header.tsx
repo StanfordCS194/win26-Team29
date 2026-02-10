@@ -18,18 +18,18 @@ export default function Header() {
           <span className="text-3xl font-normal">CourseTree</span>
         </Link>
         <div className="ml-auto flex items-center gap-6">
-          <Link
-            to="/schedule"
+          <button
+            type="button"
             className="text-base font-normal text-slate-700 transition hover:text-[#8C1515] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C1515]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50"
           >
             Schedule
-          </Link>
-          <Link
-            to="/plan"
+          </button>
+          <button
+            type="button"
             className="text-base font-normal text-slate-700 transition hover:text-[#8C1515] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C1515]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50"
           >
             4Y Plan
-          </Link>
+          </button>
           <button
             type="button"
             className="text-base font-normal text-slate-700 transition hover:text-[#8C1515] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8C1515]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50"
