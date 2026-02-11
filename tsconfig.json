@@ -14,16 +14,14 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
-    "paths": {
-      "@app/*": ["app/src/*"],
-      "@scrape/*": ["scrape/*"]
-    }
+    "baseUrl": "."
   },
-  "include": [],  // Root should be empty when using references
+  "include": [], // Root should be empty when using references
   "exclude": ["node_modules"],
   "references": [
     { "path": "./scrape" },
-    { "path": "./app" }
+    { "path": "./app" },
+    { "path": "./db" },
+    { "path": "./tsconfig.tooling.json" }
   ]
 }

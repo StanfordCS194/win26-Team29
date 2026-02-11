@@ -1,7 +1,8 @@
 import fs from 'node:fs'
-import { useCallback, useState } from 'react'
+
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { createServerFn } from '@tanstack/react-start'
+import { useCallback, useState } from 'react'
 
 /*
 const loggingMiddleware = createMiddleware().server(
@@ -59,15 +60,14 @@ function Home() {
   const submitTodo = useCallback(async () => {
     todos = await addTodo({ data: todo })
     setTodo('')
-    router.invalidate()
+    void router.invalidate()
   }, [addTodo, todo])
 
   return (
     <div
       className="flex items-center justify-center min-h-screen bg-gradient-to-br from-zinc-800 to-black p-4 text-white"
       style={{
-        backgroundImage:
-          'radial-gradient(50% 50% at 20% 60%, #23272a 0%, #18181b 50%, #000000 100%)',
+        backgroundImage: 'radial-gradient(50% 50% at 20% 60%, #23272a 0%, #18181b 50%, #000000 100%)',
       }}
     >
       <div className="w-full max-w-2xl p-8 rounded-xl backdrop-blur-md bg-black/50 shadow-xl border-8 border-black/10">
@@ -89,7 +89,7 @@ function Home() {
             onChange={(e) => setTodo(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                submitTodo()
+                void submitTodo()
               }
             }}
             placeholder="Enter a new todo..."
@@ -97,7 +97,7 @@ function Home() {
           />
           <button
             disabled={todo.trim().length === 0}
-            onClick={submitTodo}
+            onClick={() => void submitTodo()}
             className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
           >
             Add todo

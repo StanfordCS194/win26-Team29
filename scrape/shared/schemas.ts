@@ -1,10 +1,14 @@
 import { z } from 'zod'
 
 export const naturalFromStringOrNumber = z.preprocess((value) => {
-  if (typeof value === 'number') return value
+  if (typeof value === 'number') {
+    return value
+  }
 
   if (typeof value === 'string') {
-    if (value.trim() === '') return value // let Zod fail
+    if (value.trim() === '') {
+      return value
+    } // let Zod fail
     const n = Number(value)
     return Number.isNaN(n) ? value : n
   }
@@ -90,7 +94,7 @@ export const CodeNumberSchema = z.codec(
       }
     },
     encode: (obj) => {
-      return `${obj.number}${obj.suffix || ''}`
+      return `${obj.number}${obj.suffix ?? ''}`
     },
   },
 )

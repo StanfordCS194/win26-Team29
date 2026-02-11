@@ -1,14 +1,17 @@
 // fetch-evals.ts
-import { Chunk, Config, Data, Effect, Either, Option, Stream, pipe } from 'effect'
 import { HttpClient, HttpClientRequest } from '@effect/platform'
-import type { ConfigError } from 'effect/ConfigError'
-import { type Quarter } from '@scrape/shared/schemas.ts'
-import { ListingsParseError, parseListingsResponse, type EvalInfo } from './parse-listings.ts'
-import {
-  fetchSubjects,
-  type SubjectsFetchError,
-  type SubjectsXMLParseError,
+import { Chunk, Config, Data, Effect, Option, Stream, pipe } from 'effect'
+
+import { fetchSubjects } from '@scrape/explore-courses/fetch-parse/fetch-courses.ts'
+import { ListingsParseError, parseListingsResponse } from './parse-listings.ts'
+import type {
+  SubjectsFetchError,
+  SubjectsXMLParseError,
 } from '@scrape/explore-courses/fetch-parse/fetch-courses.ts'
+import type { Quarter } from '@scrape/shared/schemas.ts'
+import type { EvalInfo } from './parse-listings.ts'
+
+import type { ConfigError } from 'effect/ConfigError'
 
 export type HtmlReportItem = { html: string; evalInfo: EvalInfo; source: 'http' | 'cache' }
 
@@ -25,7 +28,7 @@ export class ListingsFetchError extends Data.TaggedError('ListingsFetchError')<{
 export class ReportFetchError extends Data.TaggedError('ReportFetchError')<{
   message: string
   url: string
-  courseCodes: string[]
+  courseCodes: Array<string>
   year: number
   quarter: string
   evalInfo: EvalInfo
@@ -100,17 +103,17 @@ const fetchSearchPage = (
 > => {
   const url = buildSearchUrl(subject, year, quarter, page)
 
-  return Effect.gen(function* (_) {
-    const client = yield* _(HttpClient.HttpClient)
-    const cookie = yield* _(Config.string('EVAL_COOKIE'))
+  return Effect.gen(function* () {
+    const client = yield* HttpClient.HttpClient
+    const cookie = yield* Config.string('EVAL_COOKIE')
 
     const request = HttpClientRequest.get(url).pipe(
       HttpClientRequest.setHeaders(createListingsHeaders(cookie)),
     )
 
-    const response = yield* _(client.execute(request))
-    const json = yield* _(response.json)
-    return yield* _(parseListingsResponse(json, year, quarter))
+    const response = yield* client.execute(request)
+    const json = yield* response.json
+    return yield* parseListingsResponse(json, year, quarter)
   }).pipe(
     Effect.mapError((error) => {
       if (error instanceof ListingsParseError) {
@@ -142,8 +145,8 @@ export const streamEvalInfosForSubject = (
   quarter: Quarter,
 ): Stream.Stream<EvalInfo, ListingsParseError | ListingsFetchError, HttpClient.HttpClient> =>
   Stream.paginateChunkEffect(1, (page) =>
-    Effect.gen(function* (_) {
-      const pageResult = yield* _(fetchSearchPage(subject, year, quarter, page))
+    Effect.gen(function* () {
+      const pageResult = yield* fetchSearchPage(subject, year, quarter, page)
 
       return [
         Chunk.unsafeFromArray(pageResult.entries),
@@ -155,12 +158,12 @@ export const streamEvalInfosForSubject = (
 export const fetchReportHtml = (
   url: string,
 ): Effect.Effect<string, Error | ConfigError, HttpClient.HttpClient> =>
-  Effect.gen(function* (_) {
-    const client = yield* _(HttpClient.HttpClient)
-    const cookie = yield* _(Config.string('EVAL_COOKIE'))
+  Effect.gen(function* () {
+    const client = yield* HttpClient.HttpClient
+    const cookie = yield* Config.string('EVAL_COOKIE')
 
     const request = HttpClientRequest.get(url).pipe(HttpClientRequest.setHeaders(createReportHeaders(cookie)))
 
-    const response = yield* _(client.execute(request))
-    return yield* _(response.text)
+    const response = yield* client.execute(request)
+    return yield* response.text
   })

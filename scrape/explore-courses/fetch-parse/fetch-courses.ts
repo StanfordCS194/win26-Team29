@@ -1,5 +1,5 @@
-import { Effect, Either, Stream, pipe, Data } from 'effect'
 import { HttpClient } from '@effect/platform'
+import { Data, Effect, Stream, pipe } from 'effect'
 import { XMLParser } from 'fast-xml-parser'
 import { z } from 'zod'
 
@@ -49,7 +49,7 @@ const SubjectsResponseSchema = z.object({
 const ENDPOINT = 'https://explorecourses.stanford.edu/'
 
 const parseSubjectsXML = (xml: string) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const parser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: '',
@@ -59,7 +59,7 @@ const parseSubjectsXML = (xml: string) =>
 
     const parseResult = SubjectsResponseSchema.safeParse(rawResult)
     if (!parseResult.success) {
-      return yield* _(new SubjectsXMLParseError({ cause: parseResult.error }))
+      return yield* new SubjectsXMLParseError({ cause: parseResult.error })
     }
 
     const validated = parseResult.data
@@ -81,46 +81,42 @@ const parseSubjectsXML = (xml: string) =>
   })
 
 export const fetchSubjects = (academicYear: string) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const url = `${ENDPOINT}?view=xml-20140630&academicYear=${academicYear}`
-    const client = yield* _(HttpClient.HttpClient)
-    const response = yield* _(
-      client.get(url).pipe(Effect.mapError((cause) => new SubjectsFetchError({ cause }))),
-    )
-    const text = yield* _(response.text.pipe(Effect.mapError((cause) => new SubjectsFetchError({ cause }))))
-    return yield* _(parseSubjectsXML(text))
+    const client = yield* HttpClient.HttpClient
+    const response = yield* client
+      .get(url)
+      .pipe(Effect.mapError((cause) => new SubjectsFetchError({ cause })))
+    const text = yield* response.text.pipe(Effect.mapError((cause) => new SubjectsFetchError({ cause })))
+    return yield* parseSubjectsXML(text)
   })
 
 const fetchSubjectCourses = (name: string, academicYear: string, longname?: string) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const url =
       `${ENDPOINT}search?view=xml-20140630&academicYear=${academicYear}` +
       `&q=${encodeURIComponent(name)}&filter-subjectcode-${encodeURIComponent(name)}=on` +
       `&filter-coursestatus-Active=on`
 
-    const client = yield* _(HttpClient.HttpClient)
-    const response = yield* _(
-      client.get(url).pipe(
-        Effect.mapError(
-          (cause) =>
-            new CourseXMLFetchError({
-              subjectName: name,
-              academicYear,
-              cause,
-            }),
-        ),
+    const client = yield* HttpClient.HttpClient
+    const response = yield* client.get(url).pipe(
+      Effect.mapError(
+        (cause) =>
+          new CourseXMLFetchError({
+            subjectName: name,
+            academicYear,
+            cause,
+          }),
       ),
     )
-    const xmlContent = yield* _(
-      response.text.pipe(
-        Effect.mapError(
-          (cause) =>
-            new CourseXMLFetchError({
-              subjectName: name,
-              academicYear,
-              cause,
-            }),
-        ),
+    const xmlContent = yield* response.text.pipe(
+      Effect.mapError(
+        (cause) =>
+          new CourseXMLFetchError({
+            subjectName: name,
+            academicYear,
+            cause,
+          }),
       ),
     )
 
@@ -133,8 +129,8 @@ const fetchSubjectCourses = (name: string, academicYear: string, longname?: stri
   })
 
 export const streamAllCourses = (academicYear: string) =>
-  Effect.gen(function* (_) {
-    const subjects = yield* _(fetchSubjects(academicYear))
+  Effect.gen(function* () {
+    const subjects = yield* fetchSubjects(academicYear)
 
     // PHOTON is not returned by the XML subjects API, so we manually include it
     if (!subjects.some((s) => s.name === 'PHOTON')) {

@@ -28,9 +28,7 @@ function App() {
         </div>
 
         <div className="absolute left-1/2 top-[calc(50%-2rem)] w-full max-w-2xl -translate-x-1/2 -translate-y-[calc(100%+6rem)] px-6 text-center">
-          <h1 className="text-4xl font-normal text-slate-900 sm:text-5xl">
-            Master your schedule.
-          </h1>
+          <h1 className="text-4xl font-normal text-slate-900 sm:text-5xl">Master your schedule.</h1>
         </div>
 
         <div className="absolute left-1/2 top-[calc(50%-2rem)] w-full max-w-2xl -translate-x-1/2 translate-y-[calc(100%+2rem)] px-6">
@@ -55,8 +53,7 @@ function App() {
             </button>
           </div>
           <p className="mt-5 text-center text-sm text-slate-600">
-            Build your perfect course plan with AI-powered recommendations and
-            real-time scheduling.
+            Build your perfect course plan with AI-powered recommendations and real-time scheduling.
           </p>
         </div>
       </main>

@@ -1,42 +1,32 @@
-import { Effect, Data, HashMap, HashSet, Option, MutableHashMap } from 'effect'
+import { Data, Effect, HashMap, HashSet, MutableHashMap, Option } from 'effect'
+
 import { DbService } from '@scrape/shared/db-layer.ts'
-import type { EffectProcessedReport } from '../fetch-parse/effect-processed-report.ts'
-import { sectionKey } from '../fetch-parse/parse-listings.ts'
+import type { sectionKey } from '../fetch-parse/parse-listings.ts'
 import type { Quarter } from '@scrape/shared/schemas.ts'
+
+import type { EffectProcessedReport } from '../fetch-parse/effect-processed-report.ts'
 
 export class EvaluationReportUpsertError extends Data.TaggedError('EvaluationReportUpsertError')<{
   message: string
   step: string
-  recordCount?: number
   reportMetadata: Array<{
     quarter: string
     year: number
-    sectionCodes: string[]
+    sectionCodes: Array<string>
   }>
   cause?: unknown
 }> {}
 
-async function traced<T>(step: string, fn: () => Promise<T>, context?: { recordCount?: number }): Promise<T> {
+async function traced<T>(step: string, fn: () => Promise<T>): Promise<T> {
   try {
     return await fn()
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error)
     throw Object.assign(new Error(`[${step}] ${msg}`), {
       step,
-      recordCount: context?.recordCount,
       originalError: error,
     })
   }
-}
-
-const logMissingSubject = (subjectCode: string) => {
-  console.warn(`\nSubject not found: ${subjectCode}`)
-}
-
-const logMissingSection = (key: ReturnType<typeof sectionKey>, academicYear: string, quarter: string) => {
-  console.warn(
-    `\nSection not found: ${key.subject} ${key.code.number}${key.code.suffix || ''}-${key.sectionNumber} (${quarter} ${academicYear})`,
-  )
 }
 
 export const upsertEvaluationReports = (
@@ -69,7 +59,7 @@ export const upsertEvaluationReports = (
           for (const key of allSectionKeys) {
             const subjectId = subjectCodeToId.get(key.subject)
             if (subjectId === undefined) {
-              logMissingSubject(key.subject)
+              console.warn(`\nSubject not found: ${key.subject}`)
               continue
             }
 
@@ -90,39 +80,36 @@ export const upsertEvaluationReports = (
           >()
 
           if (lookups.length > 0) {
-            const sectionRecords = await traced(
-              'query_sections',
-              () =>
-                trx
-                  .selectFrom('sections')
-                  .innerJoin('course_offerings', 'sections.course_offering_id', 'course_offerings.id')
-                  .select([
-                    'sections.id',
-                    'course_offerings.subject_id',
-                    'course_offerings.code_number',
-                    'course_offerings.code_suffix',
-                    'sections.section_number',
-                  ])
-                  .where('course_offerings.year', '=', academicYear)
-                  .where('sections.term_quarter', '=', quarter)
-                  .where((eb) =>
-                    eb.or(
-                      lookups.map((lookup) =>
-                        eb.and([
-                          eb('course_offerings.subject_id', '=', lookup.subject_id),
-                          eb('course_offerings.code_number', '=', lookup.code_number),
-                          eb(
-                            'course_offerings.code_suffix',
-                            lookup.code_suffix ? '=' : 'is',
-                            lookup.code_suffix,
-                          ),
-                          eb('sections.section_number', '=', lookup.section_number),
-                        ]),
-                      ),
+            const sectionRecords = await traced('query_sections', () =>
+              trx
+                .selectFrom('sections')
+                .innerJoin('course_offerings', 'sections.course_offering_id', 'course_offerings.id')
+                .select([
+                  'sections.id',
+                  'course_offerings.subject_id',
+                  'course_offerings.code_number',
+                  'course_offerings.code_suffix',
+                  'sections.section_number',
+                ])
+                .where('course_offerings.year', '=', academicYear)
+                .where('sections.term_quarter', '=', quarter)
+                .where((eb) =>
+                  eb.or(
+                    lookups.map((lookup) =>
+                      eb.and([
+                        eb('course_offerings.subject_id', '=', lookup.subject_id),
+                        eb('course_offerings.code_number', '=', lookup.code_number),
+                        eb(
+                          'course_offerings.code_suffix',
+                          lookup.code_suffix !== null ? '=' : 'is',
+                          lookup.code_suffix,
+                        ),
+                        eb('sections.section_number', '=', lookup.section_number),
+                      ]),
                     ),
-                  )
-                  .execute(),
-              { recordCount: lookups.length },
+                  ),
+                )
+                .execute(),
             )
 
             for (const s of sectionRecords) {
@@ -140,12 +127,14 @@ export const upsertEvaluationReports = (
           }
 
           // Step 3: Group section IDs by report
-          const reportToSectionIds = new Map<EffectProcessedReport, bigint[]>()
+          const reportToSectionIds = new Map<EffectProcessedReport, Array<bigint>>()
 
           for (const [report, keys] of HashMap.entries(reportSectionsMap)) {
             for (const key of keys) {
               const lookup = sectionKeyToLookup.get(key)
-              if (!lookup) continue
+              if (!lookup) {
+                continue
+              }
 
               const sectionId = MutableHashMap.get(sectionIdMap, Data.struct(lookup))
 
@@ -155,7 +144,9 @@ export const upsertEvaluationReports = (
                 }
                 reportToSectionIds.get(report)!.push(sectionId.value)
               } else {
-                logMissingSection(key, academicYear, quarter)
+                console.warn(
+                  `\nSection not found: ${key.subject} ${key.code.number}${key.code.suffix ?? ''}-${key.sectionNumber} (${quarter} ${academicYear})`,
+                )
               }
             }
           }
@@ -164,24 +155,19 @@ export const upsertEvaluationReports = (
           const allResolvedSectionIds = Array.from(reportToSectionIds.values()).flat()
 
           if (allResolvedSectionIds.length > 0) {
-            const existingReportLinks = await traced(
-              'query_existing_report_links',
-              () =>
-                trx
-                  .selectFrom('evaluation_report_sections')
-                  .select('report_id')
-                  .where('section_id', 'in', allResolvedSectionIds)
-                  .execute(),
-              { recordCount: allResolvedSectionIds.length },
+            const existingReportLinks = await traced('query_existing_report_links', () =>
+              trx
+                .selectFrom('evaluation_report_sections')
+                .select('report_id')
+                .where('section_id', 'in', allResolvedSectionIds)
+                .execute(),
             )
 
             const existingReportIds = [...new Set(existingReportLinks.map((link) => link.report_id))]
 
             if (existingReportIds.length > 0) {
-              await traced(
-                'delete_existing_reports',
-                () => trx.deleteFrom('evaluation_reports').where('id', 'in', existingReportIds).execute(),
-                { recordCount: existingReportIds.length },
+              await traced('delete_existing_reports', () =>
+                trx.deleteFrom('evaluation_reports').where('id', 'in', existingReportIds).execute(),
               )
             }
           }
@@ -215,7 +201,7 @@ export const upsertEvaluationReports = (
             for (const [questionText, question] of report.questions) {
               if (question._tag === 'numeric') {
                 const questionId = numericQuestionMap.get(questionText)
-                if (!questionId) {
+                if (questionId === undefined) {
                   throw new Error(`Numeric question ID not found for: "${questionText}"`)
                 }
 
@@ -232,10 +218,8 @@ export const upsertEvaluationReports = (
             }
 
             if (numericResponseRecords.length > 0) {
-              await traced(
-                'insert_numeric_responses',
-                () => trx.insertInto('evaluation_numeric_responses').values(numericResponseRecords).execute(),
-                { recordCount: numericResponseRecords.length },
+              await traced('insert_numeric_responses', () =>
+                trx.insertInto('evaluation_numeric_responses').values(numericResponseRecords).execute(),
               )
             }
 
@@ -249,7 +233,7 @@ export const upsertEvaluationReports = (
             for (const [questionText, question] of report.questions) {
               if (question._tag === 'text') {
                 const questionId = textQuestionMap.get(questionText)
-                if (!questionId) {
+                if (questionId === undefined) {
                   throw new Error(`Text question ID not found for: "${questionText}"`)
                 }
 
@@ -264,23 +248,18 @@ export const upsertEvaluationReports = (
             }
 
             if (textResponseRecords.length > 0) {
-              await traced(
-                'insert_text_responses',
-                () => trx.insertInto('evaluation_text_responses').values(textResponseRecords).execute(),
-                { recordCount: textResponseRecords.length },
+              await traced('insert_text_responses', () =>
+                trx.insertInto('evaluation_text_responses').values(textResponseRecords).execute(),
               )
             }
 
             // Link to sections
             if (sectionIds.length > 0) {
-              await traced(
-                'link_report_sections',
-                () =>
-                  trx
-                    .insertInto('evaluation_report_sections')
-                    .values(sectionIds.map((sectionId) => ({ report_id: reportId, section_id: sectionId })))
-                    .execute(),
-                { recordCount: sectionIds.length },
+              await traced('link_report_sections', () =>
+                trx
+                  .insertInto('evaluation_report_sections')
+                  .values(sectionIds.map((sectionId) => ({ report_id: reportId, section_id: sectionId })))
+                  .execute(),
               )
             } else {
               console.warn(
@@ -303,20 +282,21 @@ export const upsertEvaluationReports = (
           return results
         }),
       catch: (error) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const step = (error as any)?.step ?? 'unknown'
-        const recordCount = (error as any)?.recordCount
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const originalError = (error as any)?.originalError ?? error
         const msg = originalError instanceof Error ? originalError.message : String(originalError)
 
         return new EvaluationReportUpsertError({
-          message: `Failed to upsert evaluation reports at [${step}]${recordCount != null ? ` (${recordCount} records)` : ''}: ${msg}`,
+          message: `Failed to upsert evaluation reports at [${step}]: ${msg}`,
           step,
-          recordCount,
           reportMetadata: Array.from(HashMap.entries(reportSectionsMap)).map(([report]) => ({
             quarter: report.info.quarter,
             year: report.info.year,
             sectionCodes: HashSet.toValues(report.info.sectionCourseCodes).map(
-              (sc) => `${sc.subject}${sc.codeNumber.number}${sc.codeNumber.suffix ?? ''}`,
+              (sc) =>
+                `${sc.subject}${sc.codeNumber.number}${Option.getOrElse(sc.codeNumber.suffix, () => '')}`,
             ),
           })),
           cause: originalError,

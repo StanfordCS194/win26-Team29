@@ -1,7 +1,9 @@
 import { Data, Effect } from 'effect'
+
 import type { ParsedCourse } from '../fetch-parse/parse-courses.ts'
-import type { UploadCourseOffering } from './upsert-courses.types.ts'
+
 import type { LookupTable } from './upsert-codes.ts'
+import type { UploadCourseOffering } from './upsert-courses.types.ts'
 
 export class PrepareCourseLookupError extends Data.TaggedError('PrepareCourseLookupError')<{
   subject: string
@@ -94,7 +96,7 @@ export function parsedCourseToUploadCourseOffering(
               days: schedule.days.length > 0 ? schedule.days : null,
               end_date: schedule.endDate || null,
               end_time: schedule.endTime || null,
-              location: schedule.location || null,
+              location: schedule.location === '' ? null : (schedule.location ?? null),
               start_date: schedule.startDate || null,
               start_time: schedule.startTime || null,
               instructors,
@@ -116,7 +118,7 @@ export function parsedCourseToUploadCourseOffering(
           max_enrolled: section.maxEnrolled,
           max_waitlist: section.maxWaitlist,
           max_waitlist_size: section.maxWaitlistSize,
-          notes: section.notes || null,
+          notes: section.notes === '' ? null : (section.notes ?? null),
           num_enrolled: section.numEnrolled,
           num_waitlist: section.numWaitlist,
           section_number: section.sectionNumber,
@@ -145,7 +147,7 @@ export function parsedCourseToUploadCourseOffering(
       academic_group_id,
       academic_organization_id,
       code_number: parsed.code.number,
-      code_suffix: parsed.code.suffix || null,
+      code_suffix: parsed.code.suffix === '' ? null : (parsed.code.suffix ?? null),
       course_id: parsed.administrativeInformation.courseId,
       description: parsed.description,
       final_exam_flag_id,

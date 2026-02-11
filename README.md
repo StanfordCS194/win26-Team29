@@ -37,10 +37,28 @@ pnpm build
 - `pnpm build` - Build the application for production
 - `pnpm preview` - Preview the production build
 - `pnpm lint` - Run ESLint
+- `pnpm lint:fix` - Run ESLint and apply safe fixes
 - `pnpm format` - Format code with Prettier
-- `pnpm check` - Format and lint (fixes issues)
+- `pnpm format:check` - Check formatting without writing changes
+- `pnpm typecheck` - Run workspace type checking
+- `pnpm test` - Run app tests
+- `pnpm check` - Run lint, typecheck, and tests (non-mutating)
+- `pnpm fix` - Apply lint fixes and format code
+- `pnpm git:safe:commit` - Run staged-file lint/format checks
+- `pnpm git:safe:push` - Run full repository checks before push
 - `pnpm scrape:courses` - Fetch course data (see `scrape/README.md`)
 - `pnpm scrape:evals` - Fetch course evaluations (see `scrape/README.md`)
+
+## Git Workflow Checks
+
+- Husky runs `pnpm git:safe:commit` on `pre-commit` for fast staged-file checks.
+- Husky runs `pnpm git:safe:push` on `pre-push` to execute full validation (`pnpm check`).
+- Run the scripts manually any time:
+
+```bash
+pnpm git:safe:commit
+pnpm git:safe:push
+```
 
 ## Tech Stack
 
@@ -64,4 +82,3 @@ For more details, see:
 
 - [app/README.md](app/README.md) - Application documentation
 - [scrape/README.md](scrape/README.md) - Scraping scripts documentation
-

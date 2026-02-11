@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "codegen": "kysely-codegen --out-file ./db.types.ts"
+    "codegen": "kysely-codegen --out-file ./db.types.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

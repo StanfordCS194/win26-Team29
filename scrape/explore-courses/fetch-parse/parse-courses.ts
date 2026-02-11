@@ -1,13 +1,14 @@
-import { Effect, Data } from 'effect'
+import { Data, Effect } from 'effect'
 import { XMLParser } from 'fast-xml-parser'
 import { z } from 'zod'
+
+import { EffectTemporal } from '@scrape/shared/effect-temporal.ts'
 import {
   CourseCodeSchema,
-  naturalFromStringOrNumber,
   QuarterSchema,
   WeekdaySchema,
+  naturalFromStringOrNumber,
 } from '@scrape/shared/schemas.ts'
-import { EffectTemporal } from '@scrape/shared/effect-temporal.ts'
 
 export class XMLParseError extends Data.TaggedError('XMLParseError')<{
   message: string
@@ -59,8 +60,10 @@ export type EffectiveStatus = z.infer<typeof EffectiveStatusSchema>
 const emptyStringToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess((val) => (val === '' ? undefined : val), schema)
 
-const splitToArray = (str: string): string[] => {
-  if (!str || str.trim() === '') return []
+const splitToArray = (str: string): Array<string> => {
+  if (!str || str.trim() === '') {
+    return []
+  }
   return str
     .split(SPLIT_SEPARATOR_REGEX)
     .map((s) => s.trim())
@@ -70,9 +73,11 @@ const splitToArray = (str: string): string[] => {
 // Helper to handle nested array structures
 const arrayField = <T extends z.ZodTypeAny>(itemSchema: T, fieldName: string) =>
   z.preprocess((val) => {
-    if (typeof val === 'string') return []
-    if (val && typeof val === 'object' && fieldName in val) {
-      return (val as any)[fieldName]
+    if (typeof val === 'string') {
+      return []
+    }
+    if (val !== null && typeof val === 'object' && fieldName in val) {
+      return (val as Record<string, unknown>)[fieldName]
     }
     return []
   }, z.array(itemSchema))
@@ -94,7 +99,7 @@ const PlainDateSchema = z.string().transform((val, ctx) => {
       month: date.getMonth() + 1,
       day: date.getDate(),
     })
-  } catch (error) {
+  } catch {
     ctx.addIssue({
       code: 'custom',
       message: 'Failed to parse date',
@@ -117,7 +122,7 @@ const PlainTimeSchema = z.string().transform((val, ctx) => {
       return z.NEVER
     }
 
-    let [, hourStr, minuteStr, secondStr, meridiem] = match
+    const [, hourStr, minuteStr, secondStr, meridiem] = match
     let hour = parseInt(hourStr, 10)
     const minute = parseInt(minuteStr, 10)
     const second = secondStr ? parseInt(secondStr, 10) : 0
@@ -130,7 +135,7 @@ const PlainTimeSchema = z.string().transform((val, ctx) => {
     }
 
     return EffectTemporal.PlainTime.from({ hour, minute, second })
-  } catch (error) {
+  } catch {
     ctx.addIssue({
       code: 'custom',
       message: 'Failed to parse time',
@@ -141,7 +146,9 @@ const PlainTimeSchema = z.string().transform((val, ctx) => {
 
 const AcademicYearSchema = z.string().refine(
   (val) => {
-    if (!ACADEMIC_YEAR_REGEX.test(val)) return false
+    if (!ACADEMIC_YEAR_REGEX.test(val)) {
+      return false
+    }
 
     const [startYear, endYear] = val.split('-').map(Number)
     return endYear === startYear + 1
@@ -181,12 +188,16 @@ const UnitsSchema = z
       const trimmed = val.trim()
 
       // Empty string is valid
-      if (trimmed === '') return true
+      if (trimmed === '') {
+        return true
+      }
 
       // Handle range format "2-4"
       if (trimmed.includes('-')) {
         const parts = trimmed.split('-').map((s) => s.trim())
-        if (parts.length !== 2) return false
+        if (parts.length !== 2) {
+          return false
+        }
 
         const min = Number(parts[0])
         const max = Number(parts[1])
@@ -339,19 +350,17 @@ const CoursesResponseSchema = z.object({
 export type ParsedCourse = z.infer<typeof CoursesResponseSchema>['xml']['courses'][number]
 
 export const parseCoursesXML = (xml: string, subjectName: string) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     let rawResult: unknown
     try {
       rawResult = xmlParser.parse(xml)
     } catch (error) {
-      return yield* _(
-        Effect.fail(
-          new XMLParseError({
-            message: 'Failed to parse XML document',
-            cause: error,
-            subjectName,
-          }),
-        ),
+      return yield* Effect.fail(
+        new XMLParseError({
+          message: 'Failed to parse XML document',
+          cause: error,
+          subjectName,
+        }),
       )
     }
 
@@ -360,8 +369,8 @@ export const parseCoursesXML = (xml: string, subjectName: string) =>
       const issues = parseResult.error.issues.map((issue) => {
         let actualValue: unknown = rawResult
         for (const key of issue.path) {
-          if (actualValue != null && typeof actualValue === 'object') {
-            actualValue = (actualValue as any)[key]
+          if (actualValue !== null && typeof actualValue === 'object') {
+            actualValue = (actualValue as Record<string | symbol | number, unknown>)[key]
           } else {
             actualValue = undefined
             break
@@ -375,29 +384,16 @@ export const parseCoursesXML = (xml: string, subjectName: string) =>
         }
       })
 
-      return yield* _(
-        Effect.fail(
-          new SchemaValidationError({
-            message: `Schema validation failed with ${issues.length} error(s)`,
-            issues,
-            subjectName,
-          }),
-        ),
+      return yield* Effect.fail(
+        new SchemaValidationError({
+          message: `Schema validation failed with ${issues.length} error(s)`,
+          issues,
+          subjectName,
+        }),
       )
     }
 
     const validated = parseResult.data
     const coursesData = validated.xml.courses
-
-    if (!coursesData) {
-      return yield* _(
-        Effect.fail(
-          new XMLParseError({
-            message: 'No courses data found in XML document',
-            subjectName,
-          }),
-        ),
-      )
-    }
     return coursesData
   })

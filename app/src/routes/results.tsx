@@ -10,7 +10,7 @@ type CourseCard = {
   rating: number
 }
 
-const mockCourses: CourseCard[] = [
+const mockCourses: Array<CourseCard> = [
   {
     code: 'CS 106A',
     title: 'Introduction to Programming',
@@ -88,9 +88,7 @@ function ResultsPage() {
             >
               <article>
                 <div className="flex items-start justify-between gap-4">
-                  <p className="text-2xl font-normal tracking-[0.15em] text-slate-900">
-                    {course.code}
-                  </p>
+                  <p className="text-2xl font-normal tracking-[0.15em] text-slate-900">{course.code}</p>
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-normal text-slate-900 ${
                       course.rating < 3
@@ -103,15 +101,9 @@ function ResultsPage() {
                     {course.rating.toFixed(1)}
                   </span>
                 </div>
-                <h2 className="mt-2 text-xl font-normal text-slate-800">
-                  {course.title}
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  Professor {course.professor}
-                </p>
-                <p className="mt-4 text-base leading-relaxed text-slate-600">
-                  {course.description}
-                </p>
+                <h2 className="mt-2 text-xl font-normal text-slate-800">{course.title}</h2>
+                <p className="mt-1 text-sm text-slate-500">Professor {course.professor}</p>
+                <p className="mt-4 text-base leading-relaxed text-slate-600">{course.description}</p>
               </article>
             </Link>
           ))}

@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useCallback, useState } from 'react'
 
 export const Route = createFileRoute('/demo/tanstack-query')({
   component: TanStackQueryDemo,
@@ -12,7 +12,7 @@ type Todo = {
 }
 
 function TanStackQueryDemo() {
-  const { data, refetch } = useQuery<Todo[]>({
+  const { data, refetch } = useQuery<Array<Todo>>({
     queryKey: ['todos'],
     queryFn: () => fetch('/demo/api/tq-todos').then((res) => res.json()),
     initialData: [],
@@ -38,14 +38,13 @@ function TanStackQueryDemo() {
     <div
       className="flex items-center justify-center min-h-screen bg-gradient-to-br from-red-900 via-red-800 to-black p-4 text-white"
       style={{
-        backgroundImage:
-          'radial-gradient(50% 50% at 80% 20%, #3B021F 0%, #7B1028 60%, #1A000A 100%)',
+        backgroundImage: 'radial-gradient(50% 50% at 80% 20%, #3B021F 0%, #7B1028 60%, #1A000A 100%)',
       }}
     >
       <div className="w-full max-w-2xl p-8 rounded-xl backdrop-blur-md bg-black/50 shadow-xl border-8 border-black/10">
         <h1 className="text-2xl mb-4">TanStack Query Todos list</h1>
         <ul className="mb-4 space-y-2">
-          {data?.map((t) => (
+          {data.map((t) => (
             <li
               key={t.id}
               className="bg-white/10 border border-white/20 rounded-lg p-3 backdrop-blur-sm shadow-md"
@@ -61,7 +60,7 @@ function TanStackQueryDemo() {
             onChange={(e) => setTodo(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                submitTodo()
+                void submitTodo()
               }
             }}
             placeholder="Enter a new todo..."
@@ -69,7 +68,7 @@ function TanStackQueryDemo() {
           />
           <button
             disabled={todo.trim().length === 0}
-            onClick={submitTodo}
+            onClick={() => void submitTodo()}
             className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
           >
             Add todo

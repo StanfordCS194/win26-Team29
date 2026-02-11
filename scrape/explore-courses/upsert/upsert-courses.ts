@@ -1,10 +1,11 @@
-import { Effect, Equal, Hash, HashSet, MutableHashMap, Option } from 'effect'
-import { mergeAction } from 'kysely/helpers/postgres'
 import { values } from '@db/helpers.ts'
-import type { UploadCourseOffering, UploadSchedule } from './upsert-courses.types.ts'
+import { Data, Effect, Equal, HashMap, HashSet, MutableHashMap, Option } from 'effect'
+import { mergeAction } from 'kysely/helpers/postgres'
+
 import { DbService } from '@scrape/shared/db-layer.ts'
-import { Data, HashMap } from 'effect'
-import { Quarter } from '@scrape/shared/schemas.ts'
+import type { Quarter } from '@scrape/shared/schemas.ts'
+
+import type { UploadCourseOffering, UploadSchedule } from './upsert-courses.types.ts'
 
 export class CourseOfferingUpsertError extends Data.TaggedError('CourseOfferingUpsertError')<{
   message: string
@@ -52,7 +53,7 @@ const scheduleStruct = (s: UploadSchedule & { section_id: bigint }) =>
     ),
   })
 
-export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]) =>
+export const upsertCourseOfferings = (rawCourseOfferings: Array<UploadCourseOffering>) =>
   Effect.gen(function* () {
     const db = yield* DbService
 
@@ -77,8 +78,12 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
       ): boolean => {
         const e = sectionScore(existing)
         const n = sectionScore(incoming)
-        if (n.numEnrolled !== e.numEnrolled) return n.numEnrolled > e.numEnrolled
-        if (n.numSchedules !== e.numSchedules) return n.numSchedules > e.numSchedules
+        if (n.numEnrolled !== e.numEnrolled) {
+          return n.numEnrolled > e.numEnrolled
+        }
+        if (n.numSchedules !== e.numSchedules) {
+          return n.numSchedules > e.numSchedules
+        }
         return n.numInstructors > e.numInstructors
       }
 
@@ -220,7 +225,9 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
                   year: co.year,
                 }),
               )
-              if (Option.isNone(courseOfferingId)) return []
+              if (Option.isNone(courseOfferingId)) {
+                return []
+              }
 
               return co.learningObjectives.map((lo) => ({
                 course_offering_id: courseOfferingId.value,
@@ -278,7 +285,9 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
                   year: co.year,
                 }),
               )
-              if (Option.isNone(courseOfferingId)) return []
+              if (Option.isNone(courseOfferingId)) {
+                return []
+              }
 
               return co.attributes.map((attr) => ({
                 course_offering_id: courseOfferingId.value,
@@ -339,7 +348,9 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
                   year: co.year,
                 }),
               )
-              if (Option.isNone(courseOfferingId)) return []
+              if (Option.isNone(courseOfferingId)) {
+                return []
+              }
 
               return co.gers.map((ger) => ({
                 course_offering_id: courseOfferingId.value,
@@ -394,7 +405,9 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
                   year: co.year,
                 }),
               )
-              if (Option.isNone(courseOfferingId)) return []
+              if (Option.isNone(courseOfferingId)) {
+                return []
+              }
 
               return co.tags.map((tag) => ({
                 course_offering_id: courseOfferingId.value,
@@ -454,7 +467,9 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
               year: co.year,
             }),
           )
-          if (Option.isNone(courseOfferingId)) return []
+          if (Option.isNone(courseOfferingId)) {
+            return []
+          }
 
           return co.sections.map((sec) => {
             const { attributes, schedules, ...rest } = sec
@@ -590,7 +605,9 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
               year: co.year,
             }),
           )
-          if (Option.isNone(courseOfferingId)) return []
+          if (Option.isNone(courseOfferingId)) {
+            return []
+          }
 
           return co.sections.flatMap((sec) => {
             const sectionId = HashMap.get(
@@ -601,7 +618,9 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
                 section_number: sec.section_number,
               }),
             )
-            if (Option.isNone(sectionId)) return []
+            if (Option.isNone(sectionId)) {
+              return []
+            }
 
             return sec.attributes.map((attr) => ({
               section_id: sectionId.value,
@@ -664,7 +683,9 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
               year: co.year,
             }),
           )
-          if (Option.isNone(courseOfferingId)) return []
+          if (Option.isNone(courseOfferingId)) {
+            return []
+          }
 
           return co.sections.flatMap((sec) => {
             const sectionId = HashMap.get(
@@ -675,7 +696,9 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
                 section_number: sec.section_number,
               }),
             )
-            if (Option.isNone(sectionId)) return []
+            if (Option.isNone(sectionId)) {
+              return []
+            }
 
             return sec.schedules.map((sched) => ({
               section_id: sectionId.value,
@@ -742,7 +765,7 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
 
         // Diff: find sections that actually changed
         const allSectionIds = new Set([...existingSetBySection.keys(), ...incomingSetBySection.keys()])
-        const changedSectionIds: bigint[] = []
+        const changedSectionIds: Array<bigint> = []
 
         for (const sectionId of allSectionIds) {
           const existingSet = existingSetBySection.get(sectionId) ?? HashSet.empty()
@@ -782,11 +805,19 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
                       location: s.location,
                     })),
                   )
-                  .returning(['id', 'section_id', 'start_date', 'end_date', 'start_time', 'end_time', 'location'])
+                  .returning([
+                    'id',
+                    'section_id',
+                    'start_date',
+                    'end_date',
+                    'start_time',
+                    'end_time',
+                    'location',
+                  ])
                   .execute(),
               { recordCount: schedulesToInsert.length },
             )
-          
+
             // Sanity check: verify returned rows match insertion order
             for (let i = 0; i < insertedSchedules.length; i++) {
               const returned = insertedSchedules[i]
@@ -799,7 +830,9 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
                 !Equal.equals(returned.end_time, expected.end_time) ||
                 returned.location !== expected.location
               ) {
-                console.error(`Sanity check failed: returned ${JSON.stringify(returned)} does not match expected ${JSON.stringify(expected)}`)
+                console.error(
+                  `Sanity check failed: returned ${JSON.stringify(returned)} does not match expected ${JSON.stringify(expected)}`,
+                )
               }
             }
 
@@ -824,13 +857,16 @@ export const upsertCourseOfferings = (rawCourseOfferings: UploadCourseOffering[]
         }
       },
       catch: (error) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const step = (error as any)?.step ?? 'unknown'
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const recordCount = (error as any)?.recordCount
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const originalError = (error as any)?.originalError ?? error
         const msg = originalError instanceof Error ? originalError.message : String(originalError)
 
         return new CourseOfferingUpsertError({
-          message: `Failed to upsert course offerings at [${step}]${recordCount != null ? ` (${recordCount} records)` : ''}:\n ${msg}`,
+          message: `Failed to upsert course offerings at [${step}]:\n ${msg}`,
           step,
           recordCount,
           courseOfferings: courseOfferingSummary,

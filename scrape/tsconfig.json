@@ -14,7 +14,7 @@
     "allowImportingTsExtensions": true,
     "paths": {
       "@db/*": ["../db/*"],
-      "@scrape/*": ["./*"],
+      "@scrape/*": ["./*"]
     }
   },
   "include": ["**/*.ts"]

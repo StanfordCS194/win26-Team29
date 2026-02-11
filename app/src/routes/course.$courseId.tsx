@@ -53,20 +53,17 @@ function ClassPage() {
 
           <div className="rounded-3xl border border-white/50 bg-white/40 p-8 text-lg leading-relaxed text-[#150F21] shadow-sm backdrop-blur-md">
             <p>
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do
-              eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut
-              enim ad minim veniam, quis nostrud exercitation ullamco laboris
-              nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in
-              reprehenderit in voluptate velit esse cillum dolore eu fugiat
-              nulla pariatur. Excepteur sint occaecat cupidatat non proident,
-              sunt in culpa qui officia deserunt mollit anim id est laborum.
+              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut
+              labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco
+              laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in
+              voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat
+              non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
             </p>
             <br />
             <p>
-              Linear algebra is the study of vectors and linear functions. In
-              broad terms, vectors are things you can add and linear functions
-              are vectors of vectors. This course provides a unified coverage of
-              linear algebra and multivariable differential calculus.
+              Linear algebra is the study of vectors and linear functions. In broad terms, vectors are things
+              you can add and linear functions are vectors of vectors. This course provides a unified coverage
+              of linear algebra and multivariable differential calculus.
             </p>
           </div>
 
@@ -82,28 +79,22 @@ function ClassPage() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#150F21] text-xs font-bold text-white">
                       JD
                     </div>
-                    <span className="text-sm font-bold text-[#150F21]">
-                      John D.
-                    </span>
+                    <span className="text-sm font-bold text-[#150F21]">John D.</span>
                   </div>
                   <div className="flex items-center gap-1 rounded-lg bg-white/60 px-2 py-1">
                     <Star className="h-3 w-3 fill-[#8C1515] text-[#8C1515]" />
-                    <span className="text-xs font-bold text-[#150F21]">
-                      4.8
-                    </span>
+                    <span className="text-xs font-bold text-[#150F21]">4.8</span>
                   </div>
                 </div>
                 <p className="mb-4 text-sm leading-relaxed text-[#4A4557]">
-                  "Conrad is an absolute legend. The workload is heavy but fair.
-                  Make sure you actually read the textbook before lecture."
+                  "Conrad is an absolute legend. The workload is heavy but fair. Make sure you actually read
+                  the textbook before lecture."
                 </p>
                 <div className="flex gap-2">
                   <span className="rounded bg-[#8C1515]/10 px-2 py-1 text-xs font-medium text-[#8C1515]">
                     Heavy Workload
                   </span>
-                  <span className="rounded bg-white/60 px-2 py-1 text-xs text-[#4A4557]">
-                    Great Lectures
-                  </span>
+                  <span className="rounded bg-white/60 px-2 py-1 text-xs text-[#4A4557]">Great Lectures</span>
                 </div>
               </div>
 
@@ -113,20 +104,16 @@ function ClassPage() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#8C1515] text-xs font-bold text-white">
                       AS
                     </div>
-                    <span className="text-sm font-bold text-[#150F21]">
-                      Alice S.
-                    </span>
+                    <span className="text-sm font-bold text-[#150F21]">Alice S.</span>
                   </div>
                   <div className="flex items-center gap-1 rounded-lg bg-white/60 px-2 py-1">
                     <Star className="h-3 w-3 fill-[#8C1515] text-[#8C1515]" />
-                    <span className="text-xs font-bold text-[#150F21]">
-                      4.2
-                    </span>
+                    <span className="text-xs font-bold text-[#150F21]">4.2</span>
                   </div>
                 </div>
                 <p className="mb-4 text-sm leading-relaxed text-[#4A4557]">
-                  "Definitely a weeder class, but you learn a ton. The p-sets
-                  take about 10 hours a week, so plan accordingly."
+                  "Definitely a weeder class, but you learn a ton. The p-sets take about 10 hours a week, so
+                  plan accordingly."
                 </p>
                 <div className="flex gap-2">
                   <span className="rounded bg-[#8C1515]/10 px-2 py-1 text-xs font-medium text-[#8C1515]">
@@ -141,20 +128,16 @@ function ClassPage() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-900 text-xs font-bold text-white">
                       MK
                     </div>
-                    <span className="text-sm font-bold text-[#150F21]">
-                      Mike K.
-                    </span>
+                    <span className="text-sm font-bold text-[#150F21]">Mike K.</span>
                   </div>
                   <div className="flex items-center gap-1 rounded-lg bg-white/60 px-2 py-1">
                     <Star className="h-3 w-3 fill-[#8C1515] text-[#8C1515]" />
-                    <span className="text-xs font-bold text-[#150F21]">
-                      5.0
-                    </span>
+                    <span className="text-xs font-bold text-[#150F21]">5.0</span>
                   </div>
                 </div>
                 <p className="text-sm leading-relaxed text-[#4A4557]">
-                  "One of the best math classes I've taken. It connects concepts
-                  really well. Don't skip office hours!"
+                  "One of the best math classes I've taken. It connects concepts really well. Don't skip
+                  office hours!"
                 </p>
               </div>
             </div>
@@ -165,9 +148,7 @@ function ClassPage() {
           <div className="rounded-3xl border border-white/60 bg-white/60 p-6 shadow-lg shadow-purple-900/5 backdrop-blur-xl">
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <span className="block text-sm font-medium text-[#4A4557]">
-                  Overall Rating
-                </span>
+                <span className="block text-sm font-medium text-[#4A4557]">Overall Rating</span>
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-bold text-[#150F21]">4.6</span>
                   <span className="text-sm text-[#4A4557]">/ 5.0</span>
@@ -185,9 +166,7 @@ function ClassPage() {
           <div className="rounded-3xl border border-white/50 bg-white/40 p-8 shadow-sm backdrop-blur-xl">
             <div className="mb-8 flex items-center gap-2">
               <Clock className="h-5 w-5 text-[#8C1515]" />
-              <h3 className="font-['Clash_Display'] text-lg font-semibold text-[#150F21]">
-                Weekly Hours
-              </h3>
+              <h3 className="font-['Clash_Display'] text-lg font-semibold text-[#150F21]">Weekly Hours</h3>
             </div>
 
             <div className="flex h-48 w-full items-end justify-between gap-2">
@@ -227,9 +206,7 @@ function ClassPage() {
                     65%
                   </div>
                 </div>
-                <span className="text-xs font-bold text-[#8C1515]">
-                  10-15
-                </span>
+                <span className="text-xs font-bold text-[#8C1515]">10-15</span>
               </div>
 
               <div className="group flex w-full cursor-pointer flex-col items-center gap-2">
@@ -247,8 +224,7 @@ function ClassPage() {
             </div>
 
             <div className="mt-6 text-center text-sm text-[#4A4557]">
-              Average: <span className="font-bold text-[#150F21]">12.5</span>{' '}
-              hrs/week
+              Average: <span className="font-bold text-[#150F21]">12.5</span> hrs/week
             </div>
           </div>
 

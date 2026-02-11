@@ -2,30 +2,31 @@ import { PGTemporal } from '@db/db.ts'
 import { Equal, Hash } from 'effect'
 
 declare module '@js-temporal/polyfill' {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Temporal {
     interface PlainDate extends Equal.Equal {
-      [Equal.symbol](that: Equal.Equal): boolean
-      [Hash.symbol](): number
+      [Equal.symbol]: (that: Equal.Equal) => boolean
+      [Hash.symbol]: () => number
     }
 
     interface PlainDateTime extends Equal.Equal {
-      [Equal.symbol](that: Equal.Equal): boolean
-      [Hash.symbol](): number
+      [Equal.symbol]: (that: Equal.Equal) => boolean
+      [Hash.symbol]: () => number
     }
 
     interface Instant extends Equal.Equal {
-      [Equal.symbol](that: Equal.Equal): boolean
-      [Hash.symbol](): number
+      [Equal.symbol]: (that: Equal.Equal) => boolean
+      [Hash.symbol]: () => number
     }
 
     interface PlainTime extends Equal.Equal {
-      [Equal.symbol](that: Equal.Equal): boolean
-      [Hash.symbol](): number
+      [Equal.symbol]: (that: Equal.Equal) => boolean
+      [Hash.symbol]: () => number
     }
 
     interface ZonedDateTime extends Equal.Equal {
-      [Equal.symbol](that: Equal.Equal): boolean
-      [Hash.symbol](): number
+      [Equal.symbol]: (that: Equal.Equal) => boolean
+      [Hash.symbol]: () => number
     }
   }
 }
