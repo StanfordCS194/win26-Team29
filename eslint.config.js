@@ -84,7 +84,7 @@ export default [
       '@typescript-eslint/no-unnecessary-template-expression': 'warn',
       '@typescript-eslint/prefer-nullish-coalescing': 'warn',
       '@typescript-eslint/prefer-optional-chain': 'warn',
-      '@typescript-eslint/no-deprecated': 'warn',
+      '@typescript-eslint/no-deprecated': 'off', // wait for compatibility with ESLint 10
       '@typescript-eslint/switch-exhaustiveness-check': 'error',
       '@typescript-eslint/restrict-template-expressions': 'warn',
 
