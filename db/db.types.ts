@@ -362,18 +362,18 @@ export interface ConsentOptions {
 }
 
 export interface CourseOfferingAttributes {
-  course_offering_id: bigint
+  course_offering_id: number
   description: string
-  id: Generated<bigint>
+  id: Generated<number>
   name: string
   schedule_print: boolean
   value: string
 }
 
 export interface CourseOfferingGers {
-  course_offering_id: bigint
+  course_offering_id: number
   ger_id: number
-  id: Generated<bigint>
+  id: Generated<number>
 }
 
 export interface CourseOfferings {
@@ -387,7 +387,7 @@ export interface CourseOfferings {
   description: string
   final_exam_flag_id: number
   grading_option_id: number
-  id: Generated<bigint>
+  id: Generated<number>
   max_times_repeat: number
   max_units_repeat: number
   offer_number: number
@@ -401,8 +401,8 @@ export interface CourseOfferings {
 }
 
 export interface CourseOfferingTags {
-  course_offering_id: bigint
-  id: Generated<bigint>
+  course_offering_id: number
+  id: Generated<number>
   name: string
   organization: string
 }
@@ -419,23 +419,23 @@ export interface EvaluationNumericQuestions {
 
 export interface EvaluationNumericResponses {
   frequency: number
-  id: Generated<bigint>
+  id: Generated<number>
   option_text: string
   question_id: number
-  report_id: bigint
+  report_id: number
   weight: number
 }
 
 export interface EvaluationReports {
-  id: Generated<bigint>
+  id: Generated<number>
   responded: number
   total: number
 }
 
 export interface EvaluationReportSections {
-  id: Generated<bigint>
-  report_id: bigint
-  section_id: bigint
+  id: Generated<number>
+  report_id: number
+  section_id: number
 }
 
 export interface EvaluationTextQuestions {
@@ -444,9 +444,9 @@ export interface EvaluationTextQuestions {
 }
 
 export interface EvaluationTextResponses {
-  id: Generated<bigint>
+  id: Generated<number>
   question_id: number
-  report_id: bigint
+  report_id: number
   response_text: string
 }
 
@@ -546,7 +546,7 @@ export interface InstructorRoles {
 
 export interface Instructors {
   first_name: string | null
-  id: Generated<bigint>
+  id: Generated<number>
   last_name: string | null
   middle_name: string | null
   name: string
@@ -554,9 +554,9 @@ export interface Instructors {
 }
 
 export interface LearningObjectives {
-  course_offering_id: bigint
+  course_offering_id: number
   description: string
-  id: Generated<bigint>
+  id: Generated<number>
   requirement_code: string
 }
 
@@ -588,29 +588,29 @@ export interface RealtimeSubscription {
 }
 
 export interface ScheduleInstructors {
-  id: Generated<bigint>
-  instructor_id: bigint
+  id: Generated<number>
+  instructor_id: number
   instructor_role_id: number
-  schedule_id: bigint
+  schedule_id: number
 }
 
 export interface Schedules {
   days: ArrayType<WeekdayType> | null
   end_date: Temporal.PlainDate | null
   end_time: Temporal.PlainTime | null
-  id: Generated<bigint>
+  id: Generated<number>
   location: string | null
-  section_id: bigint
+  section_id: number
   start_date: Temporal.PlainDate | null
   start_time: Temporal.PlainTime | null
 }
 
 export interface SectionAttributes {
   description: string
-  id: Generated<bigint>
+  id: Generated<number>
   name: string
   schedule_print: boolean
-  section_id: bigint
+  section_id: number
   value: string
 }
 
@@ -619,12 +619,12 @@ export interface Sections {
   cancelled: Generated<boolean>
   class_id: number
   component_type_id: number
-  course_offering_id: bigint
+  course_offering_id: number
   current_class_size: number
   current_waitlist_size: number
   drop_consent_id: number
   enroll_status_id: number
-  id: Generated<bigint>
+  id: Generated<number>
   max_class_size: number
   max_enrolled: number
   max_waitlist: number
