@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { Link, createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react'
 
@@ -180,10 +180,13 @@ function ResultsPage() {
           {mockCourses.map((course) => {
             const isExpanded = expandedCourses.has(course.code)
             return (
-              <article
+              <Link
                 key={course.code}
-                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+                to="/course/$courseId"
+                params={{ courseId: course.code }}
+                className="block rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-slate-300 hover:shadow-md"
               >
+                <article>
                 <div className="flex items-start justify-between gap-4">
                   <p className="text-2xl font-normal tracking-tight text-slate-900">{course.code}</p>
                   <span
@@ -206,8 +209,12 @@ function ResultsPage() {
                 )}
 
                 <button
-                  onClick={() => toggleCourse(course.code)}
-                  className="mt-4 flex items-center gap-1.5 text-sm text-slate-600 transition hover:text-primary"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    toggleCourse(course.code)
+                  }}
+                  className="mt-4 flex items-center gap-1.5 text-sm text-slate-600 transition hover:text-[#8C1515]"
                 >
                   {isExpanded ? (
                     <>
@@ -222,6 +229,7 @@ function ResultsPage() {
                   )}
                 </button>
               </article>
+              </Link>
             )
           })}
         </div>
