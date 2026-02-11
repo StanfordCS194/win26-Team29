@@ -16,26 +16,26 @@ export const naturalFromStringOrNumber = z.preprocess((value) => {
   return value
 }, z.int().nonnegative())
 
-enum QuarterOutput {
+export enum QuarterEnum {
   Autumn = 'Autumn',
   Winter = 'Winter',
   Spring = 'Spring',
   Summer = 'Summer',
 }
 
-const quarterMap: Record<string, QuarterOutput> = {
-  autumn: QuarterOutput.Autumn,
-  fall: QuarterOutput.Autumn,
-  winter: QuarterOutput.Winter,
-  spring: QuarterOutput.Spring,
-  summer: QuarterOutput.Summer,
+const quarterMap: Record<string, QuarterEnum> = {
+  autumn: QuarterEnum.Autumn,
+  fall: QuarterEnum.Autumn,
+  winter: QuarterEnum.Winter,
+  spring: QuarterEnum.Spring,
+  summer: QuarterEnum.Summer,
 }
 
-const reverseQuarterMap: Record<QuarterOutput, QuarterOutput> = {
-  [QuarterOutput.Autumn]: QuarterOutput.Autumn,
-  [QuarterOutput.Winter]: QuarterOutput.Winter,
-  [QuarterOutput.Spring]: QuarterOutput.Spring,
-  [QuarterOutput.Summer]: QuarterOutput.Summer,
+const reverseQuarterMap: Record<QuarterEnum, QuarterEnum> = {
+  [QuarterEnum.Autumn]: QuarterEnum.Autumn,
+  [QuarterEnum.Winter]: QuarterEnum.Winter,
+  [QuarterEnum.Spring]: QuarterEnum.Spring,
+  [QuarterEnum.Summer]: QuarterEnum.Summer,
 }
 
 export const QuarterSchema = z.codec(
@@ -46,7 +46,7 @@ export const QuarterSchema = z.codec(
     },
     { message: 'Invalid quarter. Must be one of: autumn, fall, winter, spring, summer' },
   ),
-  z.enum(QuarterOutput),
+  z.enum(QuarterEnum),
   {
     decode: (val) => {
       const normalized = val.trim().toLowerCase()

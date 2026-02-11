@@ -154,7 +154,13 @@ export const databaseUpsertFlow = ({
         { concurrency },
       ),
       Stream.runDrain,
-    ).pipe(Effect.ensuring(Effect.sync(() => courseProgressBar.stop())))
+    ).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          courseProgressBar.stop()
+        }),
+      ),
+    )
 
     const totalCoursesProcessed = yield* Ref.get(coursesProcessedRef)
     const failures = yield* Ref.get(failedBatchesRef)

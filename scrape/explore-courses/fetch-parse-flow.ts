@@ -77,11 +77,19 @@ function formatError(
           academicYear: error.academicYear,
           cause: String(error.cause),
         }
+      case 'BadArgument':
+        return {
+          type: 'BadArgument',
+          message: error.message,
+          cause: String(error.cause),
+        }
+      case 'SystemError':
+        return {
+          type: 'SystemError',
+          message: error.message,
+          cause: String(error.cause),
+        }
     }
-  }
-  return {
-    type: error._tag,
-    error: String(error),
   }
 }
 
@@ -203,7 +211,13 @@ export const fetchAndParseFlow = ({
         }),
       ),
       Stream.runCollect,
-    ).pipe(Effect.ensuring(Effect.sync(() => progressBar.stop())))
+    ).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          progressBar.stop()
+        }),
+      ),
+    )
 
     const resultArray = Chunk.toReadonlyArray(results)
     const failures = resultArray.filter((r) => Either.isLeft(r)).map((r) => r.left)

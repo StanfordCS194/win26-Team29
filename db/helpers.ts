@@ -56,14 +56,12 @@ export function values<TRecord extends Record<string, unknown>, TAlias extends s
 
     if (!hasNonNullValue) {
       throw new Error(
-        `All values for key "${String(key)}" are null or undefined. Cannot infer PostgreSQL type. Please provide a type override.`,
+        `All values for key "${key}" are null or undefined. Cannot infer PostgreSQL type. Please provide a type override.`,
       )
     }
 
     if (types.size > 1) {
-      throw new Error(
-        `Inconsistent types for key "${String(key)}". Found types: ${Array.from(types).join(', ')}`,
-      )
+      throw new Error(`Inconsistent types for key "${key}". Found types: ${Array.from(types).join(', ')}`)
     }
 
     keyTypes.set(key, Array.from(types)[0])
@@ -121,8 +119,7 @@ function getPgType(value: NonNullable<unknown>): string {
     if (value.length === 0) {
       throw new Error('Cannot infer array type from empty array')
     }
-    const firstElement = value[0]
-    const elementType = getPgType(firstElement)
+    const elementType = getPgType(value[0] as NonNullable<unknown>)
     return `${elementType}[]`
   }
 

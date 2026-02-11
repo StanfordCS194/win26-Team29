@@ -5,7 +5,7 @@ import { getPunkSongs } from '@/data/demo.punk-songs'
 export const Route = createFileRoute('/demo/start/ssr/data-only')({
   ssr: 'data-only',
   component: RouteComponent,
-  loader: async () => await getPunkSongs(),
+  loader: () => getPunkSongs(),
 })
 
 function RouteComponent() {

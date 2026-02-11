@@ -17,6 +17,12 @@ importers:
       '@tanstack/eslint-config':
         specifier: ^0.3.4
         version: 0.3.4(@typescript-eslint/utils@8.55.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-node@0.3.9)(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+      '@tanstack/eslint-plugin-query':
+        specifier: ^5.91.4
+        version: 5.91.4(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+      '@tanstack/eslint-plugin-router':
+        specifier: ^1.155.0
+        version: 1.155.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
       '@types/eslint-plugin-security':
         specifier: ^3.0.1
         version: 3.0.1
@@ -1665,6 +1671,20 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       eslint: ^8.0.0 || ^9.0.0
+
+  '@tanstack/eslint-plugin-query@5.91.4':
+    resolution: {integrity: sha512-8a+GAeR7oxJ5laNyYBQ6miPK09Hi18o5Oie/jx8zioXODv/AUFLZQecKabPdpQSLmuDXEBPKFh+W5DKbWlahjQ==}
+    peerDependencies:
+      eslint: ^8.57.0 || ^9.0.0
+      typescript: ^5.0.0
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
+  '@tanstack/eslint-plugin-router@1.155.0':
+    resolution: {integrity: sha512-Qq6uYYtcu1aMzFImEIz0Azcd9iCAbpkA3SBAGjwavFEyptafwnmtANKrjTqq09ej/CNTrTjEQBH72yvbqqTMqw==}
+    peerDependencies:
+      eslint: ^8.57.0 || ^9.0.0
 
   '@tanstack/history@1.154.14':
     resolution: {integrity: sha512-xyIfof8eHBuub1CkBnbKNKQXeRZC4dClhmzePHVOEel4G7lk/dW+TQ16da7CFdeNLv6u6Owf5VoBQxoo6DFTSA==}
@@ -6994,6 +7014,23 @@ snapshots:
     transitivePeerDependencies:
       - '@typescript-eslint/utils'
       - eslint-import-resolver-node
+      - supports-color
+      - typescript
+
+  '@tanstack/eslint-plugin-query@5.91.4(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)':
+    dependencies:
+      '@typescript-eslint/utils': 8.55.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+      eslint: 9.39.2(jiti@2.6.1)
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - supports-color
+
+  '@tanstack/eslint-plugin-router@1.155.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)':
+    dependencies:
+      '@typescript-eslint/utils': 8.55.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3)
+      eslint: 9.39.2(jiti@2.6.1)
+    transitivePeerDependencies:
       - supports-color
       - typescript
 

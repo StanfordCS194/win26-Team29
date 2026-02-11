@@ -4,7 +4,7 @@ import { getPunkSongs } from '@/data/demo.punk-songs'
 
 export const Route = createFileRoute('/demo/start/ssr/full-ssr')({
   component: RouteComponent,
-  loader: async () => await getPunkSongs(),
+  loader: () => getPunkSongs(),
 })
 
 function RouteComponent() {

@@ -3,12 +3,12 @@ import { appendFile } from 'node:fs/promises'
 import { FileSystem, Path } from '@effect/platform'
 import * as cliProgress from 'cli-progress'
 import { Chunk, Console, Effect, HashMap, MutableHashMap, Ref, Stream, pipe } from 'effect'
+import { QuarterEnum } from '@scrape/shared/schemas.ts'
 import { lookupSubjectIds } from './upsert/lookup-subjects.ts'
 import { preupsertAllQuestions } from './upsert/preupsert-questions.ts'
 import { upsertEvaluationReports } from './upsert/upsert-evals.ts'
-import type { HashSet } from 'effect'
-
 import type { Quarter } from '@scrape/shared/schemas.ts'
+import type { HashSet } from 'effect'
 
 import type { EffectProcessedReport } from './fetch-parse/effect-processed-report.ts'
 import type { sectionKey } from './fetch-parse/parse-listings.ts'
@@ -20,7 +20,7 @@ import type { EvaluationReportUpsertError } from './upsert/upsert-evals.ts'
  *   Winter/Spring/Summer 2024 -> "2023-2024"
  */
 const deriveAcademicYear = (year: number, quarter: Quarter): string => {
-  if (quarter === 'Autumn') {
+  if (quarter === QuarterEnum.Autumn) {
     return `${year}-${year + 1}`
   }
   return `${year - 1}-${year}`
@@ -173,7 +173,13 @@ export const databaseUpsertFlow = ({
         { concurrency },
       ),
       Stream.runDrain,
-    ).pipe(Effect.ensuring(Effect.sync(() => progressBar.stop())))
+    ).pipe(
+      Effect.ensuring(
+        Effect.sync(() => {
+          progressBar.stop()
+        }),
+      ),
+    )
 
     const totalReportsProcessed = yield* Ref.get(reportsProcessedRef)
     const failures = yield* Ref.get(failedBatchesRef)

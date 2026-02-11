@@ -30,12 +30,12 @@ async function readTodos() {
         2,
       ),
     ),
-  )
+  ) as Array<{ id: number; name: string }>
 }
 
 const getTodos = createServerFn({
   method: 'GET',
-}).handler(async () => await readTodos())
+}).handler(() => readTodos())
 
 const addTodo = createServerFn({ method: 'POST' })
   .inputValidator((d: string) => d)
@@ -48,7 +48,7 @@ const addTodo = createServerFn({ method: 'POST' })
 
 export const Route = createFileRoute('/demo/start/server-funcs')({
   component: Home,
-  loader: async () => await getTodos(),
+  loader: () => getTodos(),
 })
 
 function Home() {
@@ -73,7 +73,7 @@ function Home() {
       <div className="w-full max-w-2xl p-8 rounded-xl backdrop-blur-md bg-black/50 shadow-xl border-8 border-black/10">
         <h1 className="text-2xl mb-4">Start Server Functions - Todo Example</h1>
         <ul className="mb-4 space-y-2">
-          {todos?.map((t: { id: number; name: string }) => (
+          {todos.map((t: { id: number; name: string }) => (
             <li
               key={t.id}
               className="bg-white/10 border border-white/20 rounded-lg p-3 backdrop-blur-sm shadow-md"
@@ -86,7 +86,9 @@ function Home() {
           <input
             type="text"
             value={todo}
-            onChange={(e) => setTodo(e.target.value)}
+            onChange={(e) => {
+              setTodo(e.target.value)
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 void submitTodo()

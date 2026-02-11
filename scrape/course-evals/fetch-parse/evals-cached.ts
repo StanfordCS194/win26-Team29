@@ -161,9 +161,14 @@ const parseManifestLines = (content: string): Array<ManifestEntry> => {
   const entries: Array<ManifestEntry> = []
   for (const line of lines) {
     try {
-      const parsed = JSON.parse(line)
+      const parsed: unknown = JSON.parse(line)
       // Skip completion markers
-      if (parsed._complete === true) {
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        '_complete' in parsed &&
+        parsed._complete === true
+      ) {
         continue
       }
 
@@ -202,8 +207,13 @@ const checkCacheValid = (cacheDir: string) =>
 
     // Check for completion marker in last line
     try {
-      const lastLine = JSON.parse(lines[lines.length - 1])
-      if (lastLine._complete !== true) {
+      const lastLine: unknown = JSON.parse(lines[lines.length - 1])
+      if (
+        typeof lastLine !== 'object' ||
+        lastLine === null ||
+        !('_complete' in lastLine) ||
+        lastLine._complete !== true
+      ) {
         return false
       }
     } catch {

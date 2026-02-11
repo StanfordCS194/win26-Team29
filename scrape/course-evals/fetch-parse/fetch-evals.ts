@@ -3,12 +3,13 @@ import { HttpClient, HttpClientRequest } from '@effect/platform'
 import { Chunk, Config, Data, Effect, Option, Stream, pipe } from 'effect'
 
 import { fetchSubjects } from '@scrape/explore-courses/fetch-parse/fetch-courses.ts'
+import { QuarterEnum } from '@scrape/shared/schemas.ts'
 import { ListingsParseError, parseListingsResponse } from './parse-listings.ts'
+import type { Quarter } from '@scrape/shared/schemas.ts'
 import type {
   SubjectsFetchError,
   SubjectsXMLParseError,
 } from '@scrape/explore-courses/fetch-parse/fetch-courses.ts'
-import type { Quarter } from '@scrape/shared/schemas.ts'
 import type { EvalInfo } from './parse-listings.ts'
 
 import type { ConfigError } from 'effect/ConfigError'
@@ -61,7 +62,7 @@ const getQuarterCode = (quarter: Quarter, year: number): string => {
 
 /** Academic year string for explore-courses (e.g. "20232024"). Autumn starts the year. */
 const getAcademicYearParam = (year: number, quarter: Quarter): string => {
-  const startYear = quarter === 'Autumn' ? year : year - 1
+  const startYear = quarter === QuarterEnum.Autumn ? year : year - 1
   const endYear = startYear + 1
   return `${startYear}${endYear}`
 }

@@ -20,7 +20,7 @@ export interface DomainThrottleConfig {
    * Optional retry schedule for failed requests
    * If not provided, requests will not be automatically retried
    */
-  readonly retrySchedule?: Schedule.Schedule<unknown, HttpClientError.HttpClientError, never>
+  readonly retrySchedule?: Schedule.Schedule<unknown, HttpClientError.HttpClientError>
 }
 
 /**
@@ -204,5 +204,5 @@ export const makeThrottledHttpClientLayer = (config: ThrottleConfig) =>
 export const exponentialRetrySchedule = (
   retries: number,
   initialDelay: number = 100,
-): Schedule.Schedule<number, HttpClientError.HttpClientError, never> =>
+): Schedule.Schedule<number, HttpClientError.HttpClientError> =>
   Schedule.exponential(Duration.millis(initialDelay)).pipe(Schedule.compose(Schedule.recurs(retries)))

@@ -55,7 +55,7 @@ const parseSubjectsXML = (xml: string) =>
       attributeNamePrefix: '',
       isArray: (name) => name === 'department' || name === 'school',
     })
-    const rawResult = parser.parse(xml)
+    const rawResult: unknown = parser.parse(xml)
 
     const parseResult = SubjectsResponseSchema.safeParse(rawResult)
     if (!parseResult.success) {

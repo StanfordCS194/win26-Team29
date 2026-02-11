@@ -57,7 +57,7 @@ export type EnrollStatus = z.infer<typeof EnrollStatusSchema>
 const EffectiveStatusSchema = z.enum(['A', 'I'])
 export type EffectiveStatus = z.infer<typeof EffectiveStatusSchema>
 
-const emptyStringToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
+const emptyStringToUndefined = <T extends z.ZodType>(schema: T) =>
   z.preprocess((val) => (val === '' ? undefined : val), schema)
 
 const splitToArray = (str: string): Array<string> => {
@@ -71,7 +71,7 @@ const splitToArray = (str: string): Array<string> => {
 }
 
 // Helper to handle nested array structures
-const arrayField = <T extends z.ZodTypeAny>(itemSchema: T, fieldName: string) =>
+const arrayField = <T extends z.ZodType>(itemSchema: T, fieldName: string) =>
   z.preprocess((val) => {
     if (typeof val === 'string') {
       return []

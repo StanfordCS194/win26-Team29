@@ -29,8 +29,8 @@ function TanStackQueryDemo() {
 
   const [todo, setTodo] = useState('')
 
-  const submitTodo = useCallback(async () => {
-    await addTodo(todo)
+  const submitTodo = useCallback(() => {
+    addTodo(todo)
     setTodo('')
   }, [addTodo, todo])
 
@@ -57,10 +57,12 @@ function TanStackQueryDemo() {
           <input
             type="text"
             value={todo}
-            onChange={(e) => setTodo(e.target.value)}
+            onChange={(e) => {
+              setTodo(e.target.value)
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                void submitTodo()
+                submitTodo()
               }
             }}
             placeholder="Enter a new todo..."
@@ -68,7 +70,9 @@ function TanStackQueryDemo() {
           />
           <button
             disabled={todo.trim().length === 0}
-            onClick={() => void submitTodo()}
+            onClick={() => {
+              submitTodo()
+            }}
             className="bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/50 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg transition-colors"
           >
             Add todo
