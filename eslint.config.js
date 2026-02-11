@@ -7,11 +7,13 @@ import sonarjsPlugin from 'eslint-plugin-sonarjs'
 import unusedImportsPlugin from 'eslint-plugin-unused-imports'
 import pluginQuery from '@tanstack/eslint-plugin-query'
 import pluginRouter from '@tanstack/eslint-plugin-router'
+import reactHooks from 'eslint-plugin-react-hooks'
 
 export default [
   ...tanstackConfig,
   ...pluginQuery.configs['flat/recommended'],
   ...pluginRouter.configs['flat/recommended'],
+  reactHooks.configs.flat.recommended,
   {
     ignores: ['**/.netlify/**', '**/routeTree.gen.ts'],
   },

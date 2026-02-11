@@ -14,8 +14,6 @@
   },
   "dependencies": {
     "@courses/scrape": "workspace:*",
-    "@effect/platform": "^0.94.2",
-    "@effect/platform-node": "^0.104.1",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "^0.9.4",
     "@tanstack/react-query": "^5.90.20",
@@ -28,7 +26,6 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
-    "effect": "^3.19.15",
     "kysely": "^0.28.10",
     "lucide-react": "^0.563.0",
     "node-html-parser": "^7.0.2",
