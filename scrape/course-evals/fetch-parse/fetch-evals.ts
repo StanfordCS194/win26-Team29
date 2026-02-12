@@ -128,7 +128,7 @@ const fetchSearchPage = (
         })
       }
       return new ListingsFetchError({
-        message: error instanceof Error ? error.message : String(error),
+        message: error instanceof Error ? error.message : JSON.stringify(error),
         subject,
         year,
         quarter,

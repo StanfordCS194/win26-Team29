@@ -36,7 +36,9 @@ function formatUpsertError(error: EvaluationReportUpsertError) {
       year: r.year,
       sectionCodes: r.sectionCodes,
     })),
-    ...(error.cause !== undefined && { cause: String(error.cause) }),
+    ...(error.cause !== undefined && {
+      cause: error.cause instanceof Error ? error.cause.message : JSON.stringify(error.cause),
+    }),
   }
 }
 

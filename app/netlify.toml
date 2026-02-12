@@ -1,8 +1,8 @@
 [build]
-  base = "."
-  command = "vite build"
-  publish = "dist/client"
+base = "."
+command = "vite build"
+publish = "dist/client"
 [dev]
-  command = "npm run dev"
-  targetPort = 3000
-  port = 8888
+command = "npm run dev"
+targetPort = 3000
+port = 8888

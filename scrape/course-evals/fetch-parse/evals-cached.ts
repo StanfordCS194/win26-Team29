@@ -333,7 +333,7 @@ const buildHttpStreamForSubject = (
           Effect.mapError((cause) => {
             const url = buildReportUrl(info.dataIds)
             return new ReportFetchError({
-              message: cause instanceof Error ? cause.message : String(cause),
+              message: cause instanceof Error ? cause.message : JSON.stringify(cause),
               url,
               courseCodes: formatCourseCodes(info),
               year: info.year,

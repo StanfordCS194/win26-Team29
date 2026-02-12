@@ -13,15 +13,9 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx",
-    "baseUrl": "."
+    "jsx": "react-jsx"
   },
   "include": [], // Root should be empty when using references
   "exclude": ["node_modules"],
-  "references": [
-    { "path": "./scrape" },
-    { "path": "./app" },
-    { "path": "./db" },
-    { "path": "./tsconfig.tooling.json" }
-  ]
+  "references": [{ "path": "./scrape" }, { "path": "./app" }, { "path": "./db" }]
 }

@@ -84,7 +84,13 @@ const scheduleStruct = (s: UploadSchedule & { section_id: number }) =>
 const getCourseOfferingId = (
   co: UploadCourseOffering,
   idMap: HashMap.HashMap<
-    { course_id: number; subject_id: number; code_number: number; code_suffix: string | null; year: string },
+    {
+      course_id: number
+      subject_id: number
+      code_number: number
+      code_suffix: string | null
+      year: string
+    },
     number
   >,
 ) =>
@@ -151,7 +157,14 @@ const deduplicateSections = (rawCourseOfferings: ReadonlyArray<UploadCourseOffer
 const mergeCourseOfferings = (courseOfferings: ReadonlyArray<UploadCourseOffering>, summary: CourseSummary) =>
   Effect.gen(function* () {
     const courseOfferingRecords = courseOfferings.map((co) => {
-      const { sections, learningObjectives, attributes, gers, tags, ...rest } = co
+      const {
+        sections: _sections,
+        learningObjectives: _learningObjectives,
+        attributes: _attributes,
+        gers: _gers,
+        tags: _tags,
+        ...rest
+      } = co
       return rest
     })
 
@@ -247,7 +260,13 @@ const mergeCourseOfferings = (courseOfferings: ReadonlyArray<UploadCourseOfferin
 const upsertLearningObjectives = (
   courseOfferings: ReadonlyArray<UploadCourseOffering>,
   coIdMap: HashMap.HashMap<
-    { course_id: number; subject_id: number; code_number: number; code_suffix: string | null; year: string },
+    {
+      course_id: number
+      subject_id: number
+      code_number: number
+      code_suffix: string | null
+      year: string
+    },
     number
   >,
   courseOfferingIds: Array<number>,
@@ -303,7 +322,13 @@ const upsertLearningObjectives = (
 const upsertAttributes = (
   courseOfferings: ReadonlyArray<UploadCourseOffering>,
   coIdMap: HashMap.HashMap<
-    { course_id: number; subject_id: number; code_number: number; code_suffix: string | null; year: string },
+    {
+      course_id: number
+      subject_id: number
+      code_number: number
+      code_suffix: string | null
+      year: string
+    },
     number
   >,
   courseOfferingIds: Array<number>,
@@ -365,7 +390,13 @@ const upsertAttributes = (
 const upsertGers = (
   courseOfferings: ReadonlyArray<UploadCourseOffering>,
   coIdMap: HashMap.HashMap<
-    { course_id: number; subject_id: number; code_number: number; code_suffix: string | null; year: string },
+    {
+      course_id: number
+      subject_id: number
+      code_number: number
+      code_suffix: string | null
+      year: string
+    },
     number
   >,
   courseOfferingIds: Array<number>,
@@ -421,7 +452,13 @@ const upsertGers = (
 const upsertTags = (
   courseOfferings: ReadonlyArray<UploadCourseOffering>,
   coIdMap: HashMap.HashMap<
-    { course_id: number; subject_id: number; code_number: number; code_suffix: string | null; year: string },
+    {
+      course_id: number
+      subject_id: number
+      code_number: number
+      code_suffix: string | null
+      year: string
+    },
     number
   >,
   courseOfferingIds: Array<number>,
@@ -480,7 +517,13 @@ const upsertTags = (
 const upsertCourseOfferingChildren = (
   courseOfferings: ReadonlyArray<UploadCourseOffering>,
   coIdMap: HashMap.HashMap<
-    { course_id: number; subject_id: number; code_number: number; code_suffix: string | null; year: string },
+    {
+      course_id: number
+      subject_id: number
+      code_number: number
+      code_suffix: string | null
+      year: string
+    },
     number
   >,
   courseOfferingIds: Array<number>,
@@ -503,7 +546,13 @@ const upsertCourseOfferingChildren = (
 const mergeSections = (
   courseOfferings: ReadonlyArray<UploadCourseOffering>,
   coIdMap: HashMap.HashMap<
-    { course_id: number; subject_id: number; code_number: number; code_suffix: string | null; year: string },
+    {
+      course_id: number
+      subject_id: number
+      code_number: number
+      code_suffix: string | null
+      year: string
+    },
     number
   >,
   courseOfferingIds: Array<number>,
@@ -514,7 +563,7 @@ const mergeSections = (
       const id = getCourseOfferingId(co, coIdMap)
       if (Option.isNone(id)) return []
       return co.sections.map((sec) => {
-        const { attributes, schedules, ...rest } = sec
+        const { attributes: _attributes, schedules: _schedules, ...rest } = sec
         return { course_offering_id: id.value, ...rest }
       })
     })
@@ -633,7 +682,13 @@ const mergeSections = (
 const upsertSectionAttributes = (
   courseOfferings: ReadonlyArray<UploadCourseOffering>,
   coIdMap: HashMap.HashMap<
-    { course_id: number; subject_id: number; code_number: number; code_suffix: string | null; year: string },
+    {
+      course_id: number
+      subject_id: number
+      code_number: number
+      code_suffix: string | null
+      year: string
+    },
     number
   >,
   sectionIdMap: HashMap.HashMap<
@@ -715,7 +770,13 @@ const upsertSectionAttributes = (
 const buildScheduleRecords = (
   courseOfferings: ReadonlyArray<UploadCourseOffering>,
   coIdMap: HashMap.HashMap<
-    { course_id: number; subject_id: number; code_number: number; code_suffix: string | null; year: string },
+    {
+      course_id: number
+      subject_id: number
+      code_number: number
+      code_suffix: string | null
+      year: string
+    },
     number
   >,
   sectionIdMap: HashMap.HashMap<
@@ -824,7 +885,13 @@ const findChangedSectionIds = (
 const upsertSchedulesAndInstructors = (
   courseOfferings: ReadonlyArray<UploadCourseOffering>,
   coIdMap: HashMap.HashMap<
-    { course_id: number; subject_id: number; code_number: number; code_suffix: string | null; year: string },
+    {
+      course_id: number
+      subject_id: number
+      code_number: number
+      code_suffix: string | null
+      year: string
+    },
     number
   >,
   sectionIdMap: HashMap.HashMap<

@@ -26,7 +26,9 @@ function formatUpsertError(error: CourseOfferingUpsertError) {
       code_suffix: co.code_suffix,
       year: co.year,
     })),
-    ...(error.cause !== undefined && { cause: String(error.cause) }),
+    ...(error.cause !== undefined && {
+      cause: error.cause instanceof Error ? error.cause.message : JSON.stringify(error.cause),
+    }),
   }
 }
 
