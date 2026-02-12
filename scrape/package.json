@@ -5,7 +5,7 @@
   "scripts": {
     "scrape:evals": "tsx course-evals/cli.ts",
     "scrape:courses": "tsx explore-courses/cli.ts",
-    "typecheck": "tsc --build"
+    "typecheck": "tsgo --build"
   },
   "dependencies": {
     "@courses/db": "workspace:*",

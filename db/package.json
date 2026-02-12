@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "codegen": "kysely-codegen --out-file ./db.types.ts",
-    "typecheck": "tsc --build"
+    "typecheck": "tsgo --build"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

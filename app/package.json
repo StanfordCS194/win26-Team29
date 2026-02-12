@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --build"
+    "typecheck": "tsgo --build"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",
