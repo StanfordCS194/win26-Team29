@@ -1,4 +1,4 @@
-import { values } from '@db/helpers.ts'
+import { values } from '@courses/db/helpers'
 import { Data, Effect, Equal, HashMap, HashSet, MutableHashMap, Option } from 'effect'
 import { mergeAction } from 'kysely/helpers/postgres'
 

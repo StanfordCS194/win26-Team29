@@ -83,7 +83,7 @@ export const streamCoursesWithCache = (
     >
   },
   SubjectsXMLParseError | SubjectsFetchError | PlatformError,
-  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | never
+  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path
 > =>
   Effect.gen(function* () {
     const cacheValid = xmlDir !== undefined ? yield* checkCacheValid(xmlDir) : false

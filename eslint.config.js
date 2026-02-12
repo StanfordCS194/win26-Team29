@@ -1,4 +1,4 @@
-//  @ts-check
+// @ts-check
 import { tanstackConfig } from '@tanstack/eslint-config'
 import tsParser from '@typescript-eslint/parser'
 import promisePlugin from 'eslint-plugin-promise'
@@ -11,13 +11,12 @@ import reactHooks from 'eslint-plugin-react-hooks'
 
 export default [
   ...tanstackConfig,
-  ...pluginQuery.configs['flat/recommended'],
-  ...pluginRouter.configs['flat/recommended'],
-  reactHooks.configs.flat.recommended,
+
   {
-    ignores: ['**/.netlify/**', '**/routeTree.gen.ts'],
+    ignores: ['**/.netlify/**', '**/routeTree.gen.ts', '**/dist/**'],
   },
 
+  // ── Base config for all TS/JS files ──
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.js'],
     languageOptions: {
@@ -84,7 +83,7 @@ export default [
       '@typescript-eslint/no-unnecessary-template-expression': 'warn',
       '@typescript-eslint/prefer-nullish-coalescing': 'warn',
       '@typescript-eslint/prefer-optional-chain': 'warn',
-      '@typescript-eslint/no-deprecated': 'off', // wait for compatibility with ESLint 10
+      '@typescript-eslint/no-deprecated': 'off',
       '@typescript-eslint/switch-exhaustiveness-check': 'error',
       '@typescript-eslint/restrict-template-expressions': 'warn',
 
@@ -99,4 +98,18 @@ export default [
       'security/detect-non-literal-regexp': 'warn',
     },
   },
+
+  // ── React-only: hooks, query, router (scoped to app) ──
+  {
+    files: ['app/**/*.tsx', 'app/**/*.ts'],
+    ...reactHooks.configs.flat.recommended,
+  },
+  ...pluginQuery.configs['flat/recommended'].map((config) => ({
+    ...config,
+    files: ['app/**/*.tsx', 'app/**/*.ts'],
+  })),
+  ...pluginRouter.configs['flat/recommended'].map((config) => ({
+    ...config,
+    files: ['app/**/*.tsx', 'app/**/*.ts'],
+  })),
 ]

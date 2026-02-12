@@ -1,4 +1,4 @@
-import { PGTemporal } from '@db/db.ts'
+import { PGTemporal } from '@courses/db/db'
 import { Equal, Hash } from 'effect'
 
 declare module '@js-temporal/polyfill' {

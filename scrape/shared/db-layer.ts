@@ -1,10 +1,10 @@
-import { createDb } from '@db/db.ts'
+import { createDb } from '@courses/db/db'
 import { Config, Context, Effect, Layer } from 'effect'
 import { types } from 'pg'
 
 import { EffectTemporal } from './effect-temporal.ts'
 import type { Kysely } from 'kysely'
-import type { DB } from '@db/db.types.ts'
+import type { DB } from '@courses/db/db.types'
 
 // Set up type parsers for EffectTemporal (with Effect Equal/Hash support)
 const setupEffectTemporalParsers = () => {

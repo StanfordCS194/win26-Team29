@@ -1,4 +1,4 @@
-import type { DB } from '@db/db.types.ts'
+import type { DB } from '@courses/db/db.types'
 import type { Selectable } from 'kysely'
 
 type KnownDefaultedColumns = 'id' | 'created_at' | 'updated_at'

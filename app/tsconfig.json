@@ -1,6 +1,10 @@
 {
   "compilerOptions": {
     "composite": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "./dist/types",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "target": "ES2022",
     "jsx": "react-jsx",
     "module": "ESNext",
@@ -9,7 +13,6 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": false,
-    "noEmit": true,
     "skipLibCheck": true,
     "strict": true,
     "noUnusedLocals": true,

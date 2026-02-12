@@ -1,7 +1,7 @@
 import { Effect } from 'effect'
 
 import { DbService } from '@scrape/shared/db-layer.ts'
-import type { DB } from '@db/db.types.ts'
+import type { DB } from '@courses/db/db.types'
 
 export type LookupTable = Extract<
   keyof DB,
