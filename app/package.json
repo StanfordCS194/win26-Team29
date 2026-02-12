@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@base-ui/react": "^1.1.0",
     "@courses/scrape": "workspace:*",
+    "@fontsource-variable/nunito-sans": "^5.2.7",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "^0.9.4",
     "@tanstack/react-query": "^5.90.20",
@@ -31,6 +33,7 @@
     "node-html-parser": "^7.0.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "shadcn": "^3.8.4",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.18",
     "tsx": "^4.21.0",

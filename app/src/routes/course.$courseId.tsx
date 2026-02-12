@@ -26,7 +26,7 @@ function ClassPage() {
               <h1 className="font-['Clash_Display'] text-6xl font-semibold leading-none tracking-tight text-[#150F21] md:text-7xl">
                 {courseId}
               </h1>
-              <span className="rounded-full border border-[#8C1515] bg-[#8C1515]/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#8C1515]">
+              <span className="rounded-full border border-primary bg-primary/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary">
                 Spring 2026
               </span>
             </div>
@@ -37,15 +37,15 @@ function ClassPage() {
 
             <div className="mt-2 flex flex-wrap items-center gap-6 text-[#4A4557]">
               <div className="flex items-center gap-2">
-                <User className="h-5 w-5 text-[#8C1515]" />
+                <User className="h-5 w-5 text-primary" />
                 <span className="font-medium">Prof. Brian Conrad</span>
               </div>
               <div className="flex items-center gap-2">
-                <MapPin className="h-5 w-5 text-[#8C1515]" />
+                <MapPin className="h-5 w-5 text-primary" />
                 <span>Hewlett 200</span>
               </div>
               <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-[#8C1515]" />
+                <Calendar className="h-5 w-5 text-primary" />
                 <span>MWF 1:30 PM</span>
               </div>
             </div>
@@ -82,7 +82,7 @@ function ClassPage() {
                     <span className="text-sm font-bold text-[#150F21]">John D.</span>
                   </div>
                   <div className="flex items-center gap-1 rounded-lg bg-white/60 px-2 py-1">
-                    <Star className="h-3 w-3 fill-[#8C1515] text-[#8C1515]" />
+                    <Star className="h-3 w-3 fill-primary text-primary" />
                     <span className="text-xs font-bold text-[#150F21]">4.8</span>
                   </div>
                 </div>
@@ -91,7 +91,7 @@ function ClassPage() {
                   the textbook before lecture."
                 </p>
                 <div className="flex gap-2">
-                  <span className="rounded bg-[#8C1515]/10 px-2 py-1 text-xs font-medium text-[#8C1515]">
+                  <span className="rounded bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
                     Heavy Workload
                   </span>
                   <span className="rounded bg-white/60 px-2 py-1 text-xs text-[#4A4557]">Great Lectures</span>
@@ -101,13 +101,13 @@ function ClassPage() {
               <div className="rounded-2xl border border-white/60 bg-white/50 p-6 backdrop-blur-md transition-all hover:shadow-md">
                 <div className="mb-4 flex items-start justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#8C1515] text-xs font-bold text-white">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                       AS
                     </div>
                     <span className="text-sm font-bold text-[#150F21]">Alice S.</span>
                   </div>
                   <div className="flex items-center gap-1 rounded-lg bg-white/60 px-2 py-1">
-                    <Star className="h-3 w-3 fill-[#8C1515] text-[#8C1515]" />
+                    <Star className="h-3 w-3 fill-primary text-primary" />
                     <span className="text-xs font-bold text-[#150F21]">4.2</span>
                   </div>
                 </div>
@@ -116,7 +116,7 @@ function ClassPage() {
                   plan accordingly."
                 </p>
                 <div className="flex gap-2">
-                  <span className="rounded bg-[#8C1515]/10 px-2 py-1 text-xs font-medium text-[#8C1515]">
+                  <span className="rounded bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
                     Challenging
                   </span>
                 </div>
@@ -131,7 +131,7 @@ function ClassPage() {
                     <span className="text-sm font-bold text-[#150F21]">Mike K.</span>
                   </div>
                   <div className="flex items-center gap-1 rounded-lg bg-white/60 px-2 py-1">
-                    <Star className="h-3 w-3 fill-[#8C1515] text-[#8C1515]" />
+                    <Star className="h-3 w-3 fill-primary text-primary" />
                     <span className="text-xs font-bold text-[#150F21]">5.0</span>
                   </div>
                 </div>
@@ -154,7 +154,7 @@ function ClassPage() {
                   <span className="text-sm text-[#4A4557]">/ 5.0</span>
                 </div>
               </div>
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#8C1515] text-white shadow-lg shadow-red-900/20">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/20">
                 <ThumbsUp className="h-6 w-6" />
               </div>
             </div>
@@ -165,7 +165,7 @@ function ClassPage() {
 
           <div className="rounded-3xl border border-white/50 bg-white/40 p-8 shadow-sm backdrop-blur-xl">
             <div className="mb-8 flex items-center gap-2">
-              <Clock className="h-5 w-5 text-[#8C1515]" />
+              <Clock className="h-5 w-5 text-primary" />
               <h3 className="font-['Clash_Display'] text-lg font-semibold text-[#150F21]">Weekly Hours</h3>
             </div>
 
@@ -173,7 +173,7 @@ function ClassPage() {
               <div className="group flex w-full cursor-pointer flex-col items-center gap-2">
                 <div className="relative flex h-32 w-full items-end overflow-hidden rounded-t-lg bg-[#150F21]/5">
                   <div
-                    className="w-full rounded-t-lg bg-[#150F21]/20 transition-colors group-hover:bg-[#8C1515]/40"
+                    className="w-full rounded-t-lg bg-[#150F21]/20 transition-colors group-hover:bg-primary/40"
                     style={{ height: '15%' }}
                   />
                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-[#150F21] px-2 py-1 text-xs font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
@@ -186,7 +186,7 @@ function ClassPage() {
               <div className="group flex w-full cursor-pointer flex-col items-center gap-2">
                 <div className="relative flex h-32 w-full items-end overflow-hidden rounded-t-lg bg-[#150F21]/5">
                   <div
-                    className="w-full rounded-t-lg bg-[#150F21]/40 transition-colors group-hover:bg-[#8C1515]/60"
+                    className="w-full rounded-t-lg bg-[#150F21]/40 transition-colors group-hover:bg-primary/60"
                     style={{ height: '35%' }}
                   />
                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-[#150F21] px-2 py-1 text-xs font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
@@ -199,20 +199,20 @@ function ClassPage() {
               <div className="group flex w-full cursor-pointer flex-col items-center gap-2">
                 <div className="relative flex h-32 w-full items-end overflow-hidden rounded-t-lg bg-[#150F21]/5">
                   <div
-                    className="w-full rounded-t-lg bg-[#8C1515] shadow-[0_0_15px_rgba(140,21,21,0.3)]"
+                    className="w-full rounded-t-lg bg-primary shadow-[0_0_15px_color-mix(in_srgb,var(--primary)_30%,transparent)]"
                     style={{ height: '65%' }}
                   />
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-[#8C1515] px-2 py-1 text-xs font-bold text-white shadow-md opacity-100">
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-primary px-2 py-1 text-xs font-bold text-primary-foreground shadow-md opacity-100">
                     65%
                   </div>
                 </div>
-                <span className="text-xs font-bold text-[#8C1515]">10-15</span>
+                <span className="text-xs font-bold text-primary">10-15</span>
               </div>
 
               <div className="group flex w-full cursor-pointer flex-col items-center gap-2">
                 <div className="relative flex h-32 w-full items-end overflow-hidden rounded-t-lg bg-[#150F21]/5">
                   <div
-                    className="w-full rounded-t-lg bg-[#150F21]/20 transition-colors group-hover:bg-[#8C1515]/40"
+                    className="w-full rounded-t-lg bg-[#150F21]/20 transition-colors group-hover:bg-primary/40"
                     style={{ height: '10%' }}
                   />
                   <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-[#150F21] px-2 py-1 text-xs font-bold text-white opacity-0 transition-opacity group-hover:opacity-100">
