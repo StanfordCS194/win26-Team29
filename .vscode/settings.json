@@ -1,28 +1,49 @@
 {
   "editor.formatOnSave": true,
+  "editor.formatOnSaveMode": "file",
+  "editor.defaultFormatter": "oxc.oxc-vscode",
   "editor.codeActionsOnSave": {
     "source.organizeImports": "never",
     "source.fixAll": "always",
-    "source.fixAll.eslint": "always"
+    "source.fixAll.oxc": "always"
   },
+  "oxc.fmt.configPath": ".oxfmtrc.json",
+  "oxc.lint.run": "onSave",
+  "oxc.fixKind": "safe_fix",
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.experimental.useTsgo": true,
-  "files.exclude": {
-    "**/node_modules": true,
-    "**/.git": true,
-    "**/dist": true
+  "files.exclude": { "**/node_modules": true, "**/.git": true, "**/dist": true },
+  "files.watcherExclude": { "**/node_modules": true, "**/dist": true, "**/routeTree.gen.ts": true },
+  "search.exclude": { "**/routeTree.gen.ts": true },
+  "files.readonlyInclude": { "**/routeTree.gen.ts": true },
+  "[typescript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
   },
-  "files.watcherExclude": {
-    "**/node_modules": true,
-    "**/dist": true,
-    "**/routeTree.gen.ts": true
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
   },
-  "search.exclude": {
-    "**/routeTree.gen.ts": true
+  "[javascript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
   },
-  "files.readonlyInclude": {
-    "**/routeTree.gen.ts": true
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
   },
-  "eslint.validate": ["javascript", "typescript", "typescriptreact"],
-  "editor.defaultFormatter": "esbenp.prettier-vscode"
+  "[json]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[css]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[scss]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[less]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  }
 }
