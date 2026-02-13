@@ -56,7 +56,7 @@ const mockCourses: Array<CourseCard> = [
 function ResultsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 via-slate-50 to-sky-100">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pb-16 pt-10">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pt-10 pb-16">
         <div className="flex flex-col gap-4">
           <label htmlFor="results-search" className="sr-only">
             Search courses
@@ -66,12 +66,12 @@ function ResultsPage() {
               id="results-search"
               type="text"
               placeholder="Search by course, instructor, or keyword"
-              className="w-full rounded-full border border-slate-300 bg-white py-3 pl-5 pr-14 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full rounded-full border border-slate-300 bg-white py-3 pr-14 pl-5 text-base text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
             />
             <button
               type="button"
               aria-label="Search"
-              className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-xs font-normal text-primary-foreground transition hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+              className="absolute top-1/2 right-2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-xs font-normal text-primary-foreground transition hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none"
             >
               Go
             </button>
@@ -84,7 +84,7 @@ function ResultsPage() {
               key={course.code}
               to="/course/$courseId"
               params={{ courseId: course.code }}
-              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
             >
               <article>
                 <div className="flex items-start justify-between gap-4">

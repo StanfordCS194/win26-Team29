@@ -4,6 +4,10 @@
   "type": "module",
   "scripts": {
     "codegen": "kysely-codegen --out-file ./db.types.ts",
+    "lint": "oxlint --type-aware --import-plugin .",
+    "lint:fix": "oxlint --type-aware --fix --import-plugin .",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "typecheck": "tsgo --build"
   },
   "dependencies": {

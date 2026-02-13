@@ -5,6 +5,10 @@
   "scripts": {
     "scrape:evals": "tsx course-evals/cli.ts",
     "scrape:courses": "tsx explore-courses/cli.ts",
+    "lint": "oxlint --type-aware --import-plugin .",
+    "lint:fix": "oxlint --type-aware --fix --import-plugin .",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "typecheck": "tsgo --build"
   },
   "dependencies": {

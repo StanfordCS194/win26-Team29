@@ -17,16 +17,16 @@ function ClassPage() {
         @import url('https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@300,400,500,700&display=swap');
       `}</style>
 
-      <div className="pointer-events-none absolute right-0 top-0 h-[800px] w-[800px] rounded-full bg-gradient-to-bl from-purple-300/30 via-blue-300/20 to-transparent blur-3xl" />
+      <div className="pointer-events-none absolute top-0 right-0 h-[800px] w-[800px] rounded-full bg-gradient-to-bl from-purple-300/30 via-blue-300/20 to-transparent blur-3xl" />
 
-      <main className="relative z-10 mx-auto grid w-full max-w-7xl flex-grow grid-cols-1 gap-12 px-6 pb-20 pt-32 lg:grid-cols-12">
+      <main className="relative z-10 mx-auto grid w-full max-w-7xl flex-grow grid-cols-1 gap-12 px-6 pt-32 pb-20 lg:grid-cols-12">
         <div className="flex flex-col gap-8 lg:col-span-8">
           <div className="space-y-4">
             <div className="flex items-center gap-4">
-              <h1 className="font-['Clash_Display'] text-6xl font-semibold leading-none tracking-tight text-[#150F21] md:text-7xl">
+              <h1 className="font-['Clash_Display'] text-6xl leading-none font-semibold tracking-tight text-[#150F21] md:text-7xl">
                 {courseId}
               </h1>
-              <span className="rounded-full border border-primary bg-primary/5 px-3 py-1 text-xs font-bold uppercase tracking-wider text-primary">
+              <span className="rounded-full border border-primary bg-primary/5 px-3 py-1 text-xs font-bold tracking-wider text-primary uppercase">
                 Spring 2026
               </span>
             </div>
@@ -202,7 +202,7 @@ function ClassPage() {
                     className="w-full rounded-t-lg bg-primary shadow-[0_0_15px_color-mix(in_srgb,var(--primary)_30%,transparent)]"
                     style={{ height: '65%' }}
                   />
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-primary px-2 py-1 text-xs font-bold text-primary-foreground shadow-md opacity-100">
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 rounded bg-primary px-2 py-1 text-xs font-bold text-primary-foreground opacity-100 shadow-md">
                     65%
                   </div>
                 </div>
