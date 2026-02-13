@@ -1,5 +1,6 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "ignorePatterns": ["**/.netlify/**", "**/routeTree.gen.ts", "**/dist/**", "pnpm-lock.yaml", "scrape/data/"],
   "semi": false,
   "singleQuote": true,
   "trailingComma": "all",
@@ -9,7 +10,6 @@
   "arrowParens": "always",
   "endOfLine": "lf",
   "experimentalSortPackageJson": false,
-  "ignorePatterns": ["package-lock.json", "pnpm-lock.yaml", "scrape/data/"],
   "experimentalTailwindcss": {
     "stylesheet": "./app/src/styles.css",
     "attributes": ["class", "className"],
