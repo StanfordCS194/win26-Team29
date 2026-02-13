@@ -1,7 +1,9 @@
 import { Data, Effect } from 'effect'
+
 import type { ParsedCourse } from '../fetch-parse/parse-courses.ts'
-import type { UploadCourseOffering } from './upsert-courses.types.ts'
+
 import type { LookupTable } from './upsert-codes.ts'
+import type { UploadCourseOffering } from './upsert-courses.types.ts'
 
 export class PrepareCourseLookupError extends Data.TaggedError('PrepareCourseLookupError')<{
   subject: string
@@ -13,7 +15,7 @@ export class PrepareCourseLookupError extends Data.TaggedError('PrepareCourseLoo
 
 export type EntityLookupIdMap = Record<LookupTable, Map<string, number>> & {
   subjects: Map<string, number>
-  instructors: Map<string, bigint>
+  instructors: Map<string, number>
 }
 
 type TableKey = keyof EntityLookupIdMap
@@ -30,7 +32,7 @@ function getLookupId(
   table: TableKey,
   key: string,
   ctx: CourseContext,
-): Effect.Effect<number | bigint, PrepareCourseLookupError> {
+): Effect.Effect<number, PrepareCourseLookupError> {
   const value = lookup[table].get(key)
   if (value === undefined) {
     return Effect.fail(
@@ -54,8 +56,7 @@ export function parsedCourseToUploadCourseOffering(
     year: parsed.year,
   }
 
-  const id = (table: TableKey, key: string) =>
-    getLookupId(lookup, table, key, ctx) as Effect.Effect<number, PrepareCourseLookupError>
+  const id = (table: TableKey, key: string) => getLookupId(lookup, table, key, ctx)
 
   return Effect.gen(function* () {
     const academic_career_id = yield* id('academic_careers', parsed.administrativeInformation.academicCareer)
@@ -79,12 +80,7 @@ export function parsedCourseToUploadCourseOffering(
           Effect.gen(function* () {
             const instructors = yield* Effect.forEach(schedule.instructors, (instructor) =>
               Effect.gen(function* () {
-                const instructor_id = (yield* getLookupId(
-                  lookup,
-                  'instructors',
-                  instructor.sunet,
-                  ctx,
-                )) as bigint
+                const instructor_id = yield* getLookupId(lookup, 'instructors', instructor.sunet, ctx)
                 const instructor_role_id = yield* id('instructor_roles', instructor.role)
                 return { instructor_id, instructor_role_id }
               }),
@@ -92,11 +88,11 @@ export function parsedCourseToUploadCourseOffering(
 
             return {
               days: schedule.days.length > 0 ? schedule.days : null,
-              end_date: schedule.endDate || null,
-              end_time: schedule.endTime || null,
-              location: schedule.location || null,
-              start_date: schedule.startDate || null,
-              start_time: schedule.startTime || null,
+              end_date: schedule.endDate ?? null,
+              end_time: schedule.endTime ?? null,
+              location: schedule.location === '' ? null : (schedule.location ?? null),
+              start_date: schedule.startDate ?? null,
+              start_time: schedule.startTime ?? null,
               instructors,
             }
           }),
@@ -116,7 +112,7 @@ export function parsedCourseToUploadCourseOffering(
           max_enrolled: section.maxEnrolled,
           max_waitlist: section.maxWaitlist,
           max_waitlist_size: section.maxWaitlistSize,
-          notes: section.notes || null,
+          notes: section.notes === '' ? null : (section.notes ?? null),
           num_enrolled: section.numEnrolled,
           num_waitlist: section.numWaitlist,
           section_number: section.sectionNumber,
@@ -145,7 +141,7 @@ export function parsedCourseToUploadCourseOffering(
       academic_group_id,
       academic_organization_id,
       code_number: parsed.code.number,
-      code_suffix: parsed.code.suffix || null,
+      code_suffix: parsed.code.suffix === '' ? null : (parsed.code.suffix ?? null),
       course_id: parsed.administrativeInformation.courseId,
       description: parsed.description,
       final_exam_flag_id,

@@ -1,13 +1,15 @@
-import { Data, Effect, Either, pipe } from 'effect'
+import { Data, Effect, Either } from 'effect'
+import { decode } from 'html-entities'
 import { parse } from 'node-html-parser'
 import { z } from 'zod'
-import { decode } from 'html-entities'
+
+import { formatCourseCodes } from './parse-listings.ts'
 import type { HTMLElement } from 'node-html-parser'
-import { formatCourseCodes, type EvalInfo } from './parse-listings.ts'
+import type { EvalInfo } from './parse-listings.ts'
 
 export class ReportParseError extends Data.TaggedError('ReportParseError')<{
   message: string
-  courseCodes: string[]
+  courseCodes: Array<string>
   year: number
   quarter: string
   reportUrl: string
@@ -90,32 +92,34 @@ const matchKnownQuestion = (cleanedText: string): KnownQuestion | string => {
 }
 
 const parseNumber = (value: string) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const normalized = value.replace(/,/g, '').trim()
     if (normalized.length === 0) {
-      return yield* _(Effect.fail(new Error(`Cannot parse empty string as number`)))
+      return yield* Effect.fail(new Error(`Cannot parse empty string as number`))
     }
     const parsed = Number(normalized)
     if (!Number.isFinite(parsed)) {
-      return yield* _(Effect.fail(new Error(`Invalid number: "${value}"`)))
+      return yield* Effect.fail(new Error(`Invalid number: "${value}"`))
     }
     return parsed
   })
 
 const parseWeight = (value: string) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const match = value.match(/\(([0-9.]+)\)/)
     if (!match) {
-      return yield* _(Effect.fail(new Error(`Could not extract weight from: "${value}"`)))
+      return yield* Effect.fail(new Error(`Could not extract weight from: "${value}"`))
     }
-    return yield* _(parseNumber(match[1]))
+    return yield* parseNumber(match[1])
   })
 
 const findAncestorWithClass = (node: HTMLElement, className: string): HTMLElement => {
   let current: HTMLElement | null = node
   while (current) {
-    const classes = (current.getAttribute('class') || '').split(/\s+/)
-    if (classes.includes(className)) return current
+    const classes = (current.getAttribute('class') ?? '').split(/\s+/)
+    if (classes.includes(className)) {
+      return current
+    }
     current = current.parentNode as HTMLElement | null
   }
   throw new Error(`Could not find ancestor with class "${className}" for node ${node.tagName}`)
@@ -131,7 +135,7 @@ const extractQuestionBlocks = (root: HTMLElement) =>
       const heading = findAncestorWithClass(questionNode, 'panel-heading')
       const panelBody =
         heading.nextElementSibling &&
-        (heading.nextElementSibling.getAttribute('class') || '').includes('panel-body')
+        (heading.nextElementSibling.getAttribute('class') ?? '').includes('panel-body')
           ? heading.nextElementSibling
           : undefined
 
@@ -154,7 +158,7 @@ const extractQuestionBlocks = (root: HTMLElement) =>
   })
 
 const parseNumericQuestion = (questionKey: string, siblings: Array<HTMLElement>) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const responses: Set<z.input<typeof ResponseOptionSchema>> = new Set()
 
     const optionsTable = siblings
@@ -170,8 +174,8 @@ const parseNumericQuestion = (questionKey: string, siblings: Array<HTMLElement>)
       })
 
     if (!optionsTable) {
-      return yield* _(
-        Effect.fail(new Error(`Could not find options table for numeric question: "${questionKey}"`)),
+      return yield* Effect.fail(
+        new Error(`Could not find options table for numeric question: "${questionKey}"`),
       )
     }
 
@@ -187,8 +191,8 @@ const parseNumericQuestion = (questionKey: string, siblings: Array<HTMLElement>)
           continue
         }
 
-        const weight = yield* _(parseWeight(weightText))
-        const frequency = yield* _(parseNumber(frequencyText))
+        const weight = yield* parseWeight(weightText)
+        const frequency = yield* parseNumber(frequencyText)
 
         responses.add({ option, weight, frequency })
       }
@@ -200,27 +204,26 @@ const parseNumericQuestion = (questionKey: string, siblings: Array<HTMLElement>)
     }
   })
 
-const parseTextQuestion = (questionKey: string, siblings: Array<HTMLElement>) =>
-  Effect.gen(function* (_) {
-    const responses: Set<string> = new Set()
+const parseTextQuestion = (questionKey: string, siblings: Array<HTMLElement>) => {
+  const responses: Set<string> = new Set()
 
-    const list = siblings
-      .flatMap((node) => node.querySelectorAll('ul'))
-      .find((ul) => ul.getAttribute('role') === 'list')
+  const list = siblings
+    .flatMap((node) => node.querySelectorAll('ul'))
+    .find((ul) => ul.getAttribute('role') === 'list')
 
-    const items = list?.querySelectorAll('li[role="listitem"]') ?? []
-    for (const item of items) {
-      const text = item.text.trim()
-      if (text.length > 0) {
-        responses.add(text)
-      }
+  const items = list?.querySelectorAll('li[role="listitem"]') ?? []
+  for (const item of items) {
+    const text = item.text.trim()
+    if (text.length > 0) {
+      responses.add(text)
     }
+  }
 
-    return {
-      type: 'text' as const,
-      responses,
-    }
-  })
+  return {
+    type: 'text' as const,
+    responses,
+  }
+}
 
 export const parseReport = (html: string, info: EvalInfo) => {
   const reportUrl = `https://stanford.evaluationkit.com/Reports/StudentReport.aspx?id=${info.dataIds.join(',')}`
@@ -241,7 +244,7 @@ export const parseReport = (html: string, info: EvalInfo) => {
       }),
     )
 
-  const wrapError = <A>(effect: Effect.Effect<A, Error>): Effect.Effect<A, ReportParseError> =>
+  const wrapError = <TValue>(effect: Effect.Effect<TValue, Error>): Effect.Effect<TValue, ReportParseError> =>
     effect.pipe(
       Effect.mapError(
         (cause) =>
@@ -256,14 +259,14 @@ export const parseReport = (html: string, info: EvalInfo) => {
       ),
     )
 
-  return Effect.gen(function* (_) {
+  return Effect.gen(function* () {
     const root = parse(html)
     const questions: Record<string, z.input<typeof QuestionSchema>> = {}
 
     const blocks = extractQuestionBlocks(root)
 
     if (blocks.length === 0) {
-      return yield* _(fail('No question blocks found in HTML report'))
+      return yield* fail('No question blocks found in HTML report')
     }
 
     for (const { questionText, siblings } of blocks) {
@@ -276,18 +279,18 @@ export const parseReport = (html: string, info: EvalInfo) => {
       let parsedQuestion: z.input<typeof QuestionSchema>
 
       if (expectedSchema === NumericQuestionSchema) {
-        parsedQuestion = yield* _(wrapError(parseNumericQuestion(questionKey, siblings)))
+        parsedQuestion = yield* wrapError(parseNumericQuestion(questionKey, siblings))
       } else if (expectedSchema === TextQuestionSchema) {
-        parsedQuestion = yield* _(parseTextQuestion(questionKey, siblings))
+        parsedQuestion = parseTextQuestion(questionKey, siblings)
       } else {
-        const numericResult = yield* _(
-          wrapError(parseNumericQuestion(questionKey, siblings)).pipe(Effect.either),
+        const numericResult = yield* wrapError(parseNumericQuestion(questionKey, siblings)).pipe(
+          Effect.either,
         )
 
         if (Either.isRight(numericResult)) {
           parsedQuestion = numericResult.right
         } else {
-          parsedQuestion = yield* _(parseTextQuestion(questionKey, siblings))
+          parsedQuestion = parseTextQuestion(questionKey, siblings)
         }
       }
 
@@ -297,14 +300,12 @@ export const parseReport = (html: string, info: EvalInfo) => {
     const validatedQuestions = ReportQuestionsSchema.safeParse(questions)
 
     if (!validatedQuestions.success) {
-      return yield* _(
-        fail('Invalid questions data', {
-          validationIssues: validatedQuestions.error.issues.map((issue) => ({
-            path: issue.path.map(String).join('.'),
-            message: issue.message,
-          })),
-        }),
-      )
+      return yield* fail('Invalid questions data', {
+        validationIssues: validatedQuestions.error.issues.map((issue) => ({
+          path: issue.path.map(String).join('.'),
+          message: issue.message,
+        })),
+      })
     }
 
     return { info, questions: validatedQuestions.data } as ProcessedReport

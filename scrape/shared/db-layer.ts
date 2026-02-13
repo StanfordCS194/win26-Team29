@@ -1,30 +1,31 @@
-import { Effect, Context, Layer, Config, Equal, Hash } from 'effect'
-import { types, Pool } from 'pg'
-import { Kysely } from 'kysely'
+import { createDb } from '@courses/db/db'
+import { Config, Context, Effect, Layer } from 'effect'
+import { types } from 'pg'
+
 import { EffectTemporal } from './effect-temporal.ts'
-import { createDb } from '@db/db.ts'
-import { DB } from '@db/db.types.ts'
+import type { Kysely } from 'kysely'
+import type { DB } from '@courses/db/db.types'
 
 // Set up type parsers for EffectTemporal (with Effect Equal/Hash support)
 const setupEffectTemporalParsers = () => {
   // DATE - 1082
   types.setTypeParser(1082, (value) => {
-    return value === null ? null : EffectTemporal.PlainDate.from(value)
+    return EffectTemporal.PlainDate.from(value)
   })
 
   // TIMESTAMP - 1114
   types.setTypeParser(1114, (value) => {
-    return value === null ? null : EffectTemporal.PlainDateTime.from(value.replace(' ', 'T'))
+    return EffectTemporal.PlainDateTime.from(value.replace(' ', 'T'))
   })
 
   // TIMESTAMPTZ - 1184
   types.setTypeParser(1184, (value) => {
-    return value === null ? null : EffectTemporal.Instant.from(value)
+    return EffectTemporal.Instant.from(value)
   })
 
   // TIME - 1083
   types.setTypeParser(1083, (value) => {
-    return value === null ? null : EffectTemporal.PlainTime.from(value)
+    return EffectTemporal.PlainTime.from(value)
   })
 }
 

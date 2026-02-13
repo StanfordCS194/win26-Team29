@@ -1,20 +1,25 @@
 import { appendFile } from 'node:fs/promises'
-import { FileSystem, HttpClient, Path } from '@effect/platform'
-import { Effect, Either, Ref, pipe, Stream, Data } from 'effect'
-import { EvalInfoSchema, formatCourseCodes, type EvalInfo } from './parse-listings.ts'
-import type { ListingsParseError } from './parse-listings.ts'
-import {
-  fetchReportHtml,
-  buildReportUrl,
-  ReportFetchError,
-  type ListingsFetchError,
-  type HtmlReportItem,
-} from './fetch-evals.ts'
-import { CodeNumberSchema, type Quarter } from '@scrape/shared/schemas.ts'
+
+import { FileSystem, Path } from '@effect/platform'
+import { Data, Effect, Either, Ref, Stream, pipe } from 'effect'
 import z from 'zod'
-import { PlatformError } from '@effect/platform/Error'
-import { streamEvalInfosForSubject } from './fetch-evals.ts'
-import { parseReport, ReportParseError, type ProcessedReport } from './parse-report.ts'
+
+import { CodeNumberSchema } from '@scrape/shared/schemas.ts'
+import {
+  ReportFetchError,
+  buildReportUrl,
+  fetchReportHtml,
+  streamEvalInfosForSubject,
+} from './fetch-evals.ts'
+import { EvalInfoSchema, formatCourseCodes } from './parse-listings.ts'
+import { parseReport } from './parse-report.ts'
+
+import type { HttpClient } from '@effect/platform'
+import type { PlatformError } from '@effect/platform/Error'
+import type { Quarter } from '@scrape/shared/schemas.ts'
+import type { HtmlReportItem, ListingsFetchError } from './fetch-evals.ts'
+import type { EvalInfo, ListingsParseError } from './parse-listings.ts'
+import type { ProcessedReport, ReportParseError } from './parse-report.ts'
 
 export class ManifestWriteError extends Data.TaggedError('ManifestWriteError')<{
   message: string
@@ -38,7 +43,7 @@ const htmlFilenameFromSection = (
 
 const appendManifestLine = (manifestPath: string, data: unknown) =>
   Effect.tryPromise({
-    try: () => appendFile(manifestPath, JSON.stringify(data) + '\n', { flag: 'a' }),
+    try: () => appendFile(manifestPath, `${JSON.stringify(data)}\n`, { flag: 'a' }),
     catch: (e) =>
       new ManifestWriteError({
         message: `Failed to append to manifest: ${e instanceof Error ? e.message : String(e)}`,
@@ -83,52 +88,54 @@ const processHtmlReportItem = (
     fs: FileSystem.FileSystem
   },
 ) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const { writeHtml, path, fs } = options
 
     // Write HTML files first
     if (writeHtml) {
       for (const scc of data.evalInfo.sectionCourseCodes) {
-        if (scc.subject !== subject) continue
+        if (scc.subject !== subject) {
+          continue
+        }
 
-        yield* _(fs.makeDirectory(subjectOutputsDir, { recursive: true }))
+        yield* fs.makeDirectory(subjectOutputsDir, { recursive: true })
 
         const filename = htmlFilenameFromSection(scc.codeNumber, scc.sectionNumber)
         const htmlPath = path.join(subjectOutputsDir, filename)
 
-        yield* _(fs.writeFileString(htmlPath, data.html))
+        yield* fs.writeFileString(htmlPath, data.html)
       }
     }
 
     // Parse the report
-    const parseResult = yield* _(parseReport(data.html, data.evalInfo).pipe(Effect.either))
+    const parseResult = yield* parseReport(data.html, data.evalInfo).pipe(Effect.either)
 
     // Write manifest entries based on parse result
     if (writeHtml) {
       for (const scc of data.evalInfo.sectionCourseCodes) {
-        if (scc.subject !== subject) continue
+        if (scc.subject !== subject) {
+          continue
+        }
 
         const filename = htmlFilenameFromSection(scc.codeNumber, scc.sectionNumber)
         const manifestPath = path.join(subjectOutputsDir, MANIFEST_FILENAME)
 
         if (Either.isRight(parseResult)) {
           // Success: write manifest entry without error
-          yield* _(
-            appendManifestLine(manifestPath, {
-              path: filename,
-              evalInfo: EvalInfoSchema.encode(data.evalInfo),
-            }),
-          )
+          yield* appendManifestLine(manifestPath, {
+            path: filename,
+            evalInfo: EvalInfoSchema.encode(data.evalInfo),
+          })
         } else {
           // Parse error: write manifest entry with error marker
-          yield* _(writeManifestParseError(manifestPath, filename, data.evalInfo, parseResult.left))
+          yield* writeManifestParseError(manifestPath, filename, data.evalInfo, parseResult.left)
         }
       }
     }
 
     // Return the parse result (or fail if it was an error)
     if (Either.isLeft(parseResult)) {
-      return yield* _(Effect.fail(parseResult.left))
+      return yield* Effect.fail(parseResult.left)
     }
 
     return parseResult.right
@@ -154,36 +161,41 @@ const parseManifestLines = (content: string): Array<ManifestEntry> => {
   const entries: Array<ManifestEntry> = []
   for (const line of lines) {
     try {
-      const parsed = JSON.parse(line)
+      const parsed: unknown = JSON.parse(line)
       // Skip completion markers
-      if (parsed._complete) continue
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        '_complete' in parsed &&
+        parsed._complete === true
+      ) {
+        continue
+      }
 
       const result = ManifestEntrySchema.safeParse(parsed)
       if (result.success) {
         entries.push(result.data)
       }
-    } catch (e) {
-      // Skip invalid lines
+    } catch {
+      continue
     }
   }
   return entries
 }
 
 const checkCacheValid = (cacheDir: string) =>
-  Effect.gen(function* (_) {
-    const fs = yield* _(FileSystem.FileSystem)
-    const path = yield* _(Path.Path)
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
 
     const manifestPath = path.join(cacheDir, MANIFEST_FILENAME)
-    const manifestExists = yield* _(
-      fs.exists(manifestPath).pipe(Effect.catchAll(() => Effect.succeed(false))),
-    )
+    const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.catchAll(() => Effect.succeed(false)))
 
     if (!manifestExists) {
       return false
     }
 
-    const content = yield* _(fs.readFileString(manifestPath).pipe(Effect.catchAll(() => Effect.succeed(''))))
+    const content = yield* fs.readFileString(manifestPath).pipe(Effect.catchAll(() => Effect.succeed('')))
     const lines = content
       .split('\n')
       .map((s) => s.trim())
@@ -195,8 +207,13 @@ const checkCacheValid = (cacheDir: string) =>
 
     // Check for completion marker in last line
     try {
-      const lastLine = JSON.parse(lines[lines.length - 1])
-      if (!lastLine._complete) {
+      const lastLine: unknown = JSON.parse(lines[lines.length - 1])
+      if (
+        typeof lastLine !== 'object' ||
+        lastLine === null ||
+        !('_complete' in lastLine) ||
+        lastLine._complete !== true
+      ) {
         return false
       }
     } catch {
@@ -213,9 +230,9 @@ const checkCacheValid = (cacheDir: string) =>
       }
 
       // Only check file existence if path is present (fetch errors won't have paths)
-      if (entry.path) {
+      if (entry.path !== undefined) {
         const filePath = path.join(cacheDir, entry.path)
-        const exists = yield* _(fs.exists(filePath).pipe(Effect.catchAll(() => Effect.succeed(false))))
+        const exists = yield* fs.exists(filePath).pipe(Effect.catchAll(() => Effect.succeed(false)))
         if (!exists) {
           return false
         }
@@ -226,12 +243,12 @@ const checkCacheValid = (cacheDir: string) =>
   })
 
 const streamCachedEntries = (cacheDir: string) =>
-  Effect.gen(function* (_) {
-    const fs = yield* _(FileSystem.FileSystem)
-    const path = yield* _(Path.Path)
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem
+    const path = yield* Path.Path
 
     const manifestPath = path.join(cacheDir, MANIFEST_FILENAME)
-    const content = yield* _(fs.readFileString(manifestPath))
+    const content = yield* fs.readFileString(manifestPath)
     const entries = parseManifestLines(content)
 
     return Stream.fromIterable(entries)
@@ -243,24 +260,22 @@ const readCachedHtml = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
 ): Effect.Effect<HtmlReportItem, ReportFetchError> =>
-  Effect.gen(function* (_) {
-    if (!entry.path) {
-      return yield* _(
-        Effect.fail(
-          new ReportFetchError({
-            message: 'Cached entry has no path (likely a fetch error entry)',
-            url: `cache://${cacheDir}`,
-            courseCodes: formatCourseCodes(entry.evalInfo),
-            year: entry.evalInfo.year,
-            quarter: entry.evalInfo.quarter,
-            evalInfo: entry.evalInfo,
-          }),
-        ),
+  Effect.gen(function* () {
+    if (entry.path === undefined) {
+      return yield* Effect.fail(
+        new ReportFetchError({
+          message: 'Cached entry has no path (likely a fetch error entry)',
+          url: `cache://${cacheDir}`,
+          courseCodes: formatCourseCodes(entry.evalInfo),
+          year: entry.evalInfo.year,
+          quarter: entry.evalInfo.quarter,
+          evalInfo: entry.evalInfo,
+        }),
       )
     }
 
     const filePath = path.join(cacheDir, entry.path)
-    const html = yield* _(fs.readFileString(filePath))
+    const html = yield* fs.readFileString(filePath)
     return { html, evalInfo: entry.evalInfo, source: 'cache' } as HtmlReportItem
   }).pipe(
     Effect.mapError(
@@ -284,8 +299,8 @@ const buildCachedStreamForSubject = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
 ) =>
-  Effect.gen(function* (_) {
-    const entries = yield* _(streamCachedEntries(subjectOutputsDir))
+  Effect.gen(function* () {
+    const entries = yield* streamCachedEntries(subjectOutputsDir)
     return pipe(
       entries,
       Stream.tap(() => incrementDiscovered),
@@ -309,16 +324,16 @@ const buildHttpStreamForSubject = (
     Stream.mapEffect(
       (info) =>
         pipe(
-          Effect.gen(function* (_) {
+          Effect.gen(function* () {
             const url = buildReportUrl(info.dataIds)
-            const html = yield* _(fetchReportHtml(url))
-            yield* _(incrementFetched)
+            const html = yield* fetchReportHtml(url)
+            yield* incrementFetched
             return { html, evalInfo: info, source: 'http' } as HtmlReportItem
           }),
           Effect.mapError((cause) => {
             const url = buildReportUrl(info.dataIds)
             return new ReportFetchError({
-              message: cause instanceof Error ? cause.message : String(cause),
+              message: cause instanceof Error ? cause.message : JSON.stringify(cause),
               url,
               courseCodes: formatCourseCodes(info),
               year: info.year,
@@ -344,7 +359,7 @@ const buildSubjectStream = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
 ) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const subjectOutputsDir = path.join(outputsDir, subject, 'html')
 
     const incrementDiscovered = progressRef
@@ -357,18 +372,22 @@ const buildSubjectStream = (
     // Clear subject directory for HTTP subjects when starting
     if (source === 'http' && writeHtml) {
       // Remove directory if it exists
-      const exists = yield* _(fs.exists(subjectOutputsDir).pipe(Effect.catchAll(() => Effect.succeed(false))))
+      const exists = yield* fs.exists(subjectOutputsDir).pipe(Effect.catchAll(() => Effect.succeed(false)))
       if (exists) {
-        yield* _(fs.remove(subjectOutputsDir, { recursive: true }))
+        yield* fs.remove(subjectOutputsDir, { recursive: true })
       }
       // Recreate clean directory
-      yield* _(fs.makeDirectory(subjectOutputsDir, { recursive: true }))
+      yield* fs.makeDirectory(subjectOutputsDir, { recursive: true })
     }
 
     const itemStream =
       source === 'cache'
-        ? yield* _(
-            buildCachedStreamForSubject(subjectOutputsDir, incrementDiscovered, incrementFetched, fs, path),
+        ? yield* buildCachedStreamForSubject(
+            subjectOutputsDir,
+            incrementDiscovered,
+            incrementFetched,
+            fs,
+            path,
           )
         : buildHttpStreamForSubject(subject, year, quarter, incrementDiscovered, incrementFetched)
 
@@ -377,29 +396,25 @@ const buildSubjectStream = (
       Stream.mapEffect(
         (either) =>
           pipe(
-            Effect.gen(function* (_) {
+            Effect.gen(function* () {
               if (Either.isLeft(either)) {
                 // Fetch error: write manifest entry with error marker (no HTML, no path)
                 if (source === 'http' && writeHtml) {
                   const fetchError = either.left
                   const manifestPath = path.join(subjectOutputsDir, MANIFEST_FILENAME)
-                  yield* _(
-                    writeManifestFetchError(manifestPath, fetchError.evalInfo, fetchError).pipe(
-                      Effect.catchAll(() => Effect.void),
-                    ),
+                  yield* writeManifestFetchError(manifestPath, fetchError.evalInfo, fetchError).pipe(
+                    Effect.catchAll(() => Effect.void),
                   )
                 }
                 return Either.left(either.left)
               }
 
               // Directly process the HTML report item
-              const processed = yield* _(
-                processHtmlReportItem(either.right, subject, subjectOutputsDir, {
-                  writeHtml: writeHtml && either.right.source === 'http',
-                  path,
-                  fs,
-                }).pipe(Effect.either),
-              )
+              const processed = yield* processHtmlReportItem(either.right, subject, subjectOutputsDir, {
+                writeHtml: writeHtml && either.right.source === 'http',
+                path,
+                fs,
+              }).pipe(Effect.either)
 
               return processed
             }),
@@ -407,12 +422,12 @@ const buildSubjectStream = (
         { concurrency: 'unbounded' },
       ),
       Stream.onDone(() =>
-        Effect.gen(function* (_) {
+        Effect.gen(function* () {
           // Write completion marker for HTTP subjects
           if (source === 'http' && writeHtml) {
             const manifestPath = path.join(subjectOutputsDir, MANIFEST_FILENAME)
             const marker = { _complete: true, timestamp: new Date().toISOString() }
-            yield* _(appendManifestLine(manifestPath, marker).pipe(Effect.orDie))
+            yield* appendManifestLine(manifestPath, marker).pipe(Effect.orDie)
           }
         }),
       ),
@@ -440,17 +455,17 @@ export const streamHtmlReportsWithCache = (
   PlatformError,
   FileSystem.FileSystem | Path.Path
 > =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const { outputsDir, writeHtml, useCache, progressRef } = options
-    const path = yield* _(Path.Path)
-    const fs = yield* _(FileSystem.FileSystem)
+    const path = yield* Path.Path
+    const fs = yield* FileSystem.FileSystem
 
     // Determine which subjects use cache vs HTTP
     const subjectSources = new Map<string, 'http' | 'cache'>()
 
     if (useCache) {
       const cacheDirs = subjects.map((subject) => path.join(outputsDir, subject, 'html'))
-      const validDirs = yield* _(Effect.all(cacheDirs.map((dir) => checkCacheValid(dir))))
+      const validDirs = yield* Effect.all(cacheDirs.map((dir) => checkCacheValid(dir)))
 
       for (let i = 0; i < subjects.length; i++) {
         subjectSources.set(subjects[i], validDirs[i] ? 'cache' : 'http')
@@ -472,7 +487,7 @@ export const streamHtmlReportsWithCache = (
     })
 
     // Execute all stream effects and merge the resulting streams
-    const streams = yield* _(Effect.all(subjectStreamEffects))
+    const streams = yield* Effect.all(subjectStreamEffects)
     const mergedStream = Stream.mergeAll(streams, { concurrency: 'unbounded' })
 
     return mergedStream

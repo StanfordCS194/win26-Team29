@@ -3,849 +3,853 @@
  * Please do not edit it manually.
  */
 
-import type { Temporal } from "@js-temporal/polyfill";
-import type { ColumnType } from "kysely";
+import type { Temporal } from '@js-temporal/polyfill'
+import type { ColumnType } from 'kysely'
 
-export type ArrayType<T> = ArrayTypeImpl<T> extends (infer U)[]
-  ? U[]
-  : ArrayTypeImpl<T>;
+export type ArrayType<T> = ArrayTypeImpl<T> extends Array<infer U> ? Array<U> : ArrayTypeImpl<T>
 
-export type ArrayTypeImpl<T> = T extends ColumnType<infer S, infer I, infer U>
-  ? ColumnType<S[], I[], U[]>
-  : T[];
+export type ArrayTypeImpl<T> =
+  T extends ColumnType<infer S, infer I, infer U> ? ColumnType<Array<S>, Array<I>, Array<U>> : Array<T>
 
-export type AuthAalLevel = "aal1" | "aal2" | "aal3";
+export type AuthAalLevel = 'aal1' | 'aal2' | 'aal3'
 
-export type AuthCodeChallengeMethod = "plain" | "s256";
+export type AuthCodeChallengeMethod = 'plain' | 's256'
 
-export type AuthFactorStatus = "unverified" | "verified";
+export type AuthFactorStatus = 'unverified' | 'verified'
 
-export type AuthFactorType = "phone" | "totp" | "webauthn";
+export type AuthFactorType = 'phone' | 'totp' | 'webauthn'
 
-export type AuthOauthAuthorizationStatus = "approved" | "denied" | "expired" | "pending";
+export type AuthOauthAuthorizationStatus = 'approved' | 'denied' | 'expired' | 'pending'
 
-export type AuthOauthClientType = "confidential" | "public";
+export type AuthOauthClientType = 'confidential' | 'public'
 
-export type AuthOauthRegistrationType = "dynamic" | "manual";
+export type AuthOauthRegistrationType = 'dynamic' | 'manual'
 
-export type AuthOauthResponseType = "code";
+export type AuthOauthResponseType = 'code'
 
-export type AuthOneTimeTokenType = "confirmation_token" | "email_change_token_current" | "email_change_token_new" | "phone_change_token" | "reauthentication_token" | "recovery_token";
+export type AuthOneTimeTokenType =
+  | 'confirmation_token'
+  | 'email_change_token_current'
+  | 'email_change_token_new'
+  | 'phone_change_token'
+  | 'reauthentication_token'
+  | 'recovery_token'
 
-export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
-  ? ColumnType<S, I | undefined, U>
-  : ColumnType<T, T | undefined, T>;
+export type Generated<T> =
+  T extends ColumnType<infer S, infer I, infer U>
+    ? ColumnType<S, I | undefined, U>
+    : ColumnType<T, T | undefined, T>
 
-export type Json = JsonValue;
+export type Json = JsonValue
 
-export type JsonArray = JsonValue[];
+export type JsonArray = Array<JsonValue>
 
 export type JsonObject = {
-  [x: string]: JsonValue | undefined;
-};
+  [x: string]: JsonValue | undefined
+}
 
-export type JsonPrimitive = boolean | number | string | null;
+export type JsonPrimitive = boolean | number | string | null
 
-export type JsonValue = JsonArray | JsonObject | JsonPrimitive;
+export type JsonValue = JsonArray | JsonObject | JsonPrimitive
 
-export type Numeric = ColumnType<string, number | string, number | string>;
+export type Numeric = ColumnType<string, number | string, number | string>
 
-export type QuarterType = "Autumn" | "Spring" | "Summer" | "Winter";
+export type QuarterType = 'Autumn' | 'Spring' | 'Summer' | 'Winter'
 
-export type StorageBuckettype = "ANALYTICS" | "STANDARD" | "VECTOR";
+export type StorageBuckettype = 'ANALYTICS' | 'STANDARD' | 'VECTOR'
 
-export type WeekdayType = "Friday" | "Monday" | "Saturday" | "Sunday" | "Thursday" | "Tuesday" | "Wednesday";
+export type WeekdayType = 'Friday' | 'Monday' | 'Saturday' | 'Sunday' | 'Thursday' | 'Tuesday' | 'Wednesday'
 
 export interface AcademicCareers {
-  code: string;
-  id: Generated<number>;
+  code: string
+  id: Generated<number>
 }
 
 export interface AcademicGroups {
-  code: string;
-  id: Generated<number>;
+  code: string
+  id: Generated<number>
 }
 
 export interface AcademicOrganizations {
-  code: string;
-  id: Generated<number>;
+  code: string
+  id: Generated<number>
 }
 
 export interface AuthAuditLogEntries {
-  created_at: Temporal.Instant | null;
-  id: string;
-  instance_id: string | null;
-  ip_address: Generated<string>;
-  payload: Json | null;
+  created_at: Temporal.Instant | null
+  id: string
+  instance_id: string | null
+  ip_address: Generated<string>
+  payload: Json | null
 }
 
 export interface AuthFlowState {
-  auth_code: string | null;
-  auth_code_issued_at: Temporal.Instant | null;
-  authentication_method: string;
-  code_challenge: string | null;
-  code_challenge_method: AuthCodeChallengeMethod | null;
-  created_at: Temporal.Instant | null;
-  email_optional: Generated<boolean>;
-  id: string;
-  invite_token: string | null;
-  linking_target_id: string | null;
-  oauth_client_state_id: string | null;
-  provider_access_token: string | null;
-  provider_refresh_token: string | null;
-  provider_type: string;
-  referrer: string | null;
-  updated_at: Temporal.Instant | null;
-  user_id: string | null;
+  auth_code: string | null
+  auth_code_issued_at: Temporal.Instant | null
+  authentication_method: string
+  code_challenge: string | null
+  code_challenge_method: AuthCodeChallengeMethod | null
+  created_at: Temporal.Instant | null
+  email_optional: Generated<boolean>
+  id: string
+  invite_token: string | null
+  linking_target_id: string | null
+  oauth_client_state_id: string | null
+  provider_access_token: string | null
+  provider_refresh_token: string | null
+  provider_type: string
+  referrer: string | null
+  updated_at: Temporal.Instant | null
+  user_id: string | null
 }
 
 export interface AuthIdentities {
-  created_at: Temporal.Instant | null;
+  created_at: Temporal.Instant | null
   /**
    * Auth: Email is a generated column that references the optional email property in the identity_data
    */
-  email: Generated<string | null>;
-  id: Generated<string>;
-  identity_data: Json;
-  last_sign_in_at: Temporal.Instant | null;
-  provider: string;
-  provider_id: string;
-  updated_at: Temporal.Instant | null;
-  user_id: string;
+  email: Generated<string | null>
+  id: Generated<string>
+  identity_data: Json
+  last_sign_in_at: Temporal.Instant | null
+  provider: string
+  provider_id: string
+  updated_at: Temporal.Instant | null
+  user_id: string
 }
 
 export interface AuthInstances {
-  created_at: Temporal.Instant | null;
-  id: string;
-  raw_base_config: string | null;
-  updated_at: Temporal.Instant | null;
-  uuid: string | null;
+  created_at: Temporal.Instant | null
+  id: string
+  raw_base_config: string | null
+  updated_at: Temporal.Instant | null
+  uuid: string | null
 }
 
 export interface AuthMfaAmrClaims {
-  authentication_method: string;
-  created_at: Temporal.Instant;
-  id: string;
-  session_id: string;
-  updated_at: Temporal.Instant;
+  authentication_method: string
+  created_at: Temporal.Instant
+  id: string
+  session_id: string
+  updated_at: Temporal.Instant
 }
 
 export interface AuthMfaChallenges {
-  created_at: Temporal.Instant;
-  factor_id: string;
-  id: string;
-  ip_address: string;
-  otp_code: string | null;
-  verified_at: Temporal.Instant | null;
-  web_authn_session_data: Json | null;
+  created_at: Temporal.Instant
+  factor_id: string
+  id: string
+  ip_address: string
+  otp_code: string | null
+  verified_at: Temporal.Instant | null
+  web_authn_session_data: Json | null
 }
 
 export interface AuthMfaFactors {
-  created_at: Temporal.Instant;
-  factor_type: AuthFactorType;
-  friendly_name: string | null;
-  id: string;
-  last_challenged_at: Temporal.Instant | null;
+  created_at: Temporal.Instant
+  factor_type: AuthFactorType
+  friendly_name: string | null
+  id: string
+  last_challenged_at: Temporal.Instant | null
   /**
    * Stores the latest WebAuthn challenge data including attestation/assertion for customer verification
    */
-  last_webauthn_challenge_data: Json | null;
-  phone: string | null;
-  secret: string | null;
-  status: AuthFactorStatus;
-  updated_at: Temporal.Instant;
-  user_id: string;
-  web_authn_aaguid: string | null;
-  web_authn_credential: Json | null;
+  last_webauthn_challenge_data: Json | null
+  phone: string | null
+  secret: string | null
+  status: AuthFactorStatus
+  updated_at: Temporal.Instant
+  user_id: string
+  web_authn_aaguid: string | null
+  web_authn_credential: Json | null
 }
 
 export interface AuthOauthAuthorizations {
-  approved_at: Temporal.Instant | null;
-  authorization_code: string | null;
-  authorization_id: string;
-  client_id: string;
-  code_challenge: string | null;
-  code_challenge_method: AuthCodeChallengeMethod | null;
-  created_at: Generated<Temporal.Instant>;
-  expires_at: Generated<Temporal.Instant>;
-  id: string;
-  nonce: string | null;
-  redirect_uri: string;
-  resource: string | null;
-  response_type: Generated<AuthOauthResponseType>;
-  scope: string;
-  state: string | null;
-  status: Generated<AuthOauthAuthorizationStatus>;
-  user_id: string | null;
+  approved_at: Temporal.Instant | null
+  authorization_code: string | null
+  authorization_id: string
+  client_id: string
+  code_challenge: string | null
+  code_challenge_method: AuthCodeChallengeMethod | null
+  created_at: Generated<Temporal.Instant>
+  expires_at: Generated<Temporal.Instant>
+  id: string
+  nonce: string | null
+  redirect_uri: string
+  resource: string | null
+  response_type: Generated<AuthOauthResponseType>
+  scope: string
+  state: string | null
+  status: Generated<AuthOauthAuthorizationStatus>
+  user_id: string | null
 }
 
 export interface AuthOauthClients {
-  client_name: string | null;
-  client_secret_hash: string | null;
-  client_type: Generated<AuthOauthClientType>;
-  client_uri: string | null;
-  created_at: Generated<Temporal.Instant>;
-  deleted_at: Temporal.Instant | null;
-  grant_types: string;
-  id: string;
-  logo_uri: string | null;
-  redirect_uris: string;
-  registration_type: AuthOauthRegistrationType;
-  token_endpoint_auth_method: string;
-  updated_at: Generated<Temporal.Instant>;
+  client_name: string | null
+  client_secret_hash: string | null
+  client_type: Generated<AuthOauthClientType>
+  client_uri: string | null
+  created_at: Generated<Temporal.Instant>
+  deleted_at: Temporal.Instant | null
+  grant_types: string
+  id: string
+  logo_uri: string | null
+  redirect_uris: string
+  registration_type: AuthOauthRegistrationType
+  token_endpoint_auth_method: string
+  updated_at: Generated<Temporal.Instant>
 }
 
 export interface AuthOauthClientStates {
-  code_verifier: string | null;
-  created_at: Temporal.Instant;
-  id: string;
-  provider_type: string;
+  code_verifier: string | null
+  created_at: Temporal.Instant
+  id: string
+  provider_type: string
 }
 
 export interface AuthOauthConsents {
-  client_id: string;
-  granted_at: Generated<Temporal.Instant>;
-  id: string;
-  revoked_at: Temporal.Instant | null;
-  scopes: string;
-  user_id: string;
+  client_id: string
+  granted_at: Generated<Temporal.Instant>
+  id: string
+  revoked_at: Temporal.Instant | null
+  scopes: string
+  user_id: string
 }
 
 export interface AuthOneTimeTokens {
-  created_at: Generated<Temporal.Instant>;
-  id: string;
-  relates_to: string;
-  token_hash: string;
-  token_type: AuthOneTimeTokenType;
-  updated_at: Generated<Temporal.Instant>;
-  user_id: string;
+  created_at: Generated<Temporal.Instant>
+  id: string
+  relates_to: string
+  token_hash: string
+  token_type: AuthOneTimeTokenType
+  updated_at: Generated<Temporal.Instant>
+  user_id: string
 }
 
 export interface AuthRefreshTokens {
-  created_at: Temporal.Instant | null;
-  id: Generated<bigint>;
-  instance_id: string | null;
-  parent: string | null;
-  revoked: boolean | null;
-  session_id: string | null;
-  token: string | null;
-  updated_at: Temporal.Instant | null;
-  user_id: string | null;
+  created_at: Temporal.Instant | null
+  id: Generated<bigint>
+  instance_id: string | null
+  parent: string | null
+  revoked: boolean | null
+  session_id: string | null
+  token: string | null
+  updated_at: Temporal.Instant | null
+  user_id: string | null
 }
 
 export interface AuthSamlProviders {
-  attribute_mapping: Json | null;
-  created_at: Temporal.Instant | null;
-  entity_id: string;
-  id: string;
-  metadata_url: string | null;
-  metadata_xml: string;
-  name_id_format: string | null;
-  sso_provider_id: string;
-  updated_at: Temporal.Instant | null;
+  attribute_mapping: Json | null
+  created_at: Temporal.Instant | null
+  entity_id: string
+  id: string
+  metadata_url: string | null
+  metadata_xml: string
+  name_id_format: string | null
+  sso_provider_id: string
+  updated_at: Temporal.Instant | null
 }
 
 export interface AuthSamlRelayStates {
-  created_at: Temporal.Instant | null;
-  flow_state_id: string | null;
-  for_email: string | null;
-  id: string;
-  redirect_to: string | null;
-  request_id: string;
-  sso_provider_id: string;
-  updated_at: Temporal.Instant | null;
+  created_at: Temporal.Instant | null
+  flow_state_id: string | null
+  for_email: string | null
+  id: string
+  redirect_to: string | null
+  request_id: string
+  sso_provider_id: string
+  updated_at: Temporal.Instant | null
 }
 
 export interface AuthSchemaMigrations {
-  version: string;
+  version: string
 }
 
 export interface AuthSessions {
-  aal: AuthAalLevel | null;
-  created_at: Temporal.Instant | null;
-  factor_id: string | null;
-  id: string;
-  ip: string | null;
+  aal: AuthAalLevel | null
+  created_at: Temporal.Instant | null
+  factor_id: string | null
+  id: string
+  ip: string | null
   /**
    * Auth: Not after is a nullable column that contains a timestamp after which the session should be regarded as expired.
    */
-  not_after: Temporal.Instant | null;
-  oauth_client_id: string | null;
+  not_after: Temporal.Instant | null
+  oauth_client_id: string | null
   /**
    * Holds the ID (counter) of the last issued refresh token.
    */
-  refresh_token_counter: bigint | null;
+  refresh_token_counter: bigint | null
   /**
    * Holds a HMAC-SHA256 key used to sign refresh tokens for this session.
    */
-  refresh_token_hmac_key: string | null;
-  refreshed_at: Temporal.Instant | null;
-  scopes: string | null;
-  tag: string | null;
-  updated_at: Temporal.Instant | null;
-  user_agent: string | null;
-  user_id: string;
+  refresh_token_hmac_key: string | null
+  refreshed_at: Temporal.Instant | null
+  scopes: string | null
+  tag: string | null
+  updated_at: Temporal.Instant | null
+  user_agent: string | null
+  user_id: string
 }
 
 export interface AuthSsoDomains {
-  created_at: Temporal.Instant | null;
-  domain: string;
-  id: string;
-  sso_provider_id: string;
-  updated_at: Temporal.Instant | null;
+  created_at: Temporal.Instant | null
+  domain: string
+  id: string
+  sso_provider_id: string
+  updated_at: Temporal.Instant | null
 }
 
 export interface AuthSsoProviders {
-  created_at: Temporal.Instant | null;
-  disabled: boolean | null;
-  id: string;
+  created_at: Temporal.Instant | null
+  disabled: boolean | null
+  id: string
   /**
    * Auth: Uniquely identifies a SSO provider according to a user-chosen resource ID (case insensitive), useful in infrastructure as code.
    */
-  resource_id: string | null;
-  updated_at: Temporal.Instant | null;
+  resource_id: string | null
+  updated_at: Temporal.Instant | null
 }
 
 export interface AuthUsers {
-  aud: string | null;
-  banned_until: Temporal.Instant | null;
-  confirmation_sent_at: Temporal.Instant | null;
-  confirmation_token: string | null;
-  confirmed_at: Generated<Temporal.Instant | null>;
-  created_at: Temporal.Instant | null;
-  deleted_at: Temporal.Instant | null;
-  email: string | null;
-  email_change: string | null;
-  email_change_confirm_status: Generated<number | null>;
-  email_change_sent_at: Temporal.Instant | null;
-  email_change_token_current: Generated<string | null>;
-  email_change_token_new: string | null;
-  email_confirmed_at: Temporal.Instant | null;
-  encrypted_password: string | null;
-  id: string;
-  instance_id: string | null;
-  invited_at: Temporal.Instant | null;
-  is_anonymous: Generated<boolean>;
+  aud: string | null
+  banned_until: Temporal.Instant | null
+  confirmation_sent_at: Temporal.Instant | null
+  confirmation_token: string | null
+  confirmed_at: Generated<Temporal.Instant | null>
+  created_at: Temporal.Instant | null
+  deleted_at: Temporal.Instant | null
+  email: string | null
+  email_change: string | null
+  email_change_confirm_status: Generated<number | null>
+  email_change_sent_at: Temporal.Instant | null
+  email_change_token_current: Generated<string | null>
+  email_change_token_new: string | null
+  email_confirmed_at: Temporal.Instant | null
+  encrypted_password: string | null
+  id: string
+  instance_id: string | null
+  invited_at: Temporal.Instant | null
+  is_anonymous: Generated<boolean>
   /**
    * Auth: Set this column to true when the account comes from SSO. These accounts can have duplicate emails.
    */
-  is_sso_user: Generated<boolean>;
-  is_super_admin: boolean | null;
-  last_sign_in_at: Temporal.Instant | null;
-  phone: Generated<string | null>;
-  phone_change: Generated<string | null>;
-  phone_change_sent_at: Temporal.Instant | null;
-  phone_change_token: Generated<string | null>;
-  phone_confirmed_at: Temporal.Instant | null;
-  raw_app_meta_data: Json | null;
-  raw_user_meta_data: Json | null;
-  reauthentication_sent_at: Temporal.Instant | null;
-  reauthentication_token: Generated<string | null>;
-  recovery_sent_at: Temporal.Instant | null;
-  recovery_token: string | null;
-  role: string | null;
-  updated_at: Temporal.Instant | null;
+  is_sso_user: Generated<boolean>
+  is_super_admin: boolean | null
+  last_sign_in_at: Temporal.Instant | null
+  phone: Generated<string | null>
+  phone_change: Generated<string | null>
+  phone_change_sent_at: Temporal.Instant | null
+  phone_change_token: Generated<string | null>
+  phone_confirmed_at: Temporal.Instant | null
+  raw_app_meta_data: Json | null
+  raw_user_meta_data: Json | null
+  reauthentication_sent_at: Temporal.Instant | null
+  reauthentication_token: Generated<string | null>
+  recovery_sent_at: Temporal.Instant | null
+  recovery_token: string | null
+  role: string | null
+  updated_at: Temporal.Instant | null
 }
 
 export interface ComponentTypes {
-  code: string;
-  id: Generated<number>;
+  code: string
+  id: Generated<number>
 }
 
 export interface ConsentOptions {
-  code: string;
-  id: Generated<number>;
+  code: string
+  id: Generated<number>
 }
 
 export interface CourseOfferingAttributes {
-  course_offering_id: bigint;
-  description: string;
-  id: Generated<bigint>;
-  name: string;
-  schedule_print: boolean;
-  value: string;
+  course_offering_id: number
+  description: string
+  id: Generated<number>
+  name: string
+  schedule_print: boolean
+  value: string
 }
 
 export interface CourseOfferingGers {
-  course_offering_id: bigint;
-  ger_id: number;
-  id: Generated<bigint>;
+  course_offering_id: number
+  ger_id: number
+  id: Generated<number>
 }
 
 export interface CourseOfferings {
-  academic_career_id: number;
-  academic_group_id: number;
-  academic_organization_id: number;
-  code_number: number;
-  code_suffix: string | null;
-  course_id: number;
-  created_at: Generated<Temporal.Instant | null>;
-  description: string;
-  final_exam_flag_id: number;
-  grading_option_id: number;
-  id: Generated<bigint>;
-  max_times_repeat: number;
-  max_units_repeat: number;
-  offer_number: number;
-  repeatable: boolean;
-  schedule_print: boolean;
-  subject_id: number;
-  title: string;
-  units_max: number;
-  units_min: number;
-  year: string;
+  academic_career_id: number
+  academic_group_id: number
+  academic_organization_id: number
+  code_number: number
+  code_suffix: string | null
+  course_id: number
+  created_at: Generated<Temporal.Instant | null>
+  description: string
+  final_exam_flag_id: number
+  grading_option_id: number
+  id: Generated<number>
+  max_times_repeat: number
+  max_units_repeat: number
+  offer_number: number
+  repeatable: boolean
+  schedule_print: boolean
+  subject_id: number
+  title: string
+  units_max: number
+  units_min: number
+  year: string
 }
 
 export interface CourseOfferingTags {
-  course_offering_id: bigint;
-  id: Generated<bigint>;
-  name: string;
-  organization: string;
+  course_offering_id: number
+  id: Generated<number>
+  name: string
+  organization: string
 }
 
 export interface EnrollStatuses {
-  code: string;
-  id: Generated<number>;
+  code: string
+  id: Generated<number>
 }
 
 export interface EvaluationNumericQuestions {
-  id: Generated<number>;
-  question_text: string;
+  id: Generated<number>
+  question_text: string
 }
 
 export interface EvaluationNumericResponses {
-  frequency: number;
-  id: Generated<bigint>;
-  option_text: string;
-  question_id: number;
-  report_id: bigint;
-  weight: number;
+  frequency: number
+  id: Generated<number>
+  option_text: string
+  question_id: number
+  report_id: number
+  weight: number
 }
 
 export interface EvaluationReports {
-  id: Generated<bigint>;
-  responded: number;
-  total: number;
+  id: Generated<number>
+  responded: number
+  total: number
 }
 
 export interface EvaluationReportSections {
-  id: Generated<bigint>;
-  report_id: bigint;
-  section_id: bigint;
+  id: Generated<number>
+  report_id: number
+  section_id: number
 }
 
 export interface EvaluationTextQuestions {
-  id: Generated<number>;
-  question_text: string;
+  id: Generated<number>
+  question_text: string
 }
 
 export interface EvaluationTextResponses {
-  id: Generated<bigint>;
-  question_id: number;
-  report_id: bigint;
-  response_text: string;
+  id: Generated<number>
+  question_id: number
+  report_id: number
+  response_text: string
 }
 
 export interface ExtensionsHypopgHiddenIndexes {
-  am_name: string | null;
-  index_name: string | null;
-  indexrelid: number | null;
-  is_hypo: boolean | null;
-  schema_name: string | null;
-  table_name: string | null;
+  am_name: string | null
+  index_name: string | null
+  indexrelid: number | null
+  is_hypo: boolean | null
+  schema_name: string | null
+  table_name: string | null
 }
 
 export interface ExtensionsHypopgListIndexes {
-  am_name: string | null;
-  index_name: string | null;
-  indexrelid: number | null;
-  schema_name: string | null;
-  table_name: string | null;
+  am_name: string | null
+  index_name: string | null
+  indexrelid: number | null
+  schema_name: string | null
+  table_name: string | null
 }
 
 export interface ExtensionsPgStatStatements {
-  calls: bigint | null;
-  dbid: number | null;
-  jit_deform_count: bigint | null;
-  jit_deform_time: number | null;
-  jit_emission_count: bigint | null;
-  jit_emission_time: number | null;
-  jit_functions: bigint | null;
-  jit_generation_time: number | null;
-  jit_inlining_count: bigint | null;
-  jit_inlining_time: number | null;
-  jit_optimization_count: bigint | null;
-  jit_optimization_time: number | null;
-  local_blk_read_time: number | null;
-  local_blk_write_time: number | null;
-  local_blks_dirtied: bigint | null;
-  local_blks_hit: bigint | null;
-  local_blks_read: bigint | null;
-  local_blks_written: bigint | null;
-  max_exec_time: number | null;
-  max_plan_time: number | null;
-  mean_exec_time: number | null;
-  mean_plan_time: number | null;
-  min_exec_time: number | null;
-  min_plan_time: number | null;
-  minmax_stats_since: Temporal.Instant | null;
-  plans: bigint | null;
-  query: string | null;
-  queryid: bigint | null;
-  rows: bigint | null;
-  shared_blk_read_time: number | null;
-  shared_blk_write_time: number | null;
-  shared_blks_dirtied: bigint | null;
-  shared_blks_hit: bigint | null;
-  shared_blks_read: bigint | null;
-  shared_blks_written: bigint | null;
-  stats_since: Temporal.Instant | null;
-  stddev_exec_time: number | null;
-  stddev_plan_time: number | null;
-  temp_blk_read_time: number | null;
-  temp_blk_write_time: number | null;
-  temp_blks_read: bigint | null;
-  temp_blks_written: bigint | null;
-  toplevel: boolean | null;
-  total_exec_time: number | null;
-  total_plan_time: number | null;
-  userid: number | null;
-  wal_bytes: Numeric | null;
-  wal_fpi: bigint | null;
-  wal_records: bigint | null;
+  calls: bigint | null
+  dbid: number | null
+  jit_deform_count: bigint | null
+  jit_deform_time: number | null
+  jit_emission_count: bigint | null
+  jit_emission_time: number | null
+  jit_functions: bigint | null
+  jit_generation_time: number | null
+  jit_inlining_count: bigint | null
+  jit_inlining_time: number | null
+  jit_optimization_count: bigint | null
+  jit_optimization_time: number | null
+  local_blk_read_time: number | null
+  local_blk_write_time: number | null
+  local_blks_dirtied: bigint | null
+  local_blks_hit: bigint | null
+  local_blks_read: bigint | null
+  local_blks_written: bigint | null
+  max_exec_time: number | null
+  max_plan_time: number | null
+  mean_exec_time: number | null
+  mean_plan_time: number | null
+  min_exec_time: number | null
+  min_plan_time: number | null
+  minmax_stats_since: Temporal.Instant | null
+  plans: bigint | null
+  query: string | null
+  queryid: bigint | null
+  rows: bigint | null
+  shared_blk_read_time: number | null
+  shared_blk_write_time: number | null
+  shared_blks_dirtied: bigint | null
+  shared_blks_hit: bigint | null
+  shared_blks_read: bigint | null
+  shared_blks_written: bigint | null
+  stats_since: Temporal.Instant | null
+  stddev_exec_time: number | null
+  stddev_plan_time: number | null
+  temp_blk_read_time: number | null
+  temp_blk_write_time: number | null
+  temp_blks_read: bigint | null
+  temp_blks_written: bigint | null
+  toplevel: boolean | null
+  total_exec_time: number | null
+  total_plan_time: number | null
+  userid: number | null
+  wal_bytes: Numeric | null
+  wal_fpi: bigint | null
+  wal_records: bigint | null
 }
 
 export interface ExtensionsPgStatStatementsInfo {
-  dealloc: bigint | null;
-  stats_reset: Temporal.Instant | null;
+  dealloc: bigint | null
+  stats_reset: Temporal.Instant | null
 }
 
 export interface FinalExamOptions {
-  code: string;
-  id: Generated<number>;
+  code: string
+  id: Generated<number>
 }
 
 export interface Gers {
-  code: string;
-  id: Generated<number>;
+  code: string
+  id: Generated<number>
 }
 
 export interface GradingOptions {
-  code: string;
-  id: Generated<number>;
+  code: string
+  id: Generated<number>
 }
 
 export interface InstructorRoles {
-  code: string;
-  id: Generated<number>;
+  code: string
+  id: Generated<number>
 }
 
 export interface Instructors {
-  first_name: string | null;
-  id: Generated<bigint>;
-  last_name: string | null;
-  middle_name: string | null;
-  name: string;
-  sunet: string;
+  first_name: string | null
+  id: Generated<number>
+  last_name: string | null
+  middle_name: string | null
+  name: string
+  sunet: string
 }
 
 export interface LearningObjectives {
-  course_offering_id: bigint;
-  description: string;
-  id: Generated<bigint>;
-  requirement_code: string;
+  course_offering_id: number
+  description: string
+  id: Generated<number>
+  requirement_code: string
 }
 
 export interface RealtimeMessages {
-  event: string | null;
-  extension: string;
-  id: Generated<string>;
-  inserted_at: Generated<Temporal.Instant>;
-  payload: Json | null;
-  private: Generated<boolean | null>;
-  topic: string;
-  updated_at: Generated<Temporal.Instant>;
+  event: string | null
+  extension: string
+  id: Generated<string>
+  inserted_at: Generated<Temporal.Instant>
+  payload: Json | null
+  private: Generated<boolean | null>
+  topic: string
+  updated_at: Generated<Temporal.Instant>
 }
 
 export interface RealtimeSchemaMigrations {
-  inserted_at: Temporal.Instant | null;
-  version: bigint;
+  inserted_at: Temporal.Instant | null
+  version: bigint
 }
 
 export interface RealtimeSubscription {
-  action_filter: Generated<string | null>;
-  claims: Json;
-  claims_role: Generated<string>;
-  created_at: Generated<Temporal.Instant>;
-  entity: string;
-  filters: Generated<string[]>;
-  id: Generated<bigint>;
-  subscription_id: string;
+  action_filter: Generated<string | null>
+  claims: Json
+  claims_role: Generated<string>
+  created_at: Generated<Temporal.Instant>
+  entity: string
+  filters: Generated<Array<string>>
+  id: Generated<bigint>
+  subscription_id: string
 }
 
 export interface ScheduleInstructors {
-  id: Generated<bigint>;
-  instructor_id: bigint;
-  instructor_role_id: number;
-  schedule_id: bigint;
+  id: Generated<number>
+  instructor_id: number
+  instructor_role_id: number
+  schedule_id: number
 }
 
 export interface Schedules {
-  days: ArrayType<WeekdayType> | null;
-  end_date: Temporal.PlainDate | null;
-  end_time: Temporal.PlainTime | null;
-  id: Generated<bigint>;
-  location: string | null;
-  section_id: bigint;
-  start_date: Temporal.PlainDate | null;
-  start_time: Temporal.PlainTime | null;
+  days: ArrayType<WeekdayType> | null
+  end_date: Temporal.PlainDate | null
+  end_time: Temporal.PlainTime | null
+  id: Generated<number>
+  location: string | null
+  section_id: number
+  start_date: Temporal.PlainDate | null
+  start_time: Temporal.PlainTime | null
 }
 
 export interface SectionAttributes {
-  description: string;
-  id: Generated<bigint>;
-  name: string;
-  schedule_print: boolean;
-  section_id: bigint;
-  value: string;
+  description: string
+  id: Generated<number>
+  name: string
+  schedule_print: boolean
+  section_id: number
+  value: string
 }
 
 export interface Sections {
-  add_consent_id: number;
-  cancelled: Generated<boolean>;
-  class_id: number;
-  component_type_id: number;
-  course_offering_id: bigint;
-  current_class_size: number;
-  current_waitlist_size: number;
-  drop_consent_id: number;
-  enroll_status_id: number;
-  id: Generated<bigint>;
-  max_class_size: number;
-  max_enrolled: number;
-  max_waitlist: number;
-  max_waitlist_size: number;
-  notes: string | null;
-  num_enrolled: number;
-  num_waitlist: number;
-  section_number: string;
-  term_id: number;
-  term_quarter: QuarterType;
-  units_max: number | null;
-  units_min: number | null;
+  add_consent_id: number
+  cancelled: Generated<boolean>
+  class_id: number
+  component_type_id: number
+  course_offering_id: number
+  current_class_size: number
+  current_waitlist_size: number
+  drop_consent_id: number
+  enroll_status_id: number
+  id: Generated<number>
+  max_class_size: number
+  max_enrolled: number
+  max_waitlist: number
+  max_waitlist_size: number
+  notes: string | null
+  num_enrolled: number
+  num_waitlist: number
+  section_number: string
+  term_id: number
+  term_quarter: QuarterType
+  units_max: number | null
+  units_min: number | null
 }
 
 export interface StorageBuckets {
-  allowed_mime_types: string[] | null;
-  avif_autodetection: Generated<boolean | null>;
-  created_at: Generated<Temporal.Instant | null>;
-  file_size_limit: bigint | null;
-  id: string;
-  name: string;
+  allowed_mime_types: Array<string> | null
+  avif_autodetection: Generated<boolean | null>
+  created_at: Generated<Temporal.Instant | null>
+  file_size_limit: bigint | null
+  id: string
+  name: string
   /**
    * Field is deprecated, use owner_id instead
    */
-  owner: string | null;
-  owner_id: string | null;
-  public: Generated<boolean | null>;
-  type: Generated<StorageBuckettype>;
-  updated_at: Generated<Temporal.Instant | null>;
+  owner: string | null
+  owner_id: string | null
+  public: Generated<boolean | null>
+  type: Generated<StorageBuckettype>
+  updated_at: Generated<Temporal.Instant | null>
 }
 
 export interface StorageBucketsAnalytics {
-  created_at: Generated<Temporal.Instant>;
-  deleted_at: Temporal.Instant | null;
-  format: Generated<string>;
-  id: Generated<string>;
-  name: string;
-  type: Generated<StorageBuckettype>;
-  updated_at: Generated<Temporal.Instant>;
+  created_at: Generated<Temporal.Instant>
+  deleted_at: Temporal.Instant | null
+  format: Generated<string>
+  id: Generated<string>
+  name: string
+  type: Generated<StorageBuckettype>
+  updated_at: Generated<Temporal.Instant>
 }
 
 export interface StorageBucketsVectors {
-  created_at: Generated<Temporal.Instant>;
-  id: string;
-  type: Generated<StorageBuckettype>;
-  updated_at: Generated<Temporal.Instant>;
+  created_at: Generated<Temporal.Instant>
+  id: string
+  type: Generated<StorageBuckettype>
+  updated_at: Generated<Temporal.Instant>
 }
 
 export interface StorageMigrations {
-  executed_at: Generated<Temporal.Instant | null>;
-  hash: string;
-  id: number;
-  name: string;
+  executed_at: Generated<Temporal.Instant | null>
+  hash: string
+  id: number
+  name: string
 }
 
 export interface StorageObjects {
-  bucket_id: string | null;
-  created_at: Generated<Temporal.Instant | null>;
-  id: Generated<string>;
-  last_accessed_at: Generated<Temporal.Instant | null>;
-  level: number | null;
-  metadata: Json | null;
-  name: string | null;
+  bucket_id: string | null
+  created_at: Generated<Temporal.Instant | null>
+  id: Generated<string>
+  last_accessed_at: Generated<Temporal.Instant | null>
+  level: number | null
+  metadata: Json | null
+  name: string | null
   /**
    * Field is deprecated, use owner_id instead
    */
-  owner: string | null;
-  owner_id: string | null;
-  path_tokens: Generated<string[] | null>;
-  updated_at: Generated<Temporal.Instant | null>;
-  user_metadata: Json | null;
-  version: string | null;
+  owner: string | null
+  owner_id: string | null
+  path_tokens: Generated<Array<string> | null>
+  updated_at: Generated<Temporal.Instant | null>
+  user_metadata: Json | null
+  version: string | null
 }
 
 export interface StoragePrefixes {
-  bucket_id: string;
-  created_at: Generated<Temporal.Instant | null>;
-  level: Generated<number>;
-  name: string;
-  updated_at: Generated<Temporal.Instant | null>;
+  bucket_id: string
+  created_at: Generated<Temporal.Instant | null>
+  level: Generated<number>
+  name: string
+  updated_at: Generated<Temporal.Instant | null>
 }
 
 export interface StorageS3MultipartUploads {
-  bucket_id: string;
-  created_at: Generated<Temporal.Instant>;
-  id: string;
-  in_progress_size: Generated<bigint>;
-  key: string;
-  owner_id: string | null;
-  upload_signature: string;
-  user_metadata: Json | null;
-  version: string;
+  bucket_id: string
+  created_at: Generated<Temporal.Instant>
+  id: string
+  in_progress_size: Generated<bigint>
+  key: string
+  owner_id: string | null
+  upload_signature: string
+  user_metadata: Json | null
+  version: string
 }
 
 export interface StorageS3MultipartUploadsParts {
-  bucket_id: string;
-  created_at: Generated<Temporal.Instant>;
-  etag: string;
-  id: Generated<string>;
-  key: string;
-  owner_id: string | null;
-  part_number: number;
-  size: Generated<bigint>;
-  upload_id: string;
-  version: string;
+  bucket_id: string
+  created_at: Generated<Temporal.Instant>
+  etag: string
+  id: Generated<string>
+  key: string
+  owner_id: string | null
+  part_number: number
+  size: Generated<bigint>
+  upload_id: string
+  version: string
 }
 
 export interface StorageVectorIndexes {
-  bucket_id: string;
-  created_at: Generated<Temporal.Instant>;
-  data_type: string;
-  dimension: number;
-  distance_metric: string;
-  id: Generated<string>;
-  metadata_configuration: Json | null;
-  name: string;
-  updated_at: Generated<Temporal.Instant>;
+  bucket_id: string
+  created_at: Generated<Temporal.Instant>
+  data_type: string
+  dimension: number
+  distance_metric: string
+  id: Generated<string>
+  metadata_configuration: Json | null
+  name: string
+  updated_at: Generated<Temporal.Instant>
 }
 
 export interface Subjects {
-  code: string;
-  id: Generated<number>;
-  longname: string | null;
+  code: string
+  id: Generated<number>
+  longname: string | null
 }
 
 export interface SupabaseMigrationsSchemaMigrations {
-  name: string | null;
-  statements: string[] | null;
-  version: string;
+  name: string | null
+  statements: Array<string> | null
+  version: string
 }
 
 export interface SupabaseMigrationsSeedFiles {
-  hash: string;
-  path: string;
+  hash: string
+  path: string
 }
 
 export interface VaultDecryptedSecrets {
-  created_at: Temporal.Instant | null;
-  decrypted_secret: string | null;
-  description: string | null;
-  id: string | null;
-  key_id: string | null;
-  name: string | null;
-  nonce: Buffer | null;
-  secret: string | null;
-  updated_at: Temporal.Instant | null;
+  created_at: Temporal.Instant | null
+  decrypted_secret: string | null
+  description: string | null
+  id: string | null
+  key_id: string | null
+  name: string | null
+  nonce: Buffer | null
+  secret: string | null
+  updated_at: Temporal.Instant | null
 }
 
 export interface VaultSecrets {
-  created_at: Generated<Temporal.Instant>;
-  description: Generated<string>;
-  id: Generated<string>;
-  key_id: string | null;
-  name: string | null;
-  nonce: Generated<Buffer | null>;
-  secret: string;
-  updated_at: Generated<Temporal.Instant>;
+  created_at: Generated<Temporal.Instant>
+  description: Generated<string>
+  id: Generated<string>
+  key_id: string | null
+  name: string | null
+  nonce: Generated<Buffer | null>
+  secret: string
+  updated_at: Generated<Temporal.Instant>
 }
 
 export interface DB {
-  academic_careers: AcademicCareers;
-  academic_groups: AcademicGroups;
-  academic_organizations: AcademicOrganizations;
-  "auth.audit_log_entries": AuthAuditLogEntries;
-  "auth.flow_state": AuthFlowState;
-  "auth.identities": AuthIdentities;
-  "auth.instances": AuthInstances;
-  "auth.mfa_amr_claims": AuthMfaAmrClaims;
-  "auth.mfa_challenges": AuthMfaChallenges;
-  "auth.mfa_factors": AuthMfaFactors;
-  "auth.oauth_authorizations": AuthOauthAuthorizations;
-  "auth.oauth_client_states": AuthOauthClientStates;
-  "auth.oauth_clients": AuthOauthClients;
-  "auth.oauth_consents": AuthOauthConsents;
-  "auth.one_time_tokens": AuthOneTimeTokens;
-  "auth.refresh_tokens": AuthRefreshTokens;
-  "auth.saml_providers": AuthSamlProviders;
-  "auth.saml_relay_states": AuthSamlRelayStates;
-  "auth.schema_migrations": AuthSchemaMigrations;
-  "auth.sessions": AuthSessions;
-  "auth.sso_domains": AuthSsoDomains;
-  "auth.sso_providers": AuthSsoProviders;
-  "auth.users": AuthUsers;
-  component_types: ComponentTypes;
-  consent_options: ConsentOptions;
-  course_offering_attributes: CourseOfferingAttributes;
-  course_offering_gers: CourseOfferingGers;
-  course_offering_tags: CourseOfferingTags;
-  course_offerings: CourseOfferings;
-  enroll_statuses: EnrollStatuses;
-  evaluation_numeric_questions: EvaluationNumericQuestions;
-  evaluation_numeric_responses: EvaluationNumericResponses;
-  evaluation_report_sections: EvaluationReportSections;
-  evaluation_reports: EvaluationReports;
-  evaluation_text_questions: EvaluationTextQuestions;
-  evaluation_text_responses: EvaluationTextResponses;
-  "extensions.hypopg_hidden_indexes": ExtensionsHypopgHiddenIndexes;
-  "extensions.hypopg_list_indexes": ExtensionsHypopgListIndexes;
-  "extensions.pg_stat_statements": ExtensionsPgStatStatements;
-  "extensions.pg_stat_statements_info": ExtensionsPgStatStatementsInfo;
-  final_exam_options: FinalExamOptions;
-  gers: Gers;
-  grading_options: GradingOptions;
-  instructor_roles: InstructorRoles;
-  instructors: Instructors;
-  learning_objectives: LearningObjectives;
-  "realtime.messages": RealtimeMessages;
-  "realtime.schema_migrations": RealtimeSchemaMigrations;
-  "realtime.subscription": RealtimeSubscription;
-  schedule_instructors: ScheduleInstructors;
-  schedules: Schedules;
-  section_attributes: SectionAttributes;
-  sections: Sections;
-  "storage.buckets": StorageBuckets;
-  "storage.buckets_analytics": StorageBucketsAnalytics;
-  "storage.buckets_vectors": StorageBucketsVectors;
-  "storage.migrations": StorageMigrations;
-  "storage.objects": StorageObjects;
-  "storage.prefixes": StoragePrefixes;
-  "storage.s3_multipart_uploads": StorageS3MultipartUploads;
-  "storage.s3_multipart_uploads_parts": StorageS3MultipartUploadsParts;
-  "storage.vector_indexes": StorageVectorIndexes;
-  subjects: Subjects;
-  "supabase_migrations.schema_migrations": SupabaseMigrationsSchemaMigrations;
-  "supabase_migrations.seed_files": SupabaseMigrationsSeedFiles;
-  "vault.decrypted_secrets": VaultDecryptedSecrets;
-  "vault.secrets": VaultSecrets;
+  academic_careers: AcademicCareers
+  academic_groups: AcademicGroups
+  academic_organizations: AcademicOrganizations
+  'auth.audit_log_entries': AuthAuditLogEntries
+  'auth.flow_state': AuthFlowState
+  'auth.identities': AuthIdentities
+  'auth.instances': AuthInstances
+  'auth.mfa_amr_claims': AuthMfaAmrClaims
+  'auth.mfa_challenges': AuthMfaChallenges
+  'auth.mfa_factors': AuthMfaFactors
+  'auth.oauth_authorizations': AuthOauthAuthorizations
+  'auth.oauth_client_states': AuthOauthClientStates
+  'auth.oauth_clients': AuthOauthClients
+  'auth.oauth_consents': AuthOauthConsents
+  'auth.one_time_tokens': AuthOneTimeTokens
+  'auth.refresh_tokens': AuthRefreshTokens
+  'auth.saml_providers': AuthSamlProviders
+  'auth.saml_relay_states': AuthSamlRelayStates
+  'auth.schema_migrations': AuthSchemaMigrations
+  'auth.sessions': AuthSessions
+  'auth.sso_domains': AuthSsoDomains
+  'auth.sso_providers': AuthSsoProviders
+  'auth.users': AuthUsers
+  component_types: ComponentTypes
+  consent_options: ConsentOptions
+  course_offering_attributes: CourseOfferingAttributes
+  course_offering_gers: CourseOfferingGers
+  course_offering_tags: CourseOfferingTags
+  course_offerings: CourseOfferings
+  enroll_statuses: EnrollStatuses
+  evaluation_numeric_questions: EvaluationNumericQuestions
+  evaluation_numeric_responses: EvaluationNumericResponses
+  evaluation_report_sections: EvaluationReportSections
+  evaluation_reports: EvaluationReports
+  evaluation_text_questions: EvaluationTextQuestions
+  evaluation_text_responses: EvaluationTextResponses
+  'extensions.hypopg_hidden_indexes': ExtensionsHypopgHiddenIndexes
+  'extensions.hypopg_list_indexes': ExtensionsHypopgListIndexes
+  'extensions.pg_stat_statements': ExtensionsPgStatStatements
+  'extensions.pg_stat_statements_info': ExtensionsPgStatStatementsInfo
+  final_exam_options: FinalExamOptions
+  gers: Gers
+  grading_options: GradingOptions
+  instructor_roles: InstructorRoles
+  instructors: Instructors
+  learning_objectives: LearningObjectives
+  'realtime.messages': RealtimeMessages
+  'realtime.schema_migrations': RealtimeSchemaMigrations
+  'realtime.subscription': RealtimeSubscription
+  schedule_instructors: ScheduleInstructors
+  schedules: Schedules
+  section_attributes: SectionAttributes
+  sections: Sections
+  'storage.buckets': StorageBuckets
+  'storage.buckets_analytics': StorageBucketsAnalytics
+  'storage.buckets_vectors': StorageBucketsVectors
+  'storage.migrations': StorageMigrations
+  'storage.objects': StorageObjects
+  'storage.prefixes': StoragePrefixes
+  'storage.s3_multipart_uploads': StorageS3MultipartUploads
+  'storage.s3_multipart_uploads_parts': StorageS3MultipartUploadsParts
+  'storage.vector_indexes': StorageVectorIndexes
+  subjects: Subjects
+  'supabase_migrations.schema_migrations': SupabaseMigrationsSchemaMigrations
+  'supabase_migrations.seed_files': SupabaseMigrationsSeedFiles
+  'vault.decrypted_secrets': VaultDecryptedSecrets
+  'vault.secrets': VaultSecrets
 }

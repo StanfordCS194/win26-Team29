@@ -1,7 +1,9 @@
 import { Data, Effect, MutableHashSet } from 'effect'
 import { parse } from 'node-html-parser'
 import { z } from 'zod'
-import { CourseCodeSchema, QuarterSchema, type Quarter, type CodeNumber } from '@scrape/shared/schemas.ts'
+
+import { CourseCodeSchema, QuarterSchema } from '@scrape/shared/schemas.ts'
+import type { CodeNumber, Quarter } from '@scrape/shared/schemas.ts'
 
 const SectionCourseCodeSchema = z.object({
   sectionNumber: z.string().min(1),
@@ -29,7 +31,7 @@ export class ListingsParseError extends Data.TaggedError('ListingsParseError')<{
 }> {}
 
 /** Format EvalInfo section course codes into human-readable strings like ["CS106A-01"]. */
-export const formatCourseCodes = (info: EvalInfo): string[] =>
+export const formatCourseCodes = (info: EvalInfo): Array<string> =>
   info.sectionCourseCodes.map(
     (scc) => `${scc.subject}${scc.codeNumber.number}${scc.codeNumber.suffix ?? ''}-${scc.sectionNumber}`,
   )
@@ -52,7 +54,7 @@ const parseEvalInfo = (
   year: number,
   quarter: Quarter,
 ): Effect.Effect<EvalInfo, ListingsParseError> =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const fail = (message: string) =>
       Effect.fail(
         new ListingsParseError({
@@ -68,7 +70,7 @@ const parseEvalInfo = (
     // Parse course codes + section
     const codesP = root.querySelector('p.sr-dataitem-info-code')
     if (!codesP) {
-      return yield* _(fail('Could not find course code element in HTML fragment'))
+      return yield* fail('Could not find course code element in HTML fragment')
     }
 
     const sectionCourseCodes: Array<z.input<typeof SectionCourseCodeSchema>> = []
@@ -84,18 +86,18 @@ const parseEvalInfo = (
     }
 
     if (sectionCourseCodes.length === 0) {
-      return yield* _(fail(`Could not parse any course codes from: "${text}"`))
+      return yield* fail(`Could not parse any course codes from: "${text}"`)
     }
 
     // Parse responded / total
     const span = root.querySelector('.sr-avg span')
     if (!span) {
-      return yield* _(fail('Could not find response count span'))
+      return yield* fail('Could not find response count span')
     }
 
     const match = span.text.match(/(\d+)\s+of\s+(\d+)/)
     if (!match) {
-      return yield* _(fail(`Could not parse response counts from: "${span.text}"`))
+      return yield* fail(`Could not parse response counts from: "${span.text}"`)
     }
 
     const responded = parseInt(match[1], 10)
@@ -104,14 +106,14 @@ const parseEvalInfo = (
     // Parse data-ids
     const viewA = root.querySelector('a.sr-view-report')
     if (!viewA) {
-      return yield* _(fail('Could not find view report link'))
+      return yield* fail('Could not find view report link')
     }
 
     const dataIds: [string, string, string, string] = [
-      viewA.getAttribute('data-id0') || '',
-      viewA.getAttribute('data-id1') || '',
-      viewA.getAttribute('data-id2') || '',
-      viewA.getAttribute('data-id3') || '',
+      viewA.getAttribute('data-id0') ?? '',
+      viewA.getAttribute('data-id1') ?? '',
+      viewA.getAttribute('data-id2') ?? '',
+      viewA.getAttribute('data-id3') ?? '',
     ]
 
     // Validate with schema
@@ -125,7 +127,7 @@ const parseEvalInfo = (
     })
 
     if (!result.success) {
-      return yield* _(fail(`Invalid EvalInfo structure: ${result.error.message}`))
+      return yield* fail(`Invalid EvalInfo structure: ${result.error.message}`)
     }
 
     return result.data
@@ -136,18 +138,16 @@ export const parseListingsResponse = (
   year: number,
   quarter: Quarter,
 ): Effect.Effect<{ hasMore: boolean; entries: Array<EvalInfo> }, ListingsParseError> =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     // Validate API response structure
     const parseResult = ListingsResponseSchema.safeParse(response)
     if (!parseResult.success) {
-      return yield* _(
-        Effect.fail(
-          new ListingsParseError({
-            message: `Invalid API response: ${parseResult.error.message}`,
-            year,
-            quarter,
-          }),
-        ),
+      return yield* Effect.fail(
+        new ListingsParseError({
+          message: `Invalid API response: ${parseResult.error.message}`,
+          year,
+          quarter,
+        }),
       )
     }
 
@@ -157,10 +157,12 @@ export const parseListingsResponse = (
 
     // Parse each HTML fragment and dedupe by sectionKey (first section of each eval)
     for (const fragment of data.results) {
-      const info = yield* _(parseEvalInfo(fragment, year, quarter))
+      const info = yield* parseEvalInfo(fragment, year, quarter)
       const firstScc = info.sectionCourseCodes[0]
       const key = sectionKey(firstScc.subject, firstScc.codeNumber, firstScc.sectionNumber)
-      if (MutableHashSet.has(seenKeys, key)) continue
+      if (MutableHashSet.has(seenKeys, key)) {
+        continue
+      }
       MutableHashSet.add(seenKeys, key)
       entries.push(info)
     }
