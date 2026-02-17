@@ -1,0 +1,17 @@
+---
+description: Reach for MCPs and docs when you need library-specific information
+globs: app/**/*
+alwaysApply: false
+---
+
+# Reach for MCPs When You Need Them
+
+When you need information or tooling for a project library, use the available documentation and MCPs first instead of guessing:
+
+- **TanStack MCP**: `tanstack_search_docs` for Tanstack Query, Router, Start, etc.; `tanstack_doc` for specific doc pages. Use when you need patterns, APIs, or explanations.
+- **Shadcn**: Prefer shadcn UI components from `@/components/ui` over custom implementations. Add new components when necessary via the Shadcn MCP: `get_add_command_for_items` to add; `search_items_in_registries` to find; `get_item_examples_from_registries` for usage.
+- **Supabase MCP**: `search_docs` for documentation; `list_tables`, `list_migrations` for exploring schema. Use mainly for schema exploration and docs lookups—avoid MCP tools that perform modifying actions (e.g. `apply_migration`, `execute_sql` writes).
+
+**Database queries:** Use Kysely for all code queries—not the Supabase client. Reach for Kysely documentation when necessary. Only query the database from server code (e.g. `createServerFn`), never from the client.
+
+This project uses modern React 19 and TanStack Query patterns. For libraries without a dedicated MCP, reach for official documentation when needed.

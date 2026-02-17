@@ -1,5 +1,10 @@
 {
   "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "declarationDir": "./dist/types",
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
@@ -10,12 +15,11 @@
     "resolveJsonModule": true,
     "strict": true,
     "skipLibCheck": true,
-    "noEmit": true,
     "allowImportingTsExtensions": true,
     "paths": {
-      "@db/*": ["../db/*"],
-      "@scrape/*": ["./*"],
+      "@scrape/*": ["./*"]
     }
   },
+  "references": [{ "path": "../db" }],
   "include": ["**/*.ts"]
 }

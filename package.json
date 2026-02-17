@@ -12,19 +12,41 @@
   ],
   "scripts": {
     "dev": "pnpm --filter @courses/app dev",
-    "build": "pnpm --filter @courses/app build",
+    "build": "turbo run build",
     "preview": "pnpm --filter @courses/app preview",
-    "test": "pnpm test",
-    "lint": "eslint .",
-    "format": "prettier .",
-    "check": "prettier --write . && eslint --fix",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "format": "turbo run format",
+    "format:check": "turbo run format:check",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "check": "turbo run lint format:check typecheck",
+    "fix": "turbo run lint:fix format",
+    "git:safe:commit": "lint-staged",
+    "git:safe:push": "turbo run lint typecheck build",
     "scrape:evals": "pnpm --filter @courses/scrape run scrape:evals",
-    "scrape:courses": "pnpm --filter @courses/scrape run scrape:courses"
+    "scrape:courses": "pnpm --filter @courses/scrape run scrape:courses",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "eslint": "^9.39.2",
-    "prettier": "^3.8.1",
+    "@tanstack/eslint-plugin-query": "^5.91.4",
+    "@tanstack/eslint-plugin-router": "^1.155.0",
+    "@types/node": "^25.2.3",
+    "@typescript/native-preview": "latest",
+    "add": "^2.0.6",
+    "globals": "^17.3.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "oxfmt": "^0.32.0",
+    "oxlint": "^1.47.0",
+    "oxlint-tsgolint": "^0.12.1",
+    "router": "^2.2.0",
+    "turbo": "^2.8.7",
     "typescript": "^5.9.3"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": "oxlint --type-aware --fix --import-plugin --max-warnings=0",
+    "*.{ts,tsx,js,jsx,json,css,md}": "oxfmt"
   },
   "packageManager": "pnpm@10.28.2+sha512.41872f037ad22f7348e3b1debbaf7e867cfd448f2726d9cf74c08f19507c31d2c8e7a11525b983febc2df640b5438dee6023ebb1f84ed43cc2d654d2bc326264"
 }

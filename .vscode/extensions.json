@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "christian-kohler.path-intellisense",
+    "oxc.oxc-vscode",
+    "yoavbls.pretty-ts-errors",
+    "gabor.jsonl-gazelle",
+    "bradlc.vscode-tailwindcss",
+    "typescriptteam.native-preview"
+  ]
+}

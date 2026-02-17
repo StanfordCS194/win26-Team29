@@ -1,5 +1,6 @@
 import { Data, HashMap, HashSet, Option } from 'effect'
-import type { ProcessedReport } from './parse-report.ts'
+
+import type { ProcessedReport, Question } from './parse-report.ts'
 
 // ── Atomic value types ──────────────────────────────────────────────
 
@@ -66,7 +67,7 @@ const convertSectionCourseCode = (
     sectionNumber: scc.sectionNumber,
   })
 
-const convertQuestion = (q: { type: string; responses: Set<any> }): EffectQuestion => {
+const convertQuestion = (q: Question): EffectQuestion => {
   if (q.type === 'numeric') {
     return new NumericQuestion({
       responses: HashSet.fromIterable(
@@ -77,7 +78,7 @@ const convertQuestion = (q: { type: string; responses: Set<any> }): EffectQuesti
     })
   }
   return new TextQuestion({
-    responses: HashSet.fromIterable(q.responses as Set<string>),
+    responses: HashSet.fromIterable(q.responses),
   })
 }
 

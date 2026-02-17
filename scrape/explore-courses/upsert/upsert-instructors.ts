@@ -1,17 +1,19 @@
 import { Effect } from 'effect'
+
 import { DbService } from '@scrape/shared/db-layer.ts'
-import { ParsedInstructor } from '../fetch-parse/parse-courses.ts'
+
+import type { ParsedInstructor } from '../fetch-parse/parse-courses.ts'
 
 const BATCH_SIZE = 1000
 
 /**
  * Upserts instructors into the instructors table (conflict on sunet).
- * Returns a map of sunet -> id (bigint).
+ * Returns a map of sunet -> id.
  */
-export const upsertInstructors = (instructors: ParsedInstructor[]) =>
+export const upsertInstructors = (instructors: Array<ParsedInstructor>) =>
   Effect.gen(function* () {
     if (instructors.length === 0) {
-      return new Map<string, bigint>()
+      return new Map<string, number>()
     }
 
     const db = yield* DbService
@@ -31,7 +33,7 @@ export const upsertInstructors = (instructors: ParsedInstructor[]) =>
 
     const result = yield* Effect.promise(() =>
       db.transaction().execute(async (trx) => {
-        const sunetToId = new Map<string, bigint>()
+        const sunetToId = new Map<string, number>()
         for (let i = 0; i < records.length; i += BATCH_SIZE) {
           const batch = records.slice(i, i + BATCH_SIZE)
           const query = trx

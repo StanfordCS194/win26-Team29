@@ -1,9 +1,11 @@
-import type { DB } from '@db/db.types.ts'
+import type { DB } from '@courses/db/db.types'
 import type { Selectable } from 'kysely'
 
 type KnownDefaultedColumns = 'id' | 'created_at' | 'updated_at'
-type OmitColumnsAndDefaults<T, FK extends keyof T = never> = Omit<T, FK | KnownDefaultedColumns>
-
+type OmitColumnsAndDefaults<T, TForeignKey extends keyof T = never> = Omit<
+  T,
+  TForeignKey | KnownDefaultedColumns
+>
 export type InsertScheduleInstructor = Selectable<DB['schedule_instructors']>
 export type InsertSchedule = Selectable<DB['schedules']>
 export type InsertSectionAttribute = Selectable<DB['section_attributes']>
@@ -21,14 +23,14 @@ export type UploadScheduleInstructor = OmitColumnsAndDefaults<InsertScheduleInst
 
 // Level 3
 export type UploadSchedule = OmitColumnsAndDefaults<InsertSchedule, 'section_id'> & {
-  instructors: UploadScheduleInstructor[]
+  instructors: Array<UploadScheduleInstructor>
 }
 export type UploadSectionAttribute = OmitColumnsAndDefaults<InsertSectionAttribute, 'section_id'>
 
 // Level 2
 export type UploadSection = OmitColumnsAndDefaults<InsertSection, 'course_offering_id' | 'cancelled'> & {
-  attributes: UploadSectionAttribute[]
-  schedules: UploadSchedule[]
+  attributes: Array<UploadSectionAttribute>
+  schedules: Array<UploadSchedule>
 }
 export type UploadLearningObjective = OmitColumnsAndDefaults<InsertLearningObjective, 'course_offering_id'>
 export type UploadCourseOfferingAttribute = OmitColumnsAndDefaults<
@@ -40,9 +42,9 @@ export type UploadCourseOfferingTag = OmitColumnsAndDefaults<InsertCourseOfferin
 
 // Level 1 - Top level (root entity)
 export type UploadCourseOffering = OmitColumnsAndDefaults<InsertCourseOffering> & {
-  sections: UploadSection[]
-  learningObjectives: UploadLearningObjective[]
-  attributes: UploadCourseOfferingAttribute[]
-  gers: UploadCourseOfferingGER[]
-  tags: UploadCourseOfferingTag[]
+  sections: Array<UploadSection>
+  learningObjectives: Array<UploadLearningObjective>
+  attributes: Array<UploadCourseOfferingAttribute>
+  gers: Array<UploadCourseOfferingGER>
+  tags: Array<UploadCourseOfferingTag>
 }

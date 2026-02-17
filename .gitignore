@@ -1,4 +1,8 @@
 node_modules
 .DS_Store
+.eslintcache
 .env
 .pnpm-store
+*.tsbuildinfo
+dist/
+.turbo/
