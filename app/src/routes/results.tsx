@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react'
 import { z } from 'zod'
 
-import { searchCourses } from '@/data/search/search.server'
+import { searchCourses } from '@/data/search/search'
 import type { SearchCourseResult } from '@/data/search/search.types'
 
 const DEFAULT_YEAR = '2022-2023'
