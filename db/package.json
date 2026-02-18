@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "codegen": "kysely-codegen --out-file ./db.types.ts",
+    "generate-types": "tsx generate-types.ts",
     "lint": "oxlint --type-aware --import-plugin .",
     "lint:fix": "oxlint --type-aware --fix --import-plugin .",
     "format": "oxfmt",
@@ -12,13 +13,18 @@
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",
+    "dotenv": "^17.2.3",
     "kysely": "^0.28.10",
-    "pg": "^8.18.0"
+    "kysely-postgres-js": "^3.0.0",
+    "mutano": "^3.4.0",
+    "pg": "^8.18.0",
+    "postgres": "^3.4.8"
   },
   "devDependencies": {
     "@types/node": "^25.1.0",
     "@types/pg": "^8.16.0",
     "kysely-codegen": "^0.19.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "exports": {

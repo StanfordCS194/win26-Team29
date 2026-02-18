@@ -6,10 +6,10 @@
 import type { Temporal } from '@js-temporal/polyfill'
 import type { ColumnType } from 'kysely'
 
-export type ArrayType<T> = ArrayTypeImpl<T> extends Array<infer U> ? Array<U> : ArrayTypeImpl<T>
+export type ArrayType<T> = ArrayTypeImpl<T> extends (infer U)[] ? U[] : ArrayTypeImpl<T>
 
 export type ArrayTypeImpl<T> =
-  T extends ColumnType<infer S, infer I, infer U> ? ColumnType<Array<S>, Array<I>, Array<U>> : Array<T>
+  T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S[], I[], U[]> : T[]
 
 export type AuthAalLevel = 'aal1' | 'aal2' | 'aal3'
 
@@ -42,7 +42,7 @@ export type Generated<T> =
 
 export type Json = JsonValue
 
-export type JsonArray = Array<JsonValue>
+export type JsonArray = JsonValue[]
 
 export type JsonObject = {
   [x: string]: JsonValue | undefined
@@ -361,6 +361,11 @@ export interface ConsentOptions {
   id: Generated<number>
 }
 
+export interface CourseContentSearchMock {
+  offering_id: number | null
+  search_vector: string | null
+}
+
 export interface CourseOfferingAttributes {
   course_offering_id: number
   description: string
@@ -545,6 +550,7 @@ export interface InstructorRoles {
 }
 
 export interface Instructors {
+  first_and_last_name: Generated<string | null>
   first_name: string | null
   id: Generated<number>
   last_name: string | null
@@ -582,7 +588,7 @@ export interface RealtimeSubscription {
   claims_role: Generated<string>
   created_at: Generated<Temporal.Instant>
   entity: string
-  filters: Generated<Array<string>>
+  filters: Generated<string[]>
   id: Generated<bigint>
   subscription_id: string
 }
@@ -640,7 +646,7 @@ export interface Sections {
 }
 
 export interface StorageBuckets {
-  allowed_mime_types: Array<string> | null
+  allowed_mime_types: string[] | null
   avif_autodetection: Generated<boolean | null>
   created_at: Generated<Temporal.Instant | null>
   file_size_limit: bigint | null
@@ -685,7 +691,6 @@ export interface StorageObjects {
   created_at: Generated<Temporal.Instant | null>
   id: Generated<string>
   last_accessed_at: Generated<Temporal.Instant | null>
-  level: number | null
   metadata: Json | null
   name: string | null
   /**
@@ -693,18 +698,10 @@ export interface StorageObjects {
    */
   owner: string | null
   owner_id: string | null
-  path_tokens: Generated<Array<string> | null>
+  path_tokens: Generated<string[] | null>
   updated_at: Generated<Temporal.Instant | null>
   user_metadata: Json | null
   version: string | null
-}
-
-export interface StoragePrefixes {
-  bucket_id: string
-  created_at: Generated<Temporal.Instant | null>
-  level: Generated<number>
-  name: string
-  updated_at: Generated<Temporal.Instant | null>
 }
 
 export interface StorageS3MultipartUploads {
@@ -752,7 +749,7 @@ export interface Subjects {
 
 export interface SupabaseMigrationsSchemaMigrations {
   name: string | null
-  statements: Array<string> | null
+  statements: string[] | null
   version: string
 }
 
@@ -810,6 +807,7 @@ export interface DB {
   'auth.users': AuthUsers
   component_types: ComponentTypes
   consent_options: ConsentOptions
+  course_content_search_mock: CourseContentSearchMock
   course_offering_attributes: CourseOfferingAttributes
   course_offering_gers: CourseOfferingGers
   course_offering_tags: CourseOfferingTags
@@ -843,7 +841,6 @@ export interface DB {
   'storage.buckets_vectors': StorageBucketsVectors
   'storage.migrations': StorageMigrations
   'storage.objects': StorageObjects
-  'storage.prefixes': StoragePrefixes
   'storage.s3_multipart_uploads': StorageS3MultipartUploads
   'storage.s3_multipart_uploads_parts': StorageS3MultipartUploadsParts
   'storage.vector_indexes': StorageVectorIndexes

@@ -4,7 +4,7 @@ import { types } from 'pg'
 
 import { EffectTemporal } from './effect-temporal.ts'
 import type { Kysely } from 'kysely'
-import type { DB } from '@courses/db/db.types'
+import type { DB } from '@courses/db/db'
 
 // Set up type parsers for EffectTemporal (with Effect Equal/Hash support)
 const setupEffectTemporalParsers = () => {
