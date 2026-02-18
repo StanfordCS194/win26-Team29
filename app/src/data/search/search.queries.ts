@@ -1,7 +1,7 @@
 import { sql } from 'kysely'
 import { values } from '@courses/db/helpers'
 
-import type { Kysely, DB, QuarterType } from '@courses/db/db'
+import type { Kysely, DB, QuarterType } from '@courses/db/db-bun'
 import type { SearchCourseResult } from './search.types'
 
 export interface SearchQueryParams {
@@ -310,7 +310,6 @@ export async function searchCourseOfferings(
       'mv.offering_id as id',
       'mv.year',
       'mv.subject_code',
-      'mv.subject_longname',
       'mv.code_number',
       'mv.code_suffix',
       'mv.title',
@@ -319,9 +318,8 @@ export async function searchCourseOfferings(
       'mv.academic_career',
       'mv.academic_organization',
       'mv.gers',
-      //'mv.sections',
+      'mv.sections',
       'sc.matched_on',
-      'sc.score',
     ])
     .orderBy('sc.score', 'desc')
     .orderBy('mv.subject_code')

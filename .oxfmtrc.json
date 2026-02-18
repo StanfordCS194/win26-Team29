@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "ignorePatterns": ["**/.netlify/**", "**/routeTree.gen.ts", "**/dist/**", "pnpm-lock.yaml", "scrape/data/"],
+  "ignorePatterns": ["**/routeTree.gen.ts", "**/dist/**", "bun.lock", "scrape/data/"],
   "semi": false,
   "singleQuote": true,
   "trailingComma": "all",

@@ -1,7 +1,6 @@
-import { Temporal } from '@js-temporal/polyfill'
+import { SQL } from 'bun'
 import { Kysely } from 'kysely'
 import { PostgresJSDialect } from 'kysely-postgres-js'
-import postgres, { type Options } from 'postgres'
 
 import type { DB as GeneratedDB } from './db.types.ts'
 import type { QuarterType } from './db.types.ts'
@@ -102,7 +101,7 @@ export interface CourseOfferingsFullMv {
   max_units_repeat: number
   max_times_repeat: number
   schedule_print: boolean
-  created_at: Temporal.Instant | null
+  created_at: Date | null
   grading_option: string
   final_exam_flag: string
   academic_group: string
@@ -137,67 +136,18 @@ export type DB = GeneratedDB & {
 
 export { Temporal as PGTemporal } from '@js-temporal/polyfill'
 
-const parseEnumArray = (value: string) => {
+const _parseEnumArray = (value: string) => {
   return value
     .slice(1, -1)
     .split(',')
     .filter((s) => s.length > 0)
 }
 
-export function createDb(connectionString: string, config?: Options<{}>) {
-  const pg = postgres(connectionString, {
+export function createDb(connectionString: string) {
+  const pg = new SQL(connectionString, {
+    max: 20,
+    bigint: true,
     prepare: false,
-    ...config,
-    types: {
-      // bigint (oid 20) -> BigInt
-      bigint: {
-        to: 20,
-        from: [20],
-        serialize: (v: bigint) => v.toString(),
-        parse: (v: string) => BigInt(v),
-      },
-      // date (oid 1082) -> Temporal.PlainDate
-      date: {
-        to: 1082,
-        from: [1082],
-        serialize: (v: Temporal.PlainDate) => v.toString(),
-        parse: (v: string) => Temporal.PlainDate.from(v),
-      },
-      // timestamp without tz (oid 1114) -> Temporal.PlainDateTime
-      timestamp: {
-        to: 1114,
-        from: [1114],
-        serialize: (v: Temporal.PlainDateTime) => v.toString(),
-        parse: (v: string) => Temporal.PlainDateTime.from(v.replace(' ', 'T')),
-      },
-      // timestamp with tz (oid 1184) -> Temporal.Instant
-      timestamptz: {
-        to: 1184,
-        from: [1184],
-        serialize: (v: Temporal.Instant) => v.toString(),
-        parse: (v: string) => Temporal.Instant.from(v),
-      },
-      // time (oid 1083) -> Temporal.PlainTime
-      time: {
-        to: 1083,
-        from: [1083],
-        serialize: (v: Temporal.PlainTime) => v.toString(),
-        parse: (v: string) => Temporal.PlainTime.from(v),
-      },
-      // Custom enum arrays (oids 18378, 18387)
-      enum_array_1: {
-        to: 18378,
-        from: [18378],
-        serialize: (v: string[]) => `{${v.join(',')}}`,
-        parse: parseEnumArray,
-      },
-      enum_array_2: {
-        to: 18387,
-        from: [18387],
-        serialize: (v: string[]) => `{${v.join(',')}}`,
-        parse: parseEnumArray,
-      },
-    },
   })
 
   return new Kysely<DB>({

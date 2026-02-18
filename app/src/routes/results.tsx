@@ -16,11 +16,11 @@ const resultsSearchSchema = z.object({
 })
 
 const searchQueryOptions = (query: string, year: string) => {
-  console.log('[searchQueryOptions] creating options with query:', query, 'year:', year)
+  // console.log('[searchQueryOptions] creating options with query:', query, 'year:', year)
   return {
     queryKey: ['search', query, year] as const,
     queryFn: () => {
-      console.log('[searchQueryOptions.queryFn] calling searchCourses with:', { query, year })
+      // console.log('[searchQueryOptions.queryFn] calling searchCourses with:', { query, year })
       return searchCourses({ data: { query, year } })
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
@@ -29,9 +29,9 @@ const searchQueryOptions = (query: string, year: string) => {
 
 export const Route = createFileRoute('/results')({
   validateSearch: (search) => {
-    console.log('[Route.validateSearch] raw search:', search)
+    // console.log('[Route.validateSearch] raw search:', search)
     const parsed = resultsSearchSchema.parse(search)
-    console.log('[Route.validateSearch] parsed search:', parsed)
+    // console.log('[Route.validateSearch] parsed search:', parsed)
     return parsed
   },
   loaderDeps: ({ search }) => {
@@ -39,12 +39,12 @@ export const Route = createFileRoute('/results')({
       query: search.query ?? '',
       year: search.year ?? DEFAULT_YEAR,
     }
-    console.log('[Route.loaderDeps] search:', search, '-> deps:', deps)
+    // console.log('[Route.loaderDeps] search:', search, '-> deps:', deps)
     return deps
   },
   loader: ({ deps, context }) => {
-    console.log('[Route.loader] deps:', deps)
-    console.log('[Route.loader] calling ensureQueryData with query:', deps.query, 'year:', deps.year)
+    // console.log('[Route.loader] deps:', deps)
+    // console.log('[Route.loader] calling ensureQueryData with query:', deps.query, 'year:', deps.year)
     return context.queryClient.ensureQueryData(searchQueryOptions(deps.query, deps.year))
   },
   component: ResultsPage,
@@ -66,15 +66,15 @@ function SearchControls() {
   const navigate = useNavigate()
   const [showFilters, setShowFilters] = useState(false)
 
-  console.log('[SearchControls] current search params:', search)
+  // console.log('[SearchControls] current search params:', search)
 
   const submitSearch = (value: string) => {
-    console.log('[SearchControls.submitSearch] received value:', value)
-    console.log('[SearchControls.submitSearch] value.trim():', value.trim())
-    console.log('[SearchControls.submitSearch] value.trim().length:', value.trim().length)
+    // console.log('[SearchControls.submitSearch] received value:', value)
+    // console.log('[SearchControls.submitSearch] value.trim():', value.trim())
+    // console.log('[SearchControls.submitSearch] value.trim().length:', value.trim().length)
 
     const newQuery = value.trim().length > 0 ? value.trim() : undefined
-    console.log('[SearchControls.submitSearch] newQuery:', newQuery)
+    // console.log('[SearchControls.submitSearch] newQuery:', newQuery)
 
     void navigate({
       to: '/results',
@@ -84,8 +84,8 @@ function SearchControls() {
           year: prev.year ?? DEFAULT_YEAR,
           query: newQuery,
         }
-        console.log('[SearchControls.submitSearch] prev search:', prev)
-        console.log('[SearchControls.submitSearch] new search:', newSearch)
+        // console.log('[SearchControls.submitSearch] prev search:', prev)
+        // console.log('[SearchControls.submitSearch] new search:', newSearch)
         return newSearch
       },
     })
@@ -140,11 +140,11 @@ function SearchInput({
 }) {
   const [value, setValue] = useState(defaultValue)
 
-  console.log('[SearchInput] defaultValue:', defaultValue, 'current value state:', value)
+  // console.log('[SearchInput] defaultValue:', defaultValue, 'current value state:', value)
 
   // Sync local state when defaultValue changes (e.g., after navigation)
   useEffect(() => {
-    console.log('[SearchInput.useEffect] defaultValue changed:', defaultValue, '-> updating state')
+    // console.log('[SearchInput.useEffect] defaultValue changed:', defaultValue, '-> updating state')
     setValue(defaultValue)
   }, [defaultValue])
 
@@ -153,17 +153,17 @@ function SearchInput({
       className="relative flex-1"
       onSubmit={(e) => {
         e.preventDefault()
-        console.log('[SearchInput.onSubmit] form submitted')
-        console.log('[SearchInput.onSubmit] current value state:', value)
+        // console.log('[SearchInput.onSubmit] form submitted')
+        // console.log('[SearchInput.onSubmit] current value state:', value)
 
         // Read value directly from form data to avoid stale closure issues
         const formData = new FormData(e.currentTarget)
         const formDataValue = formData.get('query') as string | null
-        console.log('[SearchInput.onSubmit] formData.get("query"):', formDataValue)
+        // console.log('[SearchInput.onSubmit] formData.get("query"):', formDataValue)
 
         const inputValue = formDataValue != null && formDataValue !== '' ? formDataValue : value
-        console.log('[SearchInput.onSubmit] final inputValue:', inputValue)
-        console.log('[SearchInput.onSubmit] calling onSubmit with:', inputValue)
+        // console.log('[SearchInput.onSubmit] final inputValue:', inputValue)
+        // console.log('[SearchInput.onSubmit] calling onSubmit with:', inputValue)
         onSubmit(inputValue)
       }}
     >
@@ -176,7 +176,7 @@ function SearchInput({
         type="text"
         value={value}
         onChange={(e) => {
-          console.log('[SearchInput.onChange] new value:', e.target.value)
+          // console.log('[SearchInput.onChange] new value:', e.target.value)
           setValue(e.target.value)
         }}
         placeholder="Search by course, instructor, or keyword"
@@ -198,13 +198,13 @@ function SearchResults() {
   const query = search.query ?? ''
   const year = search.year ?? DEFAULT_YEAR
 
-  console.log('[SearchResults] search params:', search)
-  console.log('[SearchResults] query:', query, 'year:', year)
-  console.log('[SearchResults] queryKey:', ['search', query, year])
+  // console.log('[SearchResults] search params:', search)
+  // console.log('[SearchResults] query:', query, 'year:', year)
+  // console.log('[SearchResults] queryKey:', ['search', query, year])
 
   const { data: results = [], isLoading } = useQuery(searchQueryOptions(query, year))
 
-  console.log('[SearchResults] isLoading:', isLoading, 'results count:', results.length)
+  // console.log('[SearchResults] isLoading:', isLoading, 'results count:', results.length)
 
   if (isLoading) {
     return <p className="text-sm text-slate-500">Searching...</p>
@@ -238,16 +238,16 @@ function CourseCard({ course }: { course: SearchCourseResult }) {
         <div className="flex items-start justify-between gap-4">
           <p className="text-2xl font-normal tracking-tight text-slate-900">{displayCode}</p>
           <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-normal text-slate-700">
-            Score {course.score.toFixed(2)}
+            Score {(5.0).toFixed(2)}
           </span>
         </div>
         <h2 className="mt-2 text-xl font-normal tracking-tight text-slate-800">{course.title}</h2>
         <p className="mt-1 text-sm text-slate-500">
           {primaryInstructor !== null ? `Professor ${primaryInstructor}` : 'Instructor TBA'}
         </p>
-        <p className="mt-1 text-sm text-slate-500">
+        {/* <p className="mt-1 text-sm text-slate-500">
           {course.academic_group} | {course.academic_career} | {course.year}
-        </p>
+        </p> */}
         {course.gers.length > 0 && (
           <p className="mt-1 text-sm text-slate-500">GERs: {course.gers.join(', ')}</p>
         )}

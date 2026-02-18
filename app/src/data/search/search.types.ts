@@ -15,7 +15,6 @@ export type SearchCourseResult = {
   id: number
   year: string
   subject_code: string
-  subject_longname: string | null
   code_number: number
   code_suffix: string | null
   title: string
@@ -26,5 +25,4 @@ export type SearchCourseResult = {
   gers: string[]
   //sections: MvSection[]
   matched_on: string[]
-  score: number
 }

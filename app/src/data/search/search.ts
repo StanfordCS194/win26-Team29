@@ -5,7 +5,7 @@ import { parseSearchQuery } from './parse-search-query'
 import { searchCourseOfferings } from './search.queries'
 import { searchInputSchema } from './search.types'
 
-import type { QuarterType } from '@courses/db/db'
+import type { QuarterType } from '@courses/db/db-bun'
 import type { SearchCourseResult } from './search.types'
 
 const ALL_QUARTERS: QuarterType[] = ['Autumn', 'Winter', 'Spring', 'Summer']
