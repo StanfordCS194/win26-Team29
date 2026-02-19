@@ -329,9 +329,6 @@ export async function searchCourseOfferings(
     .compile()
   const t1 = performance.now()
 
-  console.log('[searchCourseOfferings] sql:', compiledQuery.sql)
-  console.log('[searchCourseOfferings] parameters:', compiledQuery.parameters)
-
   const { rows } = await db.executeQuery(compiledQuery)
 
   const t2 = performance.now()

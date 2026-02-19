@@ -14,6 +14,13 @@ const config = defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  ssr: {
+    external: ['bun'],
+  },
+  optimizeDeps: {
+    include: ['react-error-boundary'],
+    exclude: ['bun'],
+  },
   plugins: [
     devtools(),
     // this is the plugin that enables path aliases
