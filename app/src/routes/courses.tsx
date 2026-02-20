@@ -2,14 +2,14 @@ import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useDebouncer } from '@tanstack/react-pacer'
 import { useEffect, useRef, useState } from 'react'
-import { Search } from 'lucide-react'
+import { ChevronDown, ChevronRight, Search } from 'lucide-react'
 
 import { getAvailableYears, searchCourses } from '@/data/search/search'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { ALL_QUARTERS, coursesSearchSchema } from '@/data/search/search.types'
+import { ALL_QUARTERS, coursesSearchSchema, WAYS_OPTIONS } from '@/data/search/search.types'
 
-import type { Quarter, SearchCourseResult, SearchResultSections } from '@/data/search/search.types'
+import type { Quarter, SearchCourseResult, SearchResultSections, Way } from '@/data/search/search.types'
 
 // --- Shared query options factory ---
 
@@ -22,11 +22,29 @@ const availableYearsQueryOptions = {
   refetchOnReconnect: false,
 }
 
-const searchQueryOptions = (query: string, year: string, quarters: Quarter[]) => {
+const searchQueryOptions = (
+  query: string,
+  year: string,
+  quarters: Quarter[],
+  ways: Way[],
+  unitsMin: number | undefined,
+  unitsMax: number | undefined,
+) => {
   const sortedQuarters = [...quarters].sort()
+  const sortedWays = [...ways].sort()
   return {
-    queryKey: ['search', query, year, sortedQuarters] as const,
-    queryFn: () => searchCourses({ data: { query, year, quarters: sortedQuarters } }),
+    queryKey: ['search', query, year, sortedQuarters, sortedWays, unitsMin, unitsMax] as const,
+    queryFn: () =>
+      searchCourses({
+        data: {
+          query,
+          year,
+          quarters: sortedQuarters,
+          ways: sortedWays,
+          unitsMin,
+          unitsMax,
+        },
+      }),
     staleTime: 1000 * 60 * 60,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -68,11 +86,16 @@ export const Route = createFileRoute('/courses')({
     query: search.query,
     year: search.year,
     quarters: search.quarters,
+    ways: search.ways,
+    unitsMin: search.unitsMin,
+    unitsMax: search.unitsMax,
   }),
   loader: ({ deps, context }) => {
     void context.queryClient.prefetchQuery(availableYearsQueryOptions)
     if (deps.query.length > 0) {
-      void context.queryClient.prefetchQuery(searchQueryOptions(deps.query, deps.year, deps.quarters))
+      void context.queryClient.prefetchQuery(
+        searchQueryOptions(deps.query, deps.year, deps.quarters, deps.ways, deps.unitsMin, deps.unitsMax),
+      )
     }
   },
   component: CoursesPage,
@@ -92,6 +115,8 @@ function CoursesPage() {
           <div className="sticky top-28 flex flex-col gap-6">
             <YearSelect />
             <QuarterFilter />
+            <UnitsFilter />
+            <WaysFilter />
           </div>
         </aside>
       </div>
@@ -105,6 +130,9 @@ function SearchBar() {
   const query = Route.useSearch({ select: (s) => s.query })
   const year = Route.useSearch({ select: (s) => s.year })
   const quarters = Route.useSearch({ select: (s) => s.quarters })
+  const ways = Route.useSearch({ select: (s) => s.ways })
+  const unitsMin = Route.useSearch({ select: (s) => s.unitsMin })
+  const unitsMax = Route.useSearch({ select: (s) => s.unitsMax })
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
   const [value, setValue] = useState(query)
@@ -115,7 +143,7 @@ function SearchBar() {
 
   const prefetchDebouncer = useDebouncer(
     (trimmed: string) => {
-      void queryClient.prefetchQuery(searchQueryOptions(trimmed, year, quarters))
+      void queryClient.prefetchQuery(searchQueryOptions(trimmed, year, quarters, ways, unitsMin, unitsMax))
     },
     { wait: 250, enabled: value.trim().length > 0 },
   )
@@ -127,7 +155,12 @@ function SearchBar() {
         e.preventDefault()
         prefetchDebouncer.cancel()
         void navigate({
-          search: (prev) => ({ ...prev, query: value.trim() }),
+          search: (prev) => ({
+            ...prev,
+            query: value.trim(),
+            unitsMin: prev.unitsMin,
+            unitsMax: prev.unitsMax,
+          }),
         })
       }}
     >
@@ -166,6 +199,9 @@ function YearSelect() {
   const query = Route.useSearch({ select: (s) => s.query })
   const year = Route.useSearch({ select: (s) => s.year })
   const quarters = Route.useSearch({ select: (s) => s.quarters })
+  const ways = Route.useSearch({ select: (s) => s.ways })
+  const unitsMin = Route.useSearch({ select: (s) => s.unitsMin })
+  const unitsMax = Route.useSearch({ select: (s) => s.unitsMax })
   const navigate = Route.useNavigate()
   const { data: years } = useQuery(availableYearsQueryOptions)
 
@@ -178,7 +214,14 @@ function YearSelect() {
         value={year}
         onValueChange={(val) => {
           if (val !== undefined && val !== '')
-            void navigate({ search: (prev) => ({ ...prev, year: val ?? undefined }) })
+            void navigate({
+              search: (prev) => ({
+                ...prev,
+                year: val ?? undefined,
+                unitsMin: prev.unitsMin,
+                unitsMax: prev.unitsMax,
+              }),
+            })
         }}
       >
         <SelectTrigger>
@@ -186,7 +229,15 @@ function YearSelect() {
         </SelectTrigger>
         <SelectContent>
           {years.map((y) => (
-            <YearOption key={y} value={y} query={query} quarters={quarters} />
+            <YearOption
+              key={y}
+              value={y}
+              query={query}
+              quarters={quarters}
+              ways={ways}
+              unitsMin={unitsMin}
+              unitsMax={unitsMax}
+            />
           ))}
         </SelectContent>
       </Select>
@@ -194,8 +245,24 @@ function YearSelect() {
   )
 }
 
-function YearOption({ value, query, quarters }: { value: string; query: string; quarters: Quarter[] }) {
-  const hoverProps = usePrefetchOnHover(() => (query ? searchQueryOptions(query, value, quarters) : null))
+function YearOption({
+  value,
+  query,
+  quarters,
+  ways,
+  unitsMin,
+  unitsMax,
+}: {
+  value: string
+  query: string
+  quarters: Quarter[]
+  ways: Way[]
+  unitsMin: number | undefined
+  unitsMax: number | undefined
+}) {
+  const hoverProps = usePrefetchOnHover(() =>
+    query ? searchQueryOptions(query, value, quarters, ways, unitsMin, unitsMax) : null,
+  )
 
   return (
     <SelectItem value={value} {...hoverProps}>
@@ -210,12 +277,22 @@ function QuarterFilter() {
   const query = Route.useSearch({ select: (s) => s.query })
   const year = Route.useSearch({ select: (s) => s.year })
   const quarters = Route.useSearch({ select: (s) => s.quarters })
+  const ways = Route.useSearch({ select: (s) => s.ways })
+  const unitsMin = Route.useSearch({ select: (s) => s.unitsMin })
+  const unitsMax = Route.useSearch({ select: (s) => s.unitsMax })
   const navigate = Route.useNavigate()
 
   const toggle = (quarter: Quarter) => {
     const next = quarters.includes(quarter) ? quarters.filter((q) => q !== quarter) : [...quarters, quarter]
     if (next.length === 0) return
-    void navigate({ search: (prev) => ({ ...prev, quarters: next }) })
+    void navigate({
+      search: (prev) => ({
+        ...prev,
+        quarters: next,
+        unitsMin: prev.unitsMin,
+        unitsMax: prev.unitsMax,
+      }),
+    })
   }
 
   return (
@@ -231,6 +308,9 @@ function QuarterFilter() {
             query={query}
             year={year}
             quarters={quarters}
+            ways={ways}
+            unitsMin={unitsMin}
+            unitsMax={unitsMax}
           />
         ))}
       </div>
@@ -245,6 +325,9 @@ function QuarterCheckbox({
   query,
   year,
   quarters,
+  ways,
+  unitsMin,
+  unitsMax,
 }: {
   quarter: Quarter
   checked: boolean
@@ -252,11 +335,14 @@ function QuarterCheckbox({
   query: string
   year: string
   quarters: Quarter[]
+  ways: Way[]
+  unitsMin: number | undefined
+  unitsMax: number | undefined
 }) {
   const hoverProps = usePrefetchOnHover(() => {
     const next = checked ? quarters.filter((q) => q !== quarter) : [...quarters, quarter]
     if (next.length === 0 || !query) return null
-    return searchQueryOptions(query, year, next)
+    return searchQueryOptions(query, year, next, ways, unitsMin, unitsMax)
   })
 
   return (
@@ -271,6 +357,174 @@ function QuarterCheckbox({
         className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/30"
       />
       {quarter}
+    </label>
+  )
+}
+
+// --- UnitsFilter ---
+
+function UnitsFilter() {
+  const unitsMin = Route.useSearch({ select: (s) => s.unitsMin })
+  const unitsMax = Route.useSearch({ select: (s) => s.unitsMax })
+  const navigate = Route.useNavigate()
+  const [minStr, setMinStr] = useState(unitsMin === undefined ? '' : String(unitsMin))
+  const [maxStr, setMaxStr] = useState(unitsMax === undefined ? '' : String(unitsMax))
+
+  useEffect(() => {
+    setMinStr(unitsMin === undefined ? '' : String(unitsMin))
+    setMaxStr(unitsMax === undefined ? '' : String(unitsMax))
+  }, [unitsMin, unitsMax])
+
+  const commitMin = () => {
+    const s = minStr.trim()
+    const n = s === '' ? undefined : parseInt(s, 10)
+    const next = s === '' ? undefined : Number.isInteger(n) ? n : undefined
+    void navigate({
+      search: (prev) => ({ ...prev, unitsMin: next, unitsMax: prev.unitsMax }),
+    })
+  }
+  const commitMax = () => {
+    const s = maxStr.trim()
+    const n = s === '' ? undefined : parseInt(s, 10)
+    const next = s === '' ? undefined : Number.isInteger(n) ? n : undefined
+    void navigate({
+      search: (prev) => ({ ...prev, unitsMax: next, unitsMin: prev.unitsMin }),
+    })
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-xs font-medium tracking-wide text-slate-500 uppercase">Units</span>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="number"
+          inputMode="numeric"
+          step={1}
+          min={0}
+          value={minStr}
+          onChange={(e) => setMinStr(e.target.value.replace(/\D/g, ''))}
+          onBlur={commitMin}
+          placeholder="Min"
+          aria-label="Minimum units"
+          className="w-14 rounded border border-slate-300 px-2 py-1.5 text-sm text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/20 focus:outline-none"
+        />
+        <span className="text-slate-400">-</span>
+        <input
+          type="number"
+          inputMode="numeric"
+          step={1}
+          min={0}
+          value={maxStr}
+          onChange={(e) => setMaxStr(e.target.value.replace(/\D/g, ''))}
+          onBlur={commitMax}
+          placeholder="Max"
+          aria-label="Maximum units"
+          className="w-14 rounded border border-slate-300 px-2 py-1.5 text-sm text-slate-700 focus:border-primary focus:ring-1 focus:ring-primary/20 focus:outline-none"
+        />
+      </div>
+    </div>
+  )
+}
+
+// --- WaysFilter ---
+
+function WaysFilter() {
+  const [open, setOpen] = useState(false)
+  const query = Route.useSearch({ select: (s) => s.query })
+  const year = Route.useSearch({ select: (s) => s.year })
+  const quarters = Route.useSearch({ select: (s) => s.quarters })
+  const ways = Route.useSearch({ select: (s) => s.ways })
+  const unitsMin = Route.useSearch({ select: (s) => s.unitsMin })
+  const unitsMax = Route.useSearch({ select: (s) => s.unitsMax })
+  const navigate = Route.useNavigate()
+
+  const toggle = (way: Way) => {
+    const next = ways.includes(way) ? ways.filter((w) => w !== way) : [...ways, way]
+    void navigate({
+      search: (prev) => ({
+        ...prev,
+        ways: next,
+        unitsMin: prev.unitsMin,
+        unitsMax: prev.unitsMax,
+      }),
+    })
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-1 rounded text-xs font-medium tracking-wide text-slate-500 uppercase transition hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:outline-none"
+      >
+        Ways
+        {open ? (
+          <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+        ) : (
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+        )}
+      </button>
+      {open && (
+        <div className="flex flex-col gap-1.5">
+          {WAYS_OPTIONS.map((way) => (
+            <WaysCheckbox
+              key={way}
+              way={way}
+              checked={ways.includes(way)}
+              onToggle={() => toggle(way)}
+              query={query}
+              year={year}
+              quarters={quarters}
+              ways={ways}
+              unitsMin={unitsMin}
+              unitsMax={unitsMax}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function WaysCheckbox({
+  way,
+  checked,
+  onToggle,
+  query,
+  year,
+  quarters,
+  ways,
+  unitsMin,
+  unitsMax,
+}: {
+  way: Way
+  checked: boolean
+  onToggle: () => void
+  query: string
+  year: string
+  quarters: Quarter[]
+  ways: Way[]
+  unitsMin: number | undefined
+  unitsMax: number | undefined
+}) {
+  const hoverProps = usePrefetchOnHover(() => {
+    const next = checked ? ways.filter((w) => w !== way) : [...ways, way]
+    if (!query) return null
+    return searchQueryOptions(query, year, quarters, next, unitsMin, unitsMax)
+  })
+
+  return (
+    <label
+      className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-slate-700 transition hover:bg-slate-100"
+      {...hoverProps}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/30"
+      />
+      {way}
     </label>
   )
 }
@@ -294,7 +548,7 @@ function SearchResultsContainer() {
 // --- SearchResults ---
 
 function SearchResults() {
-  const { query, year, quarters } = Route.useSearch()
+  const { query, year, quarters, ways, unitsMin, unitsMax } = Route.useSearch()
 
   const {
     data: results,
@@ -303,7 +557,7 @@ function SearchResults() {
     error,
     isPlaceholderData,
   } = useQuery({
-    ...searchQueryOptions(query, year, quarters),
+    ...searchQueryOptions(query, year, quarters, ways, unitsMin, unitsMax),
     placeholderData: keepPreviousData,
   })
 
@@ -460,7 +714,12 @@ function CourseCard({ course }: { course: SearchCourseResult }) {
             <span className="font-normal text-slate-700">{course.title}</span>
           </h2>
 
-          {course.gers.length > 0 && <p className="text-sm text-slate-400">GERs: {course.gers.join(', ')}</p>}
+          <p className="text-sm text-slate-400">
+            {course.units_min === course.units_max
+              ? `${course.units_min} units`
+              : `${course.units_min} - ${course.units_max} units`}
+            {course.gers.length > 0 && ` | GERs: ${course.gers.join(', ')}`}
+          </p>
 
           {/* Description inline with show more/less */}
           {course.description && (

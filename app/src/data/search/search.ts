@@ -66,6 +66,9 @@ export const searchCourses = createServerFn({ method: 'GET' })
       instructorQuery: parsed.remainingQuery,
       year: data.year,
       quarters: data.quarters,
+      ways: data.ways,
+      unitsMin: data.unitsMin,
+      unitsMax: data.unitsMax,
     })
 
     console.log(
