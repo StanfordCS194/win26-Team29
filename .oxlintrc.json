@@ -12,13 +12,5 @@
     "typescript/prefer-includes": "warn",
     "typescript/no-explicit-any": "warn",
     "typescript/unbound-method": "off"
-  },
-  "overrides": [
-    {
-      "files": ["**/search.queries.ts"],
-      "rules": {
-        "typescript/no-explicit-any": "off"
-      }
-    }
-  ]
+  }
 }
