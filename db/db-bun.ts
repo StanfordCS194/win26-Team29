@@ -119,6 +119,9 @@ export interface EligibleOfferingsMv {
   year: string
   subject_id: number
   term_quarter: QuarterType
+  units_min: number
+  units_max: number
+  gers: string[]
 }
 
 export interface CourseContentSearch {
