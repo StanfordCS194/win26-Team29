@@ -6,10 +6,10 @@
 import type { Temporal } from '@js-temporal/polyfill'
 import type { ColumnType } from 'kysely'
 
-export type ArrayType<T> = ArrayTypeImpl<T> extends Array<infer U> ? Array<U> : ArrayTypeImpl<T>
+export type ArrayType<T> = ArrayTypeImpl<T> extends (infer U)[] ? U[] : ArrayTypeImpl<T>
 
 export type ArrayTypeImpl<T> =
-  T extends ColumnType<infer S, infer I, infer U> ? ColumnType<Array<S>, Array<I>, Array<U>> : Array<T>
+  T extends ColumnType<infer S, infer I, infer U> ? ColumnType<S[], I[], U[]> : T[]
 
 export type AuthAalLevel = 'aal1' | 'aal2' | 'aal3'
 
@@ -42,7 +42,7 @@ export type Generated<T> =
 
 export type Json = JsonValue
 
-export type JsonArray = Array<JsonValue>
+export type JsonArray = JsonValue[]
 
 export type JsonObject = {
   [x: string]: JsonValue | undefined
@@ -417,6 +417,13 @@ export interface EvaluationNumericQuestions {
   question_text: string
 }
 
+export interface EvaluationNumericQuestionsEnhanced {
+  distinct_course_ids: bigint | null
+  distinct_subject_ids: bigint | null
+  id: number | null
+  question_text: string | null
+}
+
 export interface EvaluationNumericResponses {
   frequency: number
   id: Generated<number>
@@ -438,9 +445,25 @@ export interface EvaluationReportSections {
   section_id: number
 }
 
+export interface EvaluationSmartAverages {
+  id: Generated<number>
+  is_course_informed: Generated<boolean>
+  is_instructor_informed: Generated<boolean>
+  question_id: number
+  section_id: number
+  smart_average: number
+}
+
 export interface EvaluationTextQuestions {
   id: Generated<number>
   question_text: string
+}
+
+export interface EvaluationTextQuestionsEnhanced {
+  distinct_course_ids: bigint | null
+  distinct_subject_ids: bigint | null
+  id: number | null
+  question_text: string | null
 }
 
 export interface EvaluationTextResponses {
@@ -545,6 +568,7 @@ export interface InstructorRoles {
 }
 
 export interface Instructors {
+  first_and_last_name: Generated<string | null>
   first_name: string | null
   id: Generated<number>
   last_name: string | null
@@ -582,7 +606,7 @@ export interface RealtimeSubscription {
   claims_role: Generated<string>
   created_at: Generated<Temporal.Instant>
   entity: string
-  filters: Generated<Array<string>>
+  filters: Generated<string[]>
   id: Generated<bigint>
   subscription_id: string
 }
@@ -625,6 +649,7 @@ export interface Sections {
   drop_consent_id: number
   enroll_status_id: number
   id: Generated<number>
+  is_principal: Generated<boolean | null>
   max_class_size: number
   max_enrolled: number
   max_waitlist: number
@@ -640,7 +665,7 @@ export interface Sections {
 }
 
 export interface StorageBuckets {
-  allowed_mime_types: Array<string> | null
+  allowed_mime_types: string[] | null
   avif_autodetection: Generated<boolean | null>
   created_at: Generated<Temporal.Instant | null>
   file_size_limit: bigint | null
@@ -685,7 +710,6 @@ export interface StorageObjects {
   created_at: Generated<Temporal.Instant | null>
   id: Generated<string>
   last_accessed_at: Generated<Temporal.Instant | null>
-  level: number | null
   metadata: Json | null
   name: string | null
   /**
@@ -693,18 +717,10 @@ export interface StorageObjects {
    */
   owner: string | null
   owner_id: string | null
-  path_tokens: Generated<Array<string> | null>
+  path_tokens: Generated<string[] | null>
   updated_at: Generated<Temporal.Instant | null>
   user_metadata: Json | null
   version: string | null
-}
-
-export interface StoragePrefixes {
-  bucket_id: string
-  created_at: Generated<Temporal.Instant | null>
-  level: Generated<number>
-  name: string
-  updated_at: Generated<Temporal.Instant | null>
 }
 
 export interface StorageS3MultipartUploads {
@@ -752,7 +768,7 @@ export interface Subjects {
 
 export interface SupabaseMigrationsSchemaMigrations {
   name: string | null
-  statements: Array<string> | null
+  statements: string[] | null
   version: string
 }
 
@@ -816,10 +832,13 @@ export interface DB {
   course_offerings: CourseOfferings
   enroll_statuses: EnrollStatuses
   evaluation_numeric_questions: EvaluationNumericQuestions
+  evaluation_numeric_questions_enhanced: EvaluationNumericQuestionsEnhanced
   evaluation_numeric_responses: EvaluationNumericResponses
   evaluation_report_sections: EvaluationReportSections
   evaluation_reports: EvaluationReports
+  evaluation_smart_averages: EvaluationSmartAverages
   evaluation_text_questions: EvaluationTextQuestions
+  evaluation_text_questions_enhanced: EvaluationTextQuestionsEnhanced
   evaluation_text_responses: EvaluationTextResponses
   'extensions.hypopg_hidden_indexes': ExtensionsHypopgHiddenIndexes
   'extensions.hypopg_list_indexes': ExtensionsHypopgListIndexes
@@ -843,7 +862,6 @@ export interface DB {
   'storage.buckets_vectors': StorageBucketsVectors
   'storage.migrations': StorageMigrations
   'storage.objects': StorageObjects
-  'storage.prefixes': StoragePrefixes
   'storage.s3_multipart_uploads': StorageS3MultipartUploads
   'storage.s3_multipart_uploads_parts': StorageS3MultipartUploadsParts
   'storage.vector_indexes': StorageVectorIndexes

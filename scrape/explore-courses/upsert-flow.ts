@@ -13,6 +13,8 @@ import type { ParsedSubjectData } from './fetch-parse-flow.ts'
 import type { EntityLookupIdMap } from './upsert/prepare-course.ts'
 import type { CourseOfferingUpsertError } from './upsert/upsert-courses.ts'
 import type { UploadCourseOffering } from './upsert/upsert-courses.types.ts'
+import { DbService } from '@scrape/shared/db-layer.ts'
+import { sql } from 'kysely'
 
 function formatUpsertError(error: CourseOfferingUpsertError) {
   return {
@@ -179,5 +181,29 @@ export const databaseUpsertFlow = ({
     yield* Console.log(
       `${totalCoursesProcessed} course offerings processed (${failures.length} batch failures)`,
     )
+
+    const db = yield* DbService
+
+    // set statement timeout to 25 minutes
+    yield* Effect.promise(() => db.executeQuery(sql`SET statement_timeout = '25min'`.compile(db)))
+    yield* Console.log('Set statement timeout to 25 minutes')
+
+    yield* Console.log('\nRefreshing materialized views...')
+    yield* Effect.promise(() =>
+      db.schema.refreshMaterializedView('course_content_search').concurrently().execute(),
+    )
+    yield* Console.log('Refreshed course content search materialized view...')
+    yield* Console.log('\nRefreshing eligible offerings materialized view...')
+    yield* Effect.promise(() =>
+      db.schema.refreshMaterializedView('offering_quarters_mv').concurrently().execute(),
+    )
+    yield* Console.log('Refreshed eligible offerings materialized view...')
+    yield* Console.log('\nRefreshing course offerings full materialized view...')
+    yield* Effect.promise(() =>
+      db.schema.refreshMaterializedView('course_offerings_full_mv').concurrently().execute(),
+    )
+    yield* Console.log('Refreshed course offerings full materialized view...')
+    yield* Console.log('\nMaterialized views refreshed')
+
     yield* Console.log('Database upsert complete')
   })

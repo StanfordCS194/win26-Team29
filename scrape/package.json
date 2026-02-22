@@ -3,8 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "scrape:evals": "tsx course-evals/cli.ts",
-    "scrape:courses": "tsx explore-courses/cli.ts",
+    "scrape:evals": "bun course-evals/cli.ts",
+    "scrape:courses": "bun explore-courses/cli.ts",
+    "smart-averages": "bun smart-averages/cli.ts",
     "lint": "oxlint --type-aware --import-plugin .",
     "lint:fix": "oxlint --type-aware --fix --import-plugin .",
     "format": "oxfmt",
@@ -26,6 +27,7 @@
     "jsonpathly": "^3.0.0",
     "kysely": "^0.28.10",
     "node-html-parser": "^7.0.2",
+    "nodejs-polars": "^0.24.0",
     "pg": "^8.18.0",
     "zod": "^4.3.6"
   },
