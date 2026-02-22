@@ -16,7 +16,6 @@ export interface SearchQueryParams {
   codes: Array<{ subject: string; codeNumber: number; codeSuffix?: string }>
   subjectCodes: string[]
   contentQuery: string
-  instructorQuery: string
   year: string
   quarters: QuarterType[]
   ways: string[]
@@ -37,7 +36,6 @@ export async function searchCourseOfferings(
     codes,
     subjectCodes,
     contentQuery,
-    instructorQuery,
     year,
     quarters,
     ways,
@@ -58,10 +56,9 @@ export async function searchCourseOfferings(
   const hasCodes = codes.length > 0
   const hasSubjectCodes = subjectCodes.length > 0
   const hasContentQuery = contentQuery.length > 0
-  const hasInstructorQuery = instructorQuery.length >= 4
   const hasQuarters = quarters.length > 0
-  const hasAnyTextFilter = hasCodes || hasSubjectCodes || hasContentQuery || hasInstructorQuery
-  const instructorQueryLower = instructorQuery.toLowerCase()
+  const hasAnyTextFilter = hasCodes || hasContentQuery
+  const contentQueryLower = contentQuery.toLowerCase()
 
   const parsedCodes = codes.map((c) => ({
     subject: c.subject.toUpperCase(),
@@ -89,11 +86,19 @@ export async function searchCourseOfferings(
       (qb) =>
         qb
           .selectFrom('offering_quarters_mv as oq')
+          .innerJoin('subjects as s', 's.id', 'oq.subject_id')
           .where('oq.year', '=', year)
           .$if(hasQuarters, (qb) => qb.where('oq.term_quarter', 'in', quarters))
           .$if(hasWays, (qb) => qb.where(sql<SqlBool>`oq.gers::text[] && ${waysArray}`))
           .$if(unitsMin != null, (qb) => qb.where('oq.units_max', '>=', unitsMin!))
           .$if(unitsMax != null, (qb) => qb.where('oq.units_min', '<=', unitsMax!))
+          .$if(hasSubjectCodes, (qb) =>
+            qb.where(
+              's.code',
+              'in',
+              subjectCodes.map((c) => c.toUpperCase()),
+            ),
+          )
           .select([
             'oq.offering_id',
             'oq.subject_id',
@@ -149,30 +154,6 @@ export async function searchCourseOfferings(
         ]),
     )
 
-    // ─── CTE: subject_code_matches ───
-    // Optimization: query offering_quarters_mv directly instead of scanning
-    // the full materialized filtered_offerings CTE. This lets Postgres use
-    // idx_eligible_mv_subject for a fast index lookup.
-    .with('subject_code_matches', (qb) =>
-      qb
-        .selectFrom(
-          values(
-            hasSubjectCodes ? subjectCodes.map((s) => ({ code: s.toUpperCase() })) : [{ code: '' }],
-            'subj',
-          ),
-        )
-        .innerJoin('subjects as s', (join) => join.onRef('s.code', '=', 'subj.code'))
-        .innerJoin('offering_quarters_mv as oq', (join) =>
-          join.onRef('oq.subject_id', '=', 's.id').on('oq.year', '=', year),
-        )
-        .$if(hasQuarters, (qb) => qb.where('oq.term_quarter', 'in', quarters))
-        .$if(hasWays, (qb) => qb.where(sql<SqlBool>`oq.gers::text[] && ${waysArray}`))
-        .$if(unitsMin != null, (qb) => qb.where('oq.units_max', '>=', unitsMin!))
-        .$if(unitsMax != null, (qb) => qb.where('oq.units_min', '<=', unitsMax!))
-        .$if(!hasSubjectCodes, (qb) => qb.where(sql.lit(false)))
-        .select(['oq.offering_id', sql.lit(0.3).as('rank'), sql.lit('code').as('match_type')]),
-    )
-
     // ─── CTE: content_matches ───
     .with('content_matches', (qb) =>
       qb
@@ -202,24 +183,24 @@ export async function searchCourseOfferings(
         .selectFrom((sb) =>
           sb
             .selectFrom('instructors')
-            .where('sunet', '=', instructorQueryLower)
+            .where('sunet', '=', contentQueryLower)
             .select(['id', 'sunet', 'first_and_last_name', 'last_name', 'first_name'])
             .unionAll(
               sb
                 .selectFrom('instructors')
-                .where('first_and_last_name', sql`%`, instructorQuery)
+                .where('first_and_last_name', sql`%`, contentQuery)
                 .select(['id', 'sunet', 'first_and_last_name', 'last_name', 'first_name']),
             )
             .unionAll(
               sb
                 .selectFrom('instructors')
-                .where('last_name', sql`%`, instructorQuery)
+                .where('last_name', sql`%`, contentQuery)
                 .select(['id', 'sunet', 'first_and_last_name', 'last_name', 'first_name']),
             )
             .unionAll(
               sb
                 .selectFrom('instructors')
-                .where('first_name', sql`%`, instructorQuery)
+                .where('first_name', sql`%`, contentQuery)
                 .select(['id', 'sunet', 'first_and_last_name', 'last_name', 'first_name']),
             )
             .as('candidates'),
@@ -233,12 +214,12 @@ export async function searchCourseOfferings(
           'candidates.first_name',
           eb
             .case()
-            .when('candidates.sunet', '=', instructorQueryLower)
+            .when('candidates.sunet', '=', contentQueryLower)
             .then(sql.lit(1.0))
             .else(
               eb.fn<number>('greatest', [
-                eb.fn<number>('similarity', ['candidates.first_and_last_name', sql.val(instructorQuery)]),
-                eb.fn<number>('similarity', ['candidates.last_name', sql.val(instructorQuery)]),
+                eb.fn<number>('similarity', ['candidates.first_and_last_name', sql.val(contentQuery)]),
+                eb.fn<number>('similarity', ['candidates.last_name', sql.val(contentQuery)]),
               ]),
             )
             .end()
@@ -292,14 +273,14 @@ export async function searchCourseOfferings(
               'ic.instructor_id',
               eb
                 .case()
-                .when('ic.sunet', '=', instructorQueryLower)
+                .when('ic.sunet', '=', contentQueryLower)
                 .then(sql.lit(1.0))
                 .else(
                   sql<number>`
                         1.0
-                        - (1.0 - ${eb.fn<number>('similarity', ['ic.first_and_last_name', sql.val(instructorQuery)])} * 0.55)
-                        * (1.0 - ${eb.fn<number>('similarity', ['ic.last_name', sql.val(instructorQuery)])} * 0.95)
-                        * (1.0 - ${eb.fn<number>('similarity', ['ic.first_name', sql.val(instructorQuery)])} * 0.15)
+                        - (1.0 - ${eb.fn<number>('similarity', ['ic.first_and_last_name', sql.val(contentQuery)])} * 0.55)
+                        * (1.0 - ${eb.fn<number>('similarity', ['ic.last_name', sql.val(contentQuery)])} * 0.95)
+                        * (1.0 - ${eb.fn<number>('similarity', ['ic.first_name', sql.val(contentQuery)])} * 0.15)
                       `,
                 )
                 .end()
@@ -308,7 +289,7 @@ export async function searchCourseOfferings(
             .distinct()
             .as('sub'),
         )
-        .$if(!hasInstructorQuery, (qb) => qb.where(sql.lit(false)))
+        .$if(!hasContentQuery, (qb) => qb.where(sql.lit(false)))
         .select((eb) => [
           'sub.offering_id',
           sql<number>`(${eb.fn.max('sub.adj_rank')} * 0.97 + ${eb.fn.avg('sub.adj_rank')} * 0.03)
@@ -323,7 +304,7 @@ export async function searchCourseOfferings(
       qb
         .selectFrom('subjects as s')
         .innerJoin('course_offerings as co', 'co.subject_id', 's.id')
-        .where('s.longname', sql`%`, instructorQuery)
+        .where('s.longname', sql`%`, contentQuery)
         .where((eb) =>
           eb.exists(
             eb
@@ -332,10 +313,10 @@ export async function searchCourseOfferings(
               .whereRef('fo.offering_id', '=', 'co.id'),
           ),
         )
-        .$if(!hasInstructorQuery, (qb) => qb.where(sql.lit(false)))
+        .$if(!hasContentQuery, (qb) => qb.where(sql.lit(false)))
         .select((eb) => [
           'co.id as offering_id',
-          eb.fn<number>('similarity', ['s.longname', sql.val(instructorQuery)]).as('rank'),
+          eb.fn<number>('similarity', ['s.longname', sql.val(contentQuery)]).as('rank'),
           sql.lit('subject').as('match_type'),
         ]),
     )
@@ -355,7 +336,6 @@ export async function searchCourseOfferings(
       qb
         .selectFrom('code_matches')
         .select(['offering_id', 'rank', 'match_type'])
-        .unionAll(qb.selectFrom('subject_code_matches').select(['offering_id', 'rank', 'match_type']))
         .unionAll(qb.selectFrom('content_matches').select(['offering_id', 'rank', 'match_type']))
         .unionAll(qb.selectFrom('instructor_matches').select(['offering_id', 'rank', 'match_type']))
         .unionAll(qb.selectFrom('subject_matches').select(['offering_id', 'rank', 'match_type']))

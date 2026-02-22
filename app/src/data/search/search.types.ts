@@ -56,18 +56,32 @@ export const WAYS_OPTIONS = [
 export const waysEnum = z.enum(WAYS_OPTIONS)
 export type Way = z.infer<typeof waysEnum>
 
-const DEFAULT_YEAR = '2025-2026'
+/** Current academic year; boundary is August 25 (e.g. Aug 25, 2026 → "2026-2027"). */
+function getCurrentAcademicYear(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() // 0-indexed; August = 7
+  const date = now.getDate()
+  const onOrAfterAug25 = month > 7 || (month === 7 && date >= 25)
+  const startYear = onOrAfterAug25 ? year : year - 1
+  return `${startYear}-${startYear + 1}`
+}
+
+export const DEFAULT_YEAR = getCurrentAcademicYear()
 
 /** Normalize ways from URL (may be string when single value or comma-separated) to array. */
 const waysSearchParam = z.preprocess(
   (val) => (Array.isArray(val) ? val : typeof val === 'string' ? (val === '' ? [] : val.split(',')) : []),
-  z.array(waysEnum).default([]),
+  z.array(waysEnum).catch([]),
 )
 
-/** Normalize quarters from URL (may be string when single value or comma-separated) to array. */
+/**
+ * FIX 3: Default quarters to [] instead of ALL_QUARTERS.
+ * Treat empty array as "all quarters" in query logic, not in the schema.
+ */
 const quartersSearchParam = z.preprocess(
   (val) => (Array.isArray(val) ? val : typeof val === 'string' ? (val === '' ? [] : val.split(',')) : []),
-  z.array(quarterEnum).default(ALL_QUARTERS),
+  z.array(quarterEnum).catch([]),
 )
 
 /** Optional integer from URL (string or number). */
@@ -83,17 +97,19 @@ const optionalNumParam = z.preprocess(
   z.number().optional(),
 )
 
-// --- Route search params schema (Zod v4 Standard Schema — no adapter needed) ---
+// --- Route search params schema ---
+// Using .catch() instead of .default() so invalid values silently fall back
+// rather than only applying on undefined.
 
 export const coursesSearchSchema = z.object({
-  query: z.string().default(''),
-  year: z.string().default(DEFAULT_YEAR),
+  query: z.string().catch(''),
+  year: z.string().catch(DEFAULT_YEAR),
   quarters: quartersSearchParam,
   ways: waysSearchParam,
   unitsMin: optionalIntParam,
   unitsMax: optionalIntParam,
-  sort: z.enum(SORT_OPTIONS).default('relevance'),
-  order: z.enum(['asc', 'desc']).default('desc'),
+  sort: z.enum(SORT_OPTIONS).catch('relevance'),
+  order: z.enum(['asc', 'desc']).catch('desc'),
   min_eval_rating: optionalNumParam,
   max_eval_rating: optionalNumParam,
   min_eval_learning: optionalNumParam,
@@ -108,10 +124,26 @@ export const coursesSearchSchema = z.object({
   max_eval_attend_online: optionalNumParam,
   min_eval_hours: optionalNumParam,
   max_eval_hours: optionalNumParam,
-  page: z.coerce.number().int().min(1).default(1),
+  page: z.coerce.number().int().min(1).catch(1),
 })
 
 export type CoursesSearch = z.infer<typeof coursesSearchSchema>
+
+// ---------------------------------------------------------------------------
+// FIX 4: Default values object for use with TanStack Router's built-in
+// stripSearchParams middleware. Keys whose values match these will be removed
+// from the URL, keeping it clean and preventing redirect loops.
+// ---------------------------------------------------------------------------
+
+export const SEARCH_DEFAULTS: Partial<CoursesSearch> = {
+  query: '',
+  year: DEFAULT_YEAR,
+  quarters: [],
+  ways: [],
+  sort: 'relevance',
+  order: 'desc',
+  page: 1,
+}
 
 // --- Server function input schema ---
 

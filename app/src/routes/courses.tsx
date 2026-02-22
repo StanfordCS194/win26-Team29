@@ -1,11 +1,17 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, stripSearchParams } from '@tanstack/react-router'
 
-import { coursesSearchSchema, extractEvalFilters } from '@/data/search/search.types'
+import { coursesSearchSchema, extractEvalFilters, SEARCH_DEFAULTS } from '@/data/search/search.types'
 import { availableYearsQueryOptions, searchQueryOptions } from '@/components/courses/courses-query-options'
 import { CoursesPage } from '@/components/courses/CoursesPage'
 
 export const Route = createFileRoute('/courses')({
+  // Zod v4 implements Standard Schema — no adapter needed.
   validateSearch: coursesSearchSchema,
+
+  search: {
+    middlewares: [stripSearchParams(SEARCH_DEFAULTS)],
+  },
+
   loaderDeps: ({ search }) => ({
     query: search.query,
     year: search.year,

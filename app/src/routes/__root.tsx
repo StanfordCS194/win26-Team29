@@ -1,8 +1,6 @@
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
 
 import Header from '../components/Header'
-import { getEvalQuestions } from '../data/search/eval-questions'
-import { getAvailableYears, warmSubjectsCache } from '../data/search/search'
 import appCss from '../styles.css?url'
 import type { QueryClient } from '@tanstack/react-query'
 
@@ -11,12 +9,6 @@ export interface MyRouterContext {
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
-  beforeLoad: () => {
-    void warmSubjectsCache()
-    void getAvailableYears()
-    void getEvalQuestions()
-  },
-
   head: () => ({
     meta: [
       {

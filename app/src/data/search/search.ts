@@ -72,7 +72,6 @@ export const searchCourses = createServerFn({ method: 'GET' })
       codes: parsed.codes,
       subjectCodes: parsed.subjectsOnly,
       contentQuery: parsed.remainingQuery,
-      instructorQuery: parsed.remainingQuery,
       year: data.year,
       quarters: data.quarters,
       ways: data.ways,

@@ -55,12 +55,12 @@ export function YearSelect() {
       <Select
         value={year}
         onValueChange={(val) => {
-          if (val !== undefined && val !== '')
+          if (val != null && val !== '')
             void navigate({
               search: (prev) =>
                 ({
                   ...prev,
-                  year: val ?? undefined,
+                  year: val,
                   page: 1,
                 }) as Required<CoursesSearch>,
             })

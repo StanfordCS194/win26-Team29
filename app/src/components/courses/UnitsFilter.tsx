@@ -59,14 +59,6 @@ export function UnitsFilter() {
     setMaxInput(draftMax === undefined ? '' : String(draftMax))
   }, [draftMin, draftMax])
 
-  // Fix missing min URL param on mount
-  useEffect(() => {
-    if (unitsMin !== undefined) return
-    void navigate({
-      search: (prev) => ({ ...prev, unitsMin: RANGE_MIN, page: 1 }) as Required<CoursesSearch>,
-    })
-  }, [navigate, unitsMin])
-
   const applyRange = (nextMin: number, nextMax: number | undefined) => {
     const min = clamp(nextMin, RANGE_MIN, 8)
     const max = nextMax === undefined ? undefined : Math.max(min, nextMax)
