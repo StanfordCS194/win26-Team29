@@ -1,7 +1,10 @@
 import { createServerFn } from '@tanstack/react-start'
 
+import { getEvalQuestions } from './eval-questions'
 import { searchInputSchema } from './search.types'
 
+import type { EvalSlug } from './eval-questions'
+import type { EvalFilterParam } from './search.queries'
 import type { SearchCourseResult } from './search.types'
 
 let cachedSubjects: string[] | null = null
@@ -22,7 +25,7 @@ export const getAvailableYears = createServerFn({ method: 'GET' }).handler(async
   const { getServerDb } = await import('@/lib/server-db')
   const db = getServerDb()
   const rows = await db
-    .selectFrom('eligible_offerings_mv')
+    .selectFrom('offering_quarters_mv')
     .select('year')
     .distinct()
     .orderBy('year', 'desc')
@@ -34,14 +37,12 @@ export const getAvailableYears = createServerFn({ method: 'GET' }).handler(async
 
 export const searchCourses = createServerFn({ method: 'GET' })
   .inputValidator(searchInputSchema)
-  .handler(async ({ data }): Promise<SearchCourseResult[]> => {
+  .handler(async ({ data }): Promise<{ results: SearchCourseResult[]; hasMore: boolean }> => {
     const { getServerDb } = await import('@/lib/server-db')
     const { parseSearchQuery } = await import('./parse-search-query')
     const { searchCourseOfferings } = await import('./search.queries')
 
     const query = data.query.trim().replaceAll(/\s+/g, ' ')
-
-    if (query.length === 0) return []
 
     const db = getServerDb()
 
@@ -57,9 +58,17 @@ export const searchCourses = createServerFn({ method: 'GET' })
 
     const parsed = parseSearchQuery(query, cachedSubjects)
 
+    const evalQuestions = await getEvalQuestions()
+    const evalQuestionIds = Object.fromEntries(evalQuestions.map((q) => [q.slug, q.id])) as Record<
+      EvalSlug,
+      number
+    >
+
+    const evalFilters: EvalFilterParam[] = data.evalFilters.filter((f) => f.min != null || f.max != null)
+
     const start = performance.now()
 
-    const results = await searchCourseOfferings(db, {
+    const { results, hasMore } = await searchCourseOfferings(db, {
       codes: parsed.codes,
       subjectCodes: parsed.subjectsOnly,
       contentQuery: parsed.remainingQuery,
@@ -69,10 +78,15 @@ export const searchCourses = createServerFn({ method: 'GET' })
       ways: data.ways,
       unitsMin: data.unitsMin,
       unitsMax: data.unitsMax,
+      evalQuestionIds,
+      sort: data.sort,
+      sortOrder: data.order,
+      evalFilters,
+      page: data.page,
     })
 
     console.log(
-      `[query] total: ${(performance.now() - start).toFixed(1)}ms (query="${query}", ${results.length} results)`,
+      `[query] total: ${(performance.now() - start).toFixed(1)}ms (query="${query}", ${results.length} results, hasMore=${hasMore})`,
     )
-    return results
+    return { results, hasMore }
   })

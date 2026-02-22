@@ -1,7 +1,27 @@
 -- =============================================================================
 -- STEP 2: course_offerings_full_mv
 -- =============================================================================
--- Run via psql with: SET statement_timeout = '0';
+--
+-- All commands below assume you are in the scrape/ folder.
+--
+-- Run with psql and a database URL:
+--
+--   psql "$DATABASE_URL" -f sql/course_offerings_full_mv.sql
+--
+-- Using .env (DATABASE_URL=postgresql://... in scrape/.env):
+--
+--   set -a && source .env && set +a && psql "$DATABASE_URL" -f sql/course_offerings_full_mv.sql
+--
+-- Or with npx (loads .env then runs psql):
+--
+--   npx dotenv -e .env -- bash -c 'psql "$DATABASE_URL" -f sql/course_offerings_full_mv.sql'
+--
+-- Or with URL inline:
+--
+--   psql "postgresql://user:password@host:port/dbname" -f sql/course_offerings_full_mv.sql
+--
+-- (This script sets statement_timeout = '25min' internally.)
+--
 -- =============================================================================
 set statement_timeout = '25min';
 DROP MATERIALIZED VIEW IF EXISTS course_offerings_full_mv CASCADE;
@@ -114,6 +134,22 @@ section_attrs_agg AS (
   GROUP BY sa.section_id
 ),
 
+section_evals_agg AS (
+  SELECT
+    esa.section_id,
+    jsonb_agg(
+      jsonb_build_object(
+        'question',  enq.question_text,
+        'smartAverage',     esa.smart_average,
+        'isCourseInformed', esa.is_course_informed,
+        'isInstructorInformed', esa.is_instructor_informed
+      ) ORDER BY enq.question_text
+    ) AS smart_evaluations
+  FROM evaluation_smart_averages esa
+  JOIN evaluation_numeric_questions enq ON enq.id = esa.question_id
+  GROUP BY esa.section_id
+),
+
 offering_sections AS (
   SELECT
     sec.course_offering_id,
@@ -141,7 +177,8 @@ offering_sections AS (
         'notes',               sec.notes,
         'cancelled',           sec.cancelled,
         'attributes',          COALESCE(saa.attributes, '[]'::jsonb),
-        'schedules',           COALESCE(ssa.schedules, '[]'::jsonb)
+        'schedules',           COALESCE(ssa.schedules, '[]'::jsonb),
+        'smartEvaluations',    COALESCE(sea.smart_evaluations, '[]'::jsonb)
       ) ORDER BY sec.term_quarter, sec.section_number
     ) AS sections
   FROM sections sec
@@ -151,6 +188,7 @@ offering_sections AS (
   JOIN consent_options dc    ON dc.id = sec.drop_consent_id
   LEFT JOIN section_schedules_agg ssa ON ssa.section_id = sec.id
   LEFT JOIN section_attrs_agg saa     ON saa.section_id = sec.id
+  LEFT JOIN section_evals_agg sea     ON sea.section_id = sec.id
   GROUP BY sec.course_offering_id
 )
 

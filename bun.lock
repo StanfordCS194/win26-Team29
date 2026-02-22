@@ -112,6 +112,7 @@
         "jsonpathly": "^3.0.0",
         "kysely": "^0.28.10",
         "node-html-parser": "^7.0.2",
+        "nodejs-polars": "^0.24.0",
         "pg": "^8.18.0",
         "zod": "^4.3.6",
       },
@@ -1729,6 +1730,24 @@
     "node-html-parser": ["node-html-parser@7.0.2", "", { "dependencies": { "css-select": "^5.1.0", "he": "1.2.0" } }, "sha512-DxodLVh7a6JMkYzWyc8nBX9MaF4M0lLFYkJHlWOiu7+9/I6mwNK9u5TbAMC7qfqDJEPX9OIoWA2A9t4C2l1mUQ=="],
 
     "node-releases": ["node-releases@2.0.27", "", {}, "sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA=="],
+
+    "nodejs-polars": ["nodejs-polars@0.24.0", "", { "optionalDependencies": { "nodejs-polars-android-arm64": "0.24.0", "nodejs-polars-darwin-arm64": "0.24.0", "nodejs-polars-darwin-x64": "0.24.0", "nodejs-polars-linux-arm64-gnu": "0.24.0", "nodejs-polars-linux-arm64-musl": "0.24.0", "nodejs-polars-linux-x64-gnu": "0.24.0", "nodejs-polars-linux-x64-musl": "0.24.0", "nodejs-polars-win32-x64-msvc": "0.24.0" } }, "sha512-FX8ya+thzw+KIkH2lxOKQMmn9q8LWZpCwzBt0gnQuW2uD5+6HhA5UQMYZRKFFLB53tXXtMOPbH2Wgb0LsBdQzQ=="],
+
+    "nodejs-polars-android-arm64": ["nodejs-polars-android-arm64@0.24.0", "", { "os": "android", "cpu": "arm64" }, "sha512-8ElscD/zRHOKauqCjHwi8nZD21/4XPhwuZfEiJQEirg+ha6fFaXRmUyOcUtcMAa5P/xZAV3DzNNnLvEbdH6UMg=="],
+
+    "nodejs-polars-darwin-arm64": ["nodejs-polars-darwin-arm64@0.24.0", "", { "os": "darwin", "cpu": "arm64" }, "sha512-iLbFmi2GjqKTz8WpdAL1K40elepirwKoBHIvmOBDRSfxciA1L98y6Y33eNhzuQ/7OGizWZwAqxOGonQu+t/Jkw=="],
+
+    "nodejs-polars-darwin-x64": ["nodejs-polars-darwin-x64@0.24.0", "", { "os": "darwin", "cpu": "x64" }, "sha512-cKvMr8u/zDMNbaYuiN/NTJBHNqDc2MBslXZ0AuE1/Mo4aYg2SSqSmL1CxDBQcym/EEpfdO99NEmjH+QykxPKaA=="],
+
+    "nodejs-polars-linux-arm64-gnu": ["nodejs-polars-linux-arm64-gnu@0.24.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-h0THOZnNWkHuXue8auRWe4MiYomDpemFvCXpzuzcGsG0DUxCcuvOi1DAghUAkQUgpsct/M30UfgMr/RhZwV/PQ=="],
+
+    "nodejs-polars-linux-arm64-musl": ["nodejs-polars-linux-arm64-musl@0.24.0", "", { "os": "linux", "cpu": "arm64" }, "sha512-YSp7kDcVzM0lWGVKSEN/JaQtTreMKevoVny4yoSy5kpjilVadWBFbVVrAgT+hiMxF5YiBRwOlPQC1Phk/Fn7PQ=="],
+
+    "nodejs-polars-linux-x64-gnu": ["nodejs-polars-linux-x64-gnu@0.24.0", "", { "os": "linux", "cpu": "x64" }, "sha512-ZM+A6Ov9F9Tq5qLeK1G70cLdbFya1kX5++lX+METK46mrIuDlkJ6w7w+rNg52Gq+aVDTt6FL80bHPnaQzUPInQ=="],
+
+    "nodejs-polars-linux-x64-musl": ["nodejs-polars-linux-x64-musl@0.24.0", "", { "os": "linux", "cpu": "x64" }, "sha512-QIQGU155LLfVjg5vh2WsNSMw5TwOk3qOmC0U+ic4j/zpUFfaGl1hcCT3Z7DhoiCUBhVv/5kWYK+kDq//i2dzag=="],
+
+    "nodejs-polars-win32-x64-msvc": ["nodejs-polars-win32-x64-msvc@0.24.0", "", { "os": "win32", "cpu": "x64" }, "sha512-gXD2pvrmloHrwm76Tfmb1PgXpl3GiV3Jo/PNAn9HBHAcrhtLY/VyVJunUYX635+Faf975j3YK6/HI1Ff+AmIYw=="],
 
     "nopt": ["nopt@5.0.0", "", { "dependencies": { "abbrev": "1" }, "bin": { "nopt": "bin/nopt.js" } }, "sha512-Tbj67rffqceeLpcRXrT7vKAN8CwfPeIBgM7E6iBkmKLV7bEMwpGgYLGv0jACUsECaa/vuxP0IjEont6umdMgtQ=="],
 

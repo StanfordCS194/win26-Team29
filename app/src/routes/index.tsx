@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { ALL_QUARTERS } from '@/data/search/search.types'
+import { ALL_QUARTERS, CoursesSearch } from '@/data/search/search.types'
 
 export const Route = createFileRoute('/')({ component: App })
 
@@ -15,10 +15,8 @@ function App() {
       search: {
         query: query.trim(),
         quarters: ALL_QUARTERS,
-        ways: [],
-        unitsMin: undefined,
-        unitsMax: undefined,
-      },
+        page: 1,
+      } as Required<CoursesSearch>,
     })
   }
 

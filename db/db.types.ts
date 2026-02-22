@@ -361,11 +361,6 @@ export interface ConsentOptions {
   id: Generated<number>
 }
 
-export interface CourseContentSearchMock {
-  offering_id: number | null
-  search_vector: string | null
-}
-
 export interface CourseOfferingAttributes {
   course_offering_id: number
   description: string
@@ -422,6 +417,13 @@ export interface EvaluationNumericQuestions {
   question_text: string
 }
 
+export interface EvaluationNumericQuestionsEnhanced {
+  distinct_course_ids: bigint | null
+  distinct_subject_ids: bigint | null
+  id: number | null
+  question_text: string | null
+}
+
 export interface EvaluationNumericResponses {
   frequency: number
   id: Generated<number>
@@ -443,9 +445,25 @@ export interface EvaluationReportSections {
   section_id: number
 }
 
+export interface EvaluationSmartAverages {
+  id: Generated<number>
+  is_course_informed: Generated<boolean>
+  is_instructor_informed: Generated<boolean>
+  question_id: number
+  section_id: number
+  smart_average: number
+}
+
 export interface EvaluationTextQuestions {
   id: Generated<number>
   question_text: string
+}
+
+export interface EvaluationTextQuestionsEnhanced {
+  distinct_course_ids: bigint | null
+  distinct_subject_ids: bigint | null
+  id: number | null
+  question_text: string | null
 }
 
 export interface EvaluationTextResponses {
@@ -631,6 +649,7 @@ export interface Sections {
   drop_consent_id: number
   enroll_status_id: number
   id: Generated<number>
+  is_principal: Generated<boolean | null>
   max_class_size: number
   max_enrolled: number
   max_waitlist: number
@@ -807,17 +826,19 @@ export interface DB {
   'auth.users': AuthUsers
   component_types: ComponentTypes
   consent_options: ConsentOptions
-  course_content_search_mock: CourseContentSearchMock
   course_offering_attributes: CourseOfferingAttributes
   course_offering_gers: CourseOfferingGers
   course_offering_tags: CourseOfferingTags
   course_offerings: CourseOfferings
   enroll_statuses: EnrollStatuses
   evaluation_numeric_questions: EvaluationNumericQuestions
+  evaluation_numeric_questions_enhanced: EvaluationNumericQuestionsEnhanced
   evaluation_numeric_responses: EvaluationNumericResponses
   evaluation_report_sections: EvaluationReportSections
   evaluation_reports: EvaluationReports
+  evaluation_smart_averages: EvaluationSmartAverages
   evaluation_text_questions: EvaluationTextQuestions
+  evaluation_text_questions_enhanced: EvaluationTextQuestionsEnhanced
   evaluation_text_responses: EvaluationTextResponses
   'extensions.hypopg_hidden_indexes': ExtensionsHypopgHiddenIndexes
   'extensions.hypopg_list_indexes': ExtensionsHypopgListIndexes
