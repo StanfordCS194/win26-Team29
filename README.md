@@ -11,6 +11,30 @@ CourseTree is a monorepo containing:
 - `**app/**` - The main CourseTree web application (TanStack Start)
 - `**scrape/**` - Scripts for scraping course data and evaluations
 
+## Database Setup
+
+### Prerequisites
+
+- PostgreSQL 12+ with pgvector extension
+
+### Installing pgvector
+
+**macOS (Homebrew):**
+
+```bash
+brew install pgvector
+```
+
+See [pgvector installation guide](https://github.com/pgvector/pgvector#installation) for other platforms.
+
+### Running Migrations
+
+```bash
+pnpm run db:migrate
+```
+
+See [db/migrations/README.md](db/migrations/README.md) for verification steps and rollback.
+
 ## Quick Start
 
 Install dependencies:
@@ -48,6 +72,9 @@ pnpm build
 - `pnpm git:safe:push` - Run full repository checks before push
 - `pnpm scrape:courses` - Fetch course data (see `scrape/README.md`)
 - `pnpm scrape:evals` - Fetch course evaluations (see `scrape/README.md`)
+- `pnpm db:migrate` - Run database migrations (see [Database Setup](#database-setup))
+- `pnpm db:migrate:down` - Roll back last migration
+- `pnpm db:generate-types` - Regenerate Kysely types from the database
 
 ## Git Workflow Checks
 
