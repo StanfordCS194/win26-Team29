@@ -12,3 +12,8 @@ export { SearchError, EmbeddingError, QueryError, ValidationError } from './erro
 
 // Model preloading (for app initialization)
 export { preloadModel } from './embeddings'
+
+// API helpers
+export { parseSearchParams } from './api-validation'
+export { buildSuccessResponse, buildErrorResponse } from './api-response'
+export type { APIResponse, SuccessResponse, ErrorResponse } from './api-response'
