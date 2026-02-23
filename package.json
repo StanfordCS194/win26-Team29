@@ -26,6 +26,8 @@
     "git:safe:push": "turbo run lint typecheck build",
     "scrape:evals": "pnpm --filter @courses/scrape run scrape:evals",
     "scrape:courses": "pnpm --filter @courses/scrape run scrape:courses",
+    "generate-embeddings": "pnpm --filter @courses/scrape run generate-embeddings",
+    "generate-embeddings:force": "pnpm --filter @courses/scrape run generate-embeddings -- --force",
     "db:migrate": "psql $DATABASE_URL -f db/migrations/001_add_vector_embeddings.sql",
     "db:migrate:down": "psql $DATABASE_URL -f db/migrations/001_add_vector_embeddings_down.sql",
     "db:generate-types": "pnpm --filter @courses/db run codegen",
