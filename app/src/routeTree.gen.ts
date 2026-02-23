@@ -17,6 +17,7 @@ import { Route as DemoStartServerFuncsRouteImport } from './routes/demo/start.se
 import { Route as DemoStartApiRequestRouteImport } from './routes/demo/start.api-request'
 import { Route as DemoApiTqTodosRouteImport } from './routes/demo/api.tq-todos'
 import { Route as DemoApiNamesRouteImport } from './routes/demo/api.names'
+import { Route as ApiSearchSemanticRouteImport } from './routes/api.search.semantic'
 import { Route as DemoStartSsrIndexRouteImport } from './routes/demo/start.ssr.index'
 import { Route as DemoStartSsrSpaModeRouteImport } from './routes/demo/start.ssr.spa-mode'
 import { Route as DemoStartSsrFullSsrRouteImport } from './routes/demo/start.ssr.full-ssr'
@@ -62,6 +63,11 @@ const DemoApiNamesRoute = DemoApiNamesRouteImport.update({
   path: '/demo/api/names',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSearchSemanticRoute = ApiSearchSemanticRouteImport.update({
+  id: '/api/search/semantic',
+  path: '/api/search/semantic',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DemoStartSsrIndexRoute = DemoStartSsrIndexRouteImport.update({
   id: '/demo/start/ssr/',
   path: '/demo/start/ssr/',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/results': typeof ResultsRoute
   '/course/$courseId': typeof CourseCourseIdRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/api/search/semantic': typeof ApiSearchSemanticRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/results': typeof ResultsRoute
   '/course/$courseId': typeof CourseCourseIdRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/api/search/semantic': typeof ApiSearchSemanticRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/results': typeof ResultsRoute
   '/course/$courseId': typeof CourseCourseIdRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
+  '/api/search/semantic': typeof ApiSearchSemanticRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/results'
     | '/course/$courseId'
     | '/demo/tanstack-query'
+    | '/api/search/semantic'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/start/api-request'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/results'
     | '/course/$courseId'
     | '/demo/tanstack-query'
+    | '/api/search/semantic'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/start/api-request'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/results'
     | '/course/$courseId'
     | '/demo/tanstack-query'
+    | '/api/search/semantic'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/start/api-request'
@@ -176,6 +188,7 @@ export interface RootRouteChildren {
   ResultsRoute: typeof ResultsRoute
   CourseCourseIdRoute: typeof CourseCourseIdRoute
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
+  ApiSearchSemanticRoute: typeof ApiSearchSemanticRoute
   DemoApiNamesRoute: typeof DemoApiNamesRoute
   DemoApiTqTodosRoute: typeof DemoApiTqTodosRoute
   DemoStartApiRequestRoute: typeof DemoStartApiRequestRoute
@@ -244,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemoApiNamesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/search/semantic': {
+      id: '/api/search/semantic'
+      path: '/api/search/semantic'
+      fullPath: '/api/search/semantic'
+      preLoaderRoute: typeof ApiSearchSemanticRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/demo/start/ssr/': {
       id: '/demo/start/ssr/'
       path: '/demo/start/ssr'
@@ -280,6 +300,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResultsRoute: ResultsRoute,
   CourseCourseIdRoute: CourseCourseIdRoute,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,
+  ApiSearchSemanticRoute: ApiSearchSemanticRoute,
   DemoApiNamesRoute: DemoApiNamesRoute,
   DemoApiTqTodosRoute: DemoApiTqTodosRoute,
   DemoStartApiRequestRoute: DemoStartApiRequestRoute,
@@ -289,7 +310,9 @@ const rootRouteChildren: RootRouteChildren = {
   DemoStartSsrSpaModeRoute: DemoStartSsrSpaModeRoute,
   DemoStartSsrIndexRoute: DemoStartSsrIndexRoute,
 }
-export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>()
+export const routeTree = rootRouteImport
+  ._addFileChildren(rootRouteChildren)
+  ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
 import type { createStart } from '@tanstack/react-start'

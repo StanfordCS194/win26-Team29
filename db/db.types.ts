@@ -385,6 +385,7 @@ export interface CourseOfferings {
   course_id: number
   created_at: Generated<Temporal.Instant | null>
   description: string
+  embedding: Array<number> | null
   final_exam_flag_id: number
   grading_option_id: number
   id: Generated<number>
