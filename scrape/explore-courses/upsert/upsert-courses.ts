@@ -173,7 +173,7 @@ const mergeCourseOfferings = (courseOfferings: ReadonlyArray<UploadCourseOfferin
       (db) =>
         db
           .mergeInto('course_offerings as trg')
-          .using(values(courseOfferingRecords, 'src', { code_suffix: 'text' }), (join) =>
+          .using(values(courseOfferingRecords, 'src', { code_suffix: 'text', embedding: 'vector' }), (join) =>
             join.on(({ eb, and, ref }) =>
               and([
                 eb(ref('trg.course_id'), '=', ref('src.course_id')),
