@@ -1,31 +1,50 @@
-import { Link, createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/')({ component: App })
 
 function App() {
+  const navigate = useNavigate()
+  const [query, setQuery] = useState('')
+
+  const handleSearch = (e: FormEvent) => {
+    e.preventDefault()
+    if (query.trim()) {
+      void navigate({
+        to: '/results',
+        search: { q: query.trim() },
+      })
+    }
+  }
+
   return (
     <div className="h-[calc(100vh-4rem)] overflow-hidden bg-gradient-to-b from-sky-50 via-slate-50 to-sky-100">
       <main className="relative h-full">
         <div className="absolute top-[calc(50%-2rem)] left-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 px-6">
-          <label htmlFor="course-search" className="sr-only">
-            Search courses
-          </label>
-          <div className="relative">
-            <input
-              id="course-search"
-              type="text"
-              placeholder="Search by course, instructor, or keyword"
-              className="w-full rounded-full border border-slate-300 bg-white py-5 pr-16 pl-6 text-lg text-slate-900 shadow-[0_14px_28px_color-mix(in_srgb,var(--primary)_25%,transparent)] placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
-            />
-            <Link
-              to="/results"
-              aria-label="Search"
-              className="absolute top-1/2 right-2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground transition hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none"
-            >
-              <span className="text-base font-semibold">Go</span>
-            </Link>
-          </div>
+          <form onSubmit={handleSearch}>
+            <label htmlFor="course-search" className="sr-only">
+              Search courses
+            </label>
+            <div className="relative">
+              <input
+                id="course-search"
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by course, instructor, or keyword"
+                className="w-full rounded-full border border-slate-300 bg-white py-5 pr-16 pl-6 text-lg text-slate-900 shadow-[0_14px_28px_color-mix(in_srgb,var(--primary)_25%,transparent)] placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+              />
+              <button
+                type="submit"
+                aria-label="Search"
+                disabled={!query.trim()}
+                className="absolute top-1/2 right-2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground transition hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className="text-base font-semibold">Go</span>
+              </button>
+            </div>
+          </form>
         </div>
 
         <div className="absolute top-[calc(50%-2rem)] left-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-[calc(100%+6rem)] px-6 text-center">
