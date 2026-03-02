@@ -1,6 +1,7 @@
 import { Effect } from 'effect'
+
 import { DbService } from '@scrape/shared/db-layer.ts'
-import type { DB } from '@db/db.types.ts'
+import type { DB } from '@courses/db/db.types'
 
 export type LookupTable = Extract<
   keyof DB,
@@ -82,7 +83,7 @@ export const upsertSubjects = (codeToLongname: Map<string, string | null>) =>
 export const upsertLookupCodesBatch = (lookupData: Record<LookupTable, Set<string>>) =>
   Effect.gen(function* () {
     const effects = Object.entries(lookupData).map(([tableName, codes]) => {
-      if (!codes || codes.size === 0) {
+      if (codes.size === 0) {
         return Effect.succeed([tableName as LookupTable, new Map() as Map<string, number>] as const)
       }
 

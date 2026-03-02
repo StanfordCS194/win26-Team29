@@ -1,26 +1,31 @@
 import { appendFile } from 'node:fs/promises'
+
+import { FileSystem, Path } from '@effect/platform'
+import { PlatformError } from '@effect/platform/Error'
 import {
-  Effect,
-  Console,
   Chunk,
-  Stream,
-  pipe,
-  Ref,
-  SubscriptionRef,
-  Fiber,
+  Console,
+  Effect,
   Either,
+  Fiber,
+  HashSet,
   MutableHashMap,
   Option,
-  HashSet,
+  Ref,
+  Stream,
+  SubscriptionRef,
+  pipe,
 } from 'effect'
-import { FileSystem, Path } from '@effect/platform'
-import { streamHtmlReportsWithCache, ManifestWriteError, type Progress } from './fetch-parse/evals-cached.ts'
-import { ReportParseError, type ProcessedReport } from './fetch-parse/parse-report.ts'
-import { resolveSubjects, ReportFetchError } from './fetch-parse/fetch-evals.ts'
-import { type Quarter } from '@scrape/shared/schemas.ts'
+
+import { toEffectProcessedReport } from './fetch-parse/effect-processed-report.ts'
+import { ManifestWriteError, streamHtmlReportsWithCache } from './fetch-parse/evals-cached.ts'
+import { ReportFetchError, resolveSubjects } from './fetch-parse/fetch-evals.ts'
 import { sectionKey } from './fetch-parse/parse-listings.ts'
-import { EffectProcessedReport, toEffectProcessedReport } from './fetch-parse/effect-processed-report.ts'
-import { PlatformError } from '@effect/platform/Error'
+import { ReportParseError } from './fetch-parse/parse-report.ts'
+import type { ProcessedReport } from './fetch-parse/parse-report.ts'
+import type { Progress } from './fetch-parse/evals-cached.ts'
+import type { EffectProcessedReport } from './fetch-parse/effect-processed-report.ts'
+import type { Quarter } from '@scrape/shared/schemas.ts'
 
 function formatError(error: ReportParseError | ReportFetchError | ManifestWriteError | PlatformError) {
   if (error instanceof ReportParseError) {
@@ -57,12 +62,6 @@ function formatError(error: ReportParseError | ReportFetchError | ManifestWriteE
       error: String(error),
     }
   }
-  if (error && typeof error === 'object' && '_tag' in error) {
-    return {
-      type: (error as any)._tag,
-      error: String(error),
-    }
-  }
   return {
     type: 'UnknownError',
     error: String(error),
@@ -94,88 +93,81 @@ export const fetchAndParseFlow = ({
   retries: number
   backoff: number
 }) =>
-  Effect.gen(function* (_) {
-    const path = yield* _(Path.Path)
-    const fs = yield* _(FileSystem.FileSystem)
+  Effect.gen(function* () {
+    const path = yield* Path.Path
+    const fs = yield* FileSystem.FileSystem
 
-    yield* _(Console.log(`Resolving subjects: ${subjects.join(', ')}`))
-    const resolvedSubjects = yield* _(resolveSubjects(subjects, year, quarter))
+    yield* Console.log(`Resolving subjects: ${subjects.join(', ')}`)
+    const resolvedSubjects = yield* resolveSubjects(subjects, year, quarter)
 
-    yield* _(Console.log(`Fetching course evaluation reports`))
+    yield* Console.log(`Fetching course evaluation reports`)
     const subjectsSummary =
       resolvedSubjects.length > 10
         ? `${resolvedSubjects.slice(0, 10).join(', ')} ... and ${resolvedSubjects.length - 10} more (${resolvedSubjects.length} total)`
         : resolvedSubjects.join(', ')
-    yield* _(Console.log(`Subjects: ${subjectsSummary}`))
-    yield* _(Console.log(`Year-Quarter: ${year}-${quarter}`))
-    yield* _(Console.log(`Outputs directory: ${outputsDir}`))
+    yield* Console.log(`Subjects: ${subjectsSummary}`)
+    yield* Console.log(`Year-Quarter: ${year}-${quarter}`)
+    yield* Console.log(`Outputs directory: ${outputsDir}`)
 
-    yield* _(fs.makeDirectory(outputsDir, { recursive: true }))
+    yield* fs.makeDirectory(outputsDir, { recursive: true })
 
     // Initialize failure file - delete if exists to start fresh
     const failuresPath = path.join(outputsDir, 'fetch-parse-failures.jsonl')
-    if (yield* _(fs.exists(failuresPath))) {
-      yield* _(fs.remove(failuresPath))
+    if (yield* fs.exists(failuresPath)) {
+      yield* fs.remove(failuresPath)
     }
 
-    const progressRef = yield* _(
-      SubscriptionRef.make<Progress>({ discovered: 0, fetched: 0, success: 0, failed: 0 }),
-    )
+    const progressRef = yield* SubscriptionRef.make<Progress>({
+      discovered: 0,
+      fetched: 0,
+      success: 0,
+      failed: 0,
+    })
 
-    const writeProgress = Effect.gen(function* (_) {
-      const { discovered, fetched, success, failed } = yield* _(Ref.get(progressRef))
-      yield* _(
-        Effect.sync(() =>
-          process.stdout.write(
-            `\rProgress: ${discovered} eval infos discovered, ${fetched} HTML reports fetched, ${success} processed, ${failed} failed`,
-          ),
+    const writeProgress = Effect.gen(function* () {
+      const { discovered, fetched, success, failed } = yield* Ref.get(progressRef)
+      yield* Effect.sync(() =>
+        process.stdout.write(
+          `\rProgress: ${discovered} eval infos discovered, ${fetched} HTML reports fetched, ${success} processed, ${failed} failed`,
         ),
       )
     })
 
-    yield* _(
-      Console.log(
-        `HTTP client configuration: concurrency=${concurrency}, ratelimit=${rateLimit} req/s, retries=${retries}, backoff=${backoff}ms`,
-      ),
+    yield* Console.log(
+      `HTTP client configuration: concurrency=${concurrency}, ratelimit=${rateLimit} req/s, retries=${retries}, backoff=${backoff}ms`,
     )
 
-    const stream = yield* _(
-      streamHtmlReportsWithCache(year, quarter, resolvedSubjects, {
-        outputsDir,
-        writeHtml,
-        useCache,
-        progressRef,
-      }),
-    )
+    const stream = yield* streamHtmlReportsWithCache(year, quarter, resolvedSubjects, {
+      outputsDir,
+      writeHtml,
+      useCache,
+      progressRef,
+    })
 
     // Fork a fiber that writes progress whenever the ref changes
-    const progressFiber = yield* _(
-      pipe(
-        progressRef.changes,
-        Stream.tap(() => writeProgress),
-        Stream.runDrain,
-      ),
+    const progressFiber = yield* pipe(
+      progressRef.changes,
+      Stream.tap(() => writeProgress),
+      Stream.runDrain,
       Effect.fork,
     )
 
-    const results = yield* _(
+    const results = yield* pipe(
       pipe(
         stream,
         Stream.tap((result) =>
-          Effect.gen(function* (_) {
+          Effect.gen(function* () {
             // Write failures to JSONL as they happen
             if (Either.isLeft(result)) {
               const errorReport = formatError(result.left)
-              const jsonLine = JSON.stringify(errorReport) + '\n'
-              yield* _(Effect.promise(() => appendFile(failuresPath, jsonLine, 'utf-8')))
+              const jsonLine = `${JSON.stringify(errorReport)}\n`
+              yield* Effect.promise(() => appendFile(failuresPath, jsonLine, 'utf-8'))
             }
 
-            yield* _(
-              Ref.update(progressRef, (prev) =>
-                Either.isRight(result)
-                  ? { ...prev, success: prev.success + 1 }
-                  : { ...prev, failed: prev.failed + 1 },
-              ),
+            yield* Ref.update(progressRef, (prev) =>
+              Either.isRight(result)
+                ? { ...prev, success: prev.success + 1 }
+                : { ...prev, failed: prev.failed + 1 },
             )
           }),
         ),
@@ -183,15 +175,15 @@ export const fetchAndParseFlow = ({
       ),
     )
 
-    yield* _(Fiber.interrupt(progressFiber))
+    yield* Fiber.interrupt(progressFiber)
     // Final write to ensure the last state is displayed
-    yield* _(writeProgress)
+    yield* writeProgress
 
     const resultArray = Chunk.toReadonlyArray(results)
     const failures = resultArray.filter((r) => Either.isLeft(r)).map((r) => r.left)
     const processedReports = resultArray.filter((r) => Either.isRight(r)).map((r) => r.right)
 
-    const { fetched, success, failed } = yield* _(Ref.get(progressRef))
+    const { success, failed } = yield* Ref.get(progressRef)
 
     // Build MutableHashMap keyed by EffectProcessedReport -> set of section keys
     const reportSectionsMap = MutableHashMap.empty<
@@ -224,21 +216,23 @@ export const fetchAndParseFlow = ({
         subjectsWithEvals.add(sk.subject)
       })
     })
-    yield* _(
-      Console.log(
-        `\nEval stats: ${distinctReports} distinct reports, ${totalSections} sections with evals, ${subjectsWithEvals.size} subjects with evals`,
-      ),
+    yield* Console.log(
+      `\nEval stats: ${distinctReports} distinct reports, ${totalSections} sections with evals, ${subjectsWithEvals.size} subjects with evals`,
     )
 
     if (writeJson) {
       // Group by subject, filtering to only subjects in resolvedSubjects
       const subjectsSet = new Set(resolvedSubjects)
-      const bySubject = new Map<string, ProcessedReport[]>()
+      const bySubject = new Map<string, Array<ProcessedReport>>()
       for (const report of processedReports) {
         const seenSubjects = new Set<string>()
         for (const scc of report.info.sectionCourseCodes) {
-          if (!subjectsSet.has(scc.subject)) continue
-          if (seenSubjects.has(scc.subject)) continue
+          if (!subjectsSet.has(scc.subject)) {
+            continue
+          }
+          if (seenSubjects.has(scc.subject)) {
+            continue
+          }
           seenSubjects.add(scc.subject)
           const list = bySubject.get(scc.subject) ?? []
           list.push(report)
@@ -247,24 +241,22 @@ export const fetchAndParseFlow = ({
       }
       for (const [subject, reports] of bySubject) {
         const reportPath = path.join(outputsDir, subject, 'reports.json')
-        yield* _(fs.makeDirectory(path.dirname(reportPath), { recursive: true }))
-        yield* _(fs.writeFileString(reportPath, JSON.stringify(reports, null, 2)))
+        yield* fs.makeDirectory(path.dirname(reportPath), { recursive: true })
+        yield* fs.writeFileString(reportPath, JSON.stringify(reports, null, 2))
       }
     }
 
     // Clean up failures file if no failures occurred
     if (failed === 0) {
-      if (yield* _(fs.exists(failuresPath))) {
-        yield* _(fs.remove(failuresPath))
+      if (yield* fs.exists(failuresPath)) {
+        yield* fs.remove(failuresPath)
       }
     } else {
-      yield* _(Console.log(`\nErrors: ${failed} reports failed to process. See ${failuresPath}`))
+      yield* Console.log(`\nErrors: ${failed} reports failed to process. See ${failuresPath}`)
     }
 
-    yield* _(
-      Console.log(
-        `\nProcessing complete: ${success} succeeded, ${failed} failed out of ${success + failed} total`,
-      ),
+    yield* Console.log(
+      `\nProcessing complete: ${success} succeeded, ${failed} failed out of ${success + failed} total`,
     )
 
     return {

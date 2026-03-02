@@ -1,16 +1,19 @@
 import 'dotenv/config'
 import { pathToFileURL } from 'node:url'
+
 import { Command, Options } from '@effect/cli'
-import { Effect, Console, Option, Layer, ConfigProvider, pipe } from 'effect'
 import { Path } from '@effect/platform'
 import { NodeContext, NodeRuntime } from '@effect/platform-node'
+import { ConfigProvider, Console, Effect, Layer, pipe } from 'effect'
+
+import { DbLive } from '@scrape/shared/db-layer.ts'
 import {
   exponentialRetrySchedule,
   makeThrottledHttpClientLayer,
 } from '@scrape/shared/throttled-http-client.ts'
+
 import { fetchAndParseFlow } from './fetch-parse-flow.ts'
 import { databaseUpsertFlow } from './upsert-flow.ts'
-import { DbLive } from '@scrape/shared/db-layer.ts'
 
 const academicYear = Options.text('academicYear').pipe(
   Options.withAlias('y'),
@@ -19,8 +22,8 @@ const academicYear = Options.text('academicYear').pipe(
 
 const dataDir = Options.directory('dataDir').pipe(
   Options.withAlias('d'),
-  Options.optional,
   Options.withDescription('Base data directory (default: data/explore-courses)'),
+  Options.withDefault('data/explore-courses'),
 )
 
 const concurrency = Options.integer('concurrency').pipe(
@@ -91,65 +94,47 @@ const command = Command.make(
     upsertBatchSize,
     upsertConcurrency,
   },
-  ({
-    academicYear,
-    dataDir,
-    concurrency,
-    rateLimit,
-    retries,
-    backoff,
-    writeXml,
-    writeJson,
-    useCache,
-    upsertToDatabase,
-    upsertBatchSize,
-    upsertConcurrency,
-  }) =>
+  (options) =>
     pipe(
-      Effect.gen(function* (_) {
-        const baseDataDir = Option.getOrElse(dataDir, () => 'data/explore-courses')
-        const path = yield* _(Path.Path)
-        const outputsDir = path.join(baseDataDir, academicYear)
+      Effect.gen(function* () {
+        const path = yield* Path.Path
+        const outputsDir = path.join(options.dataDir, options.academicYear)
 
         // Phase 1: Fetch and parse courses
-        const { failures, parsedCourses } = yield* _(
-          fetchAndParseFlow({
-            academicYear,
-            outputsDir,
-            writeXml,
-            writeJson,
-            useCache,
-            concurrency,
-            rateLimit,
-            retries,
-            backoff,
-          }),
-        )
+        const { failures, parsedCourses } = yield* fetchAndParseFlow({
+          academicYear: options.academicYear,
+          outputsDir,
+          writeXml: options.writeXml,
+          writeJson: options.writeJson,
+          useCache: options.useCache,
+          concurrency: options.concurrency,
+          rateLimit: options.rateLimit,
+          retries: options.retries,
+          backoff: options.backoff,
+        })
 
         // Phase 2: Database upsert (if requested)
-        if (upsertToDatabase) {
+        if (options.upsertToDatabase) {
           if (failures.length > 0) {
-            yield* _(
-              Console.log(`\nWarning: Proceeding with database upsert despite ${failures.length} failures.`),
+            yield* Console.log(
+              `\nWarning: Proceeding with database upsert despite ${failures.length} failures.`,
             )
           }
 
-          yield* _(
-            databaseUpsertFlow({
-              parsedCourses,
-              batchSize: upsertBatchSize,
-              concurrency: upsertConcurrency,
-              outputsDir,
-            }),
-          )
+          yield* databaseUpsertFlow({
+            parsedCourses,
+            batchSize: options.upsertBatchSize,
+            concurrency: options.upsertConcurrency,
+            outputsDir,
+          })
         }
       }),
       Effect.provide(
         makeThrottledHttpClientLayer({
           defaultConfig: {
-            requestsPerSecond: rateLimit,
-            maxConcurrent: concurrency,
-            retrySchedule: exponentialRetrySchedule(retries, backoff),
+            requestsPerSecond: options.rateLimit,
+            maxConcurrent: options.concurrency,
+            retrySchedule: exponentialRetrySchedule(options.retries, options.backoff),
           },
         }),
       ),

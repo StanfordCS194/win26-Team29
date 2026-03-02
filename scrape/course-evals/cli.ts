@@ -1,36 +1,39 @@
 import 'dotenv/config'
 import { pathToFileURL } from 'node:url'
+
 import { Command, Options } from '@effect/cli'
-import { Console, Effect, Option, Layer, ConfigProvider, pipe } from 'effect'
 import { Path } from '@effect/platform'
 import { NodeContext, NodeRuntime } from '@effect/platform-node'
+import { ConfigProvider, Console, Effect, Layer, pipe } from 'effect'
+
+import { DbLive } from '@scrape/shared/db-layer.ts'
+import { QuarterSchema } from '@scrape/shared/schemas.ts'
 import {
   exponentialRetrySchedule,
   makeThrottledHttpClientLayer,
 } from '@scrape/shared/throttled-http-client.ts'
-import { QuarterSchema, type Quarter } from '@scrape/shared/schemas.ts'
+
 import { fetchAndParseFlow } from './fetch-parse-flow.ts'
 import { databaseUpsertFlow } from './upsert-flow.ts'
-import { DbLive } from '@scrape/shared/db-layer.ts'
 
 const parseQuarter = (quarterStr: string) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const parsed = QuarterSchema.safeDecode(quarterStr.trim())
     if (!parsed.success) {
-      return yield* _(Effect.fail(new Error(`Invalid quarter: ${quarterStr}`)))
+      return yield* Effect.fail(new Error(`Invalid quarter: ${quarterStr}`))
     }
     return parsed.data
   })
 
 const parseSubjects = (subjectsStr: string) =>
-  Effect.gen(function* (_) {
+  Effect.gen(function* () {
     const subjects = subjectsStr
       .split(',')
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
 
     if (subjects.length === 0) {
-      return yield* _(Effect.fail(new Error('At least one subject must be specified')))
+      return yield* Effect.fail(new Error('At least one subject must be specified'))
     }
 
     return subjects
@@ -130,72 +133,53 @@ const command = Command.make(
     upsertBatchSize,
     upsertConcurrency,
   },
-  ({
-    year,
-    quarter,
-    subjects,
-    baseOutputsDir,
-    writeHtml,
-    writeJson,
-    useCache,
-    concurrency,
-    rateLimit,
-    retries,
-    backoff,
-    upsertToDatabase,
-    upsertBatchSize,
-    upsertConcurrency,
-  }) =>
+  (options) =>
     pipe(
-      Effect.gen(function* (_) {
-        const parsedQuarter = yield* _(parseQuarter(quarter))
-        const parsedSubjects = yield* _(parseSubjects(subjects))
-        const path = yield* _(Path.Path)
-        const outputsDir = path.join(baseOutputsDir, String(year), parsedQuarter)
+      Effect.gen(function* () {
+        const parsedQuarter = yield* parseQuarter(options.quarter)
+        const parsedSubjects = yield* parseSubjects(options.subjects)
+        const path = yield* Path.Path
+        const outputsDir = path.join(options.baseOutputsDir, String(options.year), parsedQuarter)
 
         // Phase 1: Fetch and parse evaluation reports
-        const { failures, reportSectionsMap } = yield* _(
-          fetchAndParseFlow({
-            year,
-            quarter: parsedQuarter,
-            subjects: parsedSubjects,
-            outputsDir,
-            writeHtml,
-            writeJson,
-            useCache,
-            concurrency,
-            rateLimit,
-            retries,
-            backoff,
-          }),
-        )
+        const { failures, reportSectionsMap } = yield* fetchAndParseFlow({
+          year: options.year,
+          quarter: parsedQuarter,
+          subjects: parsedSubjects,
+          outputsDir,
+          writeHtml: options.writeHtml,
+          writeJson: options.writeJson,
+          useCache: options.useCache,
+          concurrency: options.concurrency,
+          rateLimit: options.rateLimit,
+          retries: options.retries,
+          backoff: options.backoff,
+        })
 
         // Phase 2: Database upsert (if requested)
-        if (upsertToDatabase) {
+        if (options.upsertToDatabase) {
           if (failures.length > 0) {
-            yield* _(
-              Console.log(`\nWarning: Proceeding with database upsert despite ${failures.length} failures.`),
+            yield* Console.log(
+              `\nWarning: Proceeding with database upsert despite ${failures.length} failures.`,
             )
           }
 
-          yield* _(
-            databaseUpsertFlow({
-              reportSectionsMap,
-              year,
-              quarter: parsedQuarter,
-              batchSize: upsertBatchSize,
-              concurrency: upsertConcurrency,
-              outputsDir,
-            }),
-          )
+          yield* databaseUpsertFlow({
+            reportSectionsMap,
+            year: options.year,
+            quarter: parsedQuarter,
+            batchSize: options.upsertBatchSize,
+            concurrency: options.upsertConcurrency,
+            outputsDir,
+          })
         }
       }),
       Effect.provide(
         makeThrottledHttpClientLayer({
           defaultConfig: {
-            requestsPerSecond: rateLimit,
-            maxConcurrent: concurrency,
-            retrySchedule: exponentialRetrySchedule(retries, backoff),
+            requestsPerSecond: options.rateLimit,
+            maxConcurrent: options.concurrency,
+            retrySchedule: exponentialRetrySchedule(options.retries, options.backoff),
           },
         }),
       ),

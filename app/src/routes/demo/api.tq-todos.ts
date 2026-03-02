@@ -22,7 +22,7 @@ export const Route = createFileRoute('/demo/api/tq-todos')({
         return Response.json(todos)
       },
       POST: async ({ request }) => {
-        const name = await request.json()
+        const name = (await request.json()) as string
         const todo = {
           id: todos.length + 1,
           name,
