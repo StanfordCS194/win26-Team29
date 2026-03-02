@@ -9,7 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as ResultsRouteImport } from './routes/results'
+import { Route as PlanRouteImport } from './routes/plan'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
 import { Route as CourseCourseIdRouteImport } from './routes/course.$courseId'
@@ -23,9 +25,19 @@ import { Route as DemoStartSsrSpaModeRouteImport } from './routes/demo/start.ssr
 import { Route as DemoStartSsrFullSsrRouteImport } from './routes/demo/start.ssr.full-ssr'
 import { Route as DemoStartSsrDataOnlyRouteImport } from './routes/demo/start.ssr.data-only'
 
+const ScheduleRoute = ScheduleRouteImport.update({
+  id: '/schedule',
+  path: '/schedule',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResultsRoute = ResultsRouteImport.update({
   id: '/results',
   path: '/results',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanRoute = PlanRouteImport.update({
+  id: '/plan',
+  path: '/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -91,7 +103,9 @@ const DemoStartSsrDataOnlyRoute = DemoStartSsrDataOnlyRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/plan': typeof PlanRoute
   '/results': typeof ResultsRoute
+  '/schedule': typeof ScheduleRoute
   '/course/$courseId': typeof CourseCourseIdRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/api/search/semantic': typeof ApiSearchSemanticRoute
@@ -106,7 +120,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/plan': typeof PlanRoute
   '/results': typeof ResultsRoute
+  '/schedule': typeof ScheduleRoute
   '/course/$courseId': typeof CourseCourseIdRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/api/search/semantic': typeof ApiSearchSemanticRoute
@@ -122,7 +138,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/plan': typeof PlanRoute
   '/results': typeof ResultsRoute
+  '/schedule': typeof ScheduleRoute
   '/course/$courseId': typeof CourseCourseIdRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
   '/api/search/semantic': typeof ApiSearchSemanticRoute
@@ -139,7 +157,9 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/plan'
     | '/results'
+    | '/schedule'
     | '/course/$courseId'
     | '/demo/tanstack-query'
     | '/api/search/semantic'
@@ -154,7 +174,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/plan'
     | '/results'
+    | '/schedule'
     | '/course/$courseId'
     | '/demo/tanstack-query'
     | '/api/search/semantic'
@@ -169,7 +191,9 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/plan'
     | '/results'
+    | '/schedule'
     | '/course/$courseId'
     | '/demo/tanstack-query'
     | '/api/search/semantic'
@@ -185,7 +209,9 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PlanRoute: typeof PlanRoute
   ResultsRoute: typeof ResultsRoute
+  ScheduleRoute: typeof ScheduleRoute
   CourseCourseIdRoute: typeof CourseCourseIdRoute
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
   ApiSearchSemanticRoute: typeof ApiSearchSemanticRoute
@@ -201,11 +227,25 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/schedule': {
+      id: '/schedule'
+      path: '/schedule'
+      fullPath: '/schedule'
+      preLoaderRoute: typeof ScheduleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/results': {
       id: '/results'
       path: '/results'
       fullPath: '/results'
       preLoaderRoute: typeof ResultsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plan': {
+      id: '/plan'
+      path: '/plan'
+      fullPath: '/plan'
+      preLoaderRoute: typeof PlanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -297,7 +337,9 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PlanRoute: PlanRoute,
   ResultsRoute: ResultsRoute,
+  ScheduleRoute: ScheduleRoute,
   CourseCourseIdRoute: CourseCourseIdRoute,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,
   ApiSearchSemanticRoute: ApiSearchSemanticRoute,
