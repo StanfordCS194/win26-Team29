@@ -1,7 +1,7 @@
 import type { DB } from '@courses/db/db.types'
 import type { Selectable } from 'kysely'
 
-type KnownDefaultedColumns = 'id' | 'created_at' | 'updated_at'
+type KnownDefaultedColumns = 'id' | 'created_at' | 'updated_at' | 'embedding'
 type OmitColumnsAndDefaults<T, TForeignKey extends keyof T = never> = Omit<
   T,
   TForeignKey | KnownDefaultedColumns
