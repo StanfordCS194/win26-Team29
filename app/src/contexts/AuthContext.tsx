@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(nextUser)
       if (nextUser && !isAllowedEmail(nextUser.email)) {
         setError('Only @stanford.edu accounts can sign in.')
-        void firebaseSignOut(auth)
+        if (auth) void firebaseSignOut(auth)
         setUser(null)
       }
       setLoading(false)
