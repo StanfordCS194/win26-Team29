@@ -88,7 +88,7 @@ const rangeModeEnum = z.enum(['overlaps_with', 'contained_in'])
 // Uses .catch() so invalid URL values silently fall back to defaults rather than erroring.
 
 export const searchParamsSchema = z.object({
-  query: z.string().catch(''),
+  query: z.coerce.string().catch(''),
   year: z.string().catch(DEFAULT_YEAR),
 
   // Quarters set filter
