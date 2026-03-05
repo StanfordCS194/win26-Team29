@@ -45,7 +45,7 @@
         "clsx": "^2.1.1",
         "dotenv": "^17.3.1",
         "kysely": "^0.28.11",
-        "kysely-helpers": "github:elitan/kysely-helpers",
+        "kysely-helpers": "^0.1.0",
         "lucide-react": "^0.577.0",
         "nitro": "^3.0.1-alpha.2",
         "node-html-parser": "^7.1.0",
@@ -1574,7 +1574,7 @@
 
     "kysely-codegen": ["kysely-codegen@0.19.0", "", { "dependencies": { "chalk": "4.1.2", "cosmiconfig": "^9.0.0", "dotenv": "^17.2.1", "dotenv-expand": "^12.0.2", "git-diff": "^2.0.6", "micromatch": "^4.0.8", "minimist": "^1.2.8", "pluralize": "^8.0.0", "zod": "^4.1.5" }, "peerDependencies": { "@libsql/kysely-libsql": ">=0.3.0 <0.5.0", "@tediousjs/connection-string": ">=0.5.0 <0.6.0", "better-sqlite3": ">=7.6.2 <13.0.0", "kysely": ">=0.27.0 <1.0.0", "kysely-bun-sqlite": ">=0.3.2 <1.0.0", "kysely-bun-worker": ">=1.2.0 <2.0.0", "mysql2": ">=2.3.3 <4.0.0", "pg": ">=8.8.0 <9.0.0", "tarn": ">=3.0.0 <4.0.0", "tedious": ">=18.0.0 <20.0.0" }, "optionalPeers": ["@libsql/kysely-libsql", "@tediousjs/connection-string", "better-sqlite3", "kysely-bun-sqlite", "kysely-bun-worker", "mysql2", "pg", "tarn", "tedious"], "bin": { "kysely-codegen": "dist/cli/bin.js" } }, "sha512-ZpdQQnpfY0kh45CA6yPA9vdFsBE+b06Fx7QVcbL5rX//yjbA0yYGZGhnH7GTd4P4BY/HIv5uAfuOD83JVZf95w=="],
 
-    "kysely-helpers": ["kysely-helpers@github:elitan/kysely-helpers#806ab88", { "dependencies": { "@types/pg": "^8.15.4", "pg": "^8.16.3" }, "peerDependencies": { "kysely": "^0.27.0 || ^0.28.0" } }, "elitan-kysely-helpers-806ab88", "sha512-PXmszmlEhbvSmCj0eoRvTpq/4Lwx7kOjv79Tmeyd1WPOG5uW4eI19f3MdMx/c1Kb1C0WI92AG80T9iPMO+QSXw=="],
+    "kysely-helpers": ["kysely-helpers@0.1.0", "", { "dependencies": { "@types/pg": "^8.15.4", "pg": "^8.16.3" }, "peerDependencies": { "kysely": "^0.27.0 || ^0.28.0" } }, "sha512-Gp5j1I9upeBtio7CAvi+AYB1mhTA+IwmIxLA/TU1CmgR+qnjS+wcAHBSxpVbLD45B1kU1WvmyXSSVAYIignQAw=="],
 
     "kysely-postgres-js": ["kysely-postgres-js@3.0.0", "", { "peerDependencies": { "kysely": ">= 0.24.0 < 1", "postgres": "^3.4.0" }, "optionalPeers": ["postgres"] }, "sha512-o2t/xNSYJQDW6rVGGFPXKmZ0BEz2dGn66c2B+cO/k9ZNcU2qPWPycQPQ+B+P2MBXbKYq0xV9BZmFIvkUrmFWAQ=="],
 
