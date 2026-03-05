@@ -54,7 +54,7 @@ function PaginationLink({ className, isActive, size = 'icon', ...props }: Pagina
 
 function PaginationPrevious({
   className,
-  text = 'Previous',
+  text = 'Prev.',
   ...props
 }: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
   return (

@@ -1,5 +1,5 @@
 -- =============================================================================
--- STEP 2: course_offerings_full_mv
+-- course_offerings_full_mv
 -- =============================================================================
 --
 -- All commands below assume you are in the scrape/ folder.
@@ -28,15 +28,6 @@ DROP MATERIALIZED VIEW IF EXISTS course_offerings_full_mv CASCADE;
 
 CREATE MATERIALIZED VIEW course_offerings_full_mv AS
 WITH
-
-offering_gers AS (
-  SELECT
-    cog.course_offering_id,
-    array_agg(g.code ORDER BY g.code) AS gers
-  FROM course_offering_gers cog
-  JOIN gers g ON g.id = cog.ger_id
-  GROUP BY cog.course_offering_id
-),
 
 offering_tags AS (
   SELECT
@@ -147,6 +138,9 @@ section_evals_agg AS (
     ) AS smart_evaluations
   FROM evaluation_smart_averages esa
   JOIN evaluation_numeric_questions enq ON enq.id = esa.question_id
+  JOIN sections sec ON sec.id = esa.section_id
+                    AND sec.is_principal = TRUE
+                    AND sec.cancelled = FALSE
   GROUP BY esa.section_id
 ),
 
@@ -170,10 +164,6 @@ offering_sections AS (
         'enrollStatus',        es.code,
         'addConsent',          ac.code,
         'dropConsent',         dc.code,
-        'currentClassSize',    sec.current_class_size,
-        'maxClassSize',        sec.max_class_size,
-        'currentWaitlistSize', sec.current_waitlist_size,
-        'maxWaitlistSize',     sec.max_waitlist_size,
         'notes',               sec.notes,
         'cancelled',           sec.cancelled,
         'attributes',          COALESCE(saa.attributes, '[]'::jsonb),
@@ -215,7 +205,7 @@ SELECT
   ag.code                     AS academic_group,
   ac.code                     AS academic_career,
   ao.code                     AS academic_organization,
-  COALESCE(og.gers, '{}')                       AS gers,
+  COALESCE(oam.ger_codes, '{}') AS gers,
   COALESCE(ot.tags, '[]'::jsonb)                 AS tags,
   COALESCE(oa.attributes, '[]'::jsonb)           AS attributes,
   COALESCE(olo.learning_objectives, '[]'::jsonb) AS learning_objectives,
@@ -227,7 +217,7 @@ JOIN final_exam_options feo        ON feo.id = co.final_exam_flag_id
 JOIN academic_groups ag            ON ag.id  = co.academic_group_id
 JOIN academic_careers ac           ON ac.id  = co.academic_career_id
 JOIN academic_organizations ao     ON ao.id  = co.academic_organization_id
-LEFT JOIN offering_gers og         ON og.course_offering_id  = co.id
+LEFT JOIN offering_aggregates_mv oam ON oam.offering_id = co.id
 LEFT JOIN offering_tags ot         ON ot.course_offering_id  = co.id
 LEFT JOIN offering_attrs oa        ON oa.course_offering_id  = co.id
 LEFT JOIN offering_los olo         ON olo.course_offering_id = co.id
@@ -238,10 +228,3 @@ CREATE UNIQUE INDEX idx_cofull_mv_pk
 
 -- Verify
 SELECT count(*) AS total_offerings FROM course_offerings_full_mv;
-
-SELECT offering_id, subject_code, code_number, title,
-       jsonb_array_length(sections) AS num_sections,
-       array_length(gers, 1) AS num_gers
-FROM course_offerings_full_mv
-ORDER BY offering_id
-LIMIT 5;

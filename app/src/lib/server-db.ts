@@ -1,6 +1,6 @@
-import { createDb, type Kysely } from '@courses/db/db-bun'
+import { createDb, type Kysely } from '@courses/db/db-postgres-js'
 
-import type { DB } from '@courses/db/db-bun'
+import type { DB } from '@courses/db/db-postgres-js'
 
 interface GlobalWithDb {
   __db?: Kysely<DB>
@@ -13,8 +13,6 @@ export function getServerDb(): Kysely<DB> {
   const globalDb = globalThis as unknown as GlobalWithDb
   const existing = globalDb.__db
   if (existing) return existing
-
-  console.log('Creating server db with connection string:', connectionString)
 
   const db = createDb(connectionString)
 

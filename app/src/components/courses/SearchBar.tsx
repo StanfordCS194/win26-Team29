@@ -1,49 +1,74 @@
 import { Route } from '@/routes/courses'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useDebouncer } from '@tanstack/react-pacer'
 import { useEffect, useState } from 'react'
 import { Search } from 'lucide-react'
 
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { CoursesSearch, extractEvalFilters } from '@/data/search/search.types'
 import { searchQueryOptions } from './courses-query-options'
+import { SearchParams } from '@/data/search/search.params'
+import { useClearAllFilters, hasActiveFilters } from './use-clear-all-filters'
 
 export function SearchBar() {
   const search = Route.useSearch()
-  const { query, year, quarters, ways, unitsMin, unitsMax, sort, order } = search
-  const evalFilters = extractEvalFilters(search)
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
-  const [value, setValue] = useState(query)
+  const [value, setValue] = useState(search.query)
+  const [isFocused, setIsFocused] = useState(false)
 
   useEffect(() => {
-    setValue(query)
-  }, [query])
+    setValue(search.query)
+  }, [search.query])
 
   const prefetchDebouncer = useDebouncer(
     (trimmed: string) => {
-      void queryClient.prefetchQuery(
-        searchQueryOptions(trimmed, year, quarters, ways, unitsMin, unitsMax, sort, order, evalFilters, 1),
-      )
+      void queryClient.prefetchQuery(searchQueryOptions({ ...search, query: trimmed, page: 1 }))
     },
     { wait: 325, enabled: value.trim().length > 0 },
   )
+
+  const clearAllFilters = useClearAllFilters()
+  const hasFilters = hasActiveFilters(search)
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!(e.key === 'Delete' || e.key === 'Backspace') || !e.shiftKey) return
+      const tag = (e.target as HTMLElement).tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if ((e.target as HTMLElement).isContentEditable) return
+      e.preventDefault()
+      clearAllFilters()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [clearAllFilters])
+
+  const { data } = useQuery({ ...searchQueryOptions(search), enabled: false })
+  const hasNoResults = (data?.totalCount ?? -1) === 0
+
+  const showHint = isFocused && hasFilters && hasNoResults
+
+  const isQueryUnchanged = value.trim() === search.query
+
+  const commitSearch = () => {
+    prefetchDebouncer.cancel()
+    void navigate({
+      search: (prev) =>
+        ({
+          ...prev,
+          query: value.trim(),
+          page: 1,
+        }) as Required<SearchParams>,
+    })
+  }
 
   return (
     <form
       className="relative"
       onSubmit={(e) => {
         e.preventDefault()
-        prefetchDebouncer.cancel()
-        void navigate({
-          search: (prev) =>
-            ({
-              ...prev,
-              query: value.trim(),
-              page: 1,
-            }) as Required<CoursesSearch>,
-        })
+        commitSearch()
       }}
     >
       <label htmlFor="courses-search" className="sr-only">
@@ -66,10 +91,36 @@ export function SearchBar() {
             prefetchDebouncer.cancel()
           }
         }}
-        placeholder="Search by course, instructor, or keyword"
-        className="h-10 rounded-full border-slate-300 bg-white pr-24 pl-11 text-base shadow-sm placeholder:text-slate-400"
+        onKeyDown={(e) => {
+          if ((e.key === 'Delete' || e.key === 'Backspace') && e.shiftKey) {
+            e.preventDefault()
+            clearAllFilters()
+          }
+        }}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => {
+          setIsFocused(false)
+          commitSearch()
+        }}
+        placeholder="Search courses"
+        className={`h-10 rounded-full border-slate-300 bg-white pl-11 text-base shadow-sm transition-[padding] placeholder:text-slate-400 ${showHint ? 'pr-48' : 'pr-24'}`}
       />
-      <Button type="submit" className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-full">
+      {showHint && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 right-[5rem] flex -translate-y-1/2 animate-pulse items-center gap-0.5 [animation-duration:2.5s]"
+        >
+          <kbd className="rounded border border-slate-200 bg-slate-100 px-1 py-1 font-sans text-sm leading-none tracking-widest text-slate-500 shadow-[0_1px_0_rgba(0,0,0,0.08)]">
+            ⇧ ⌫
+          </kbd>
+          <span className="font-sans text-sm text-slate-400">Clear Filters</span>
+        </div>
+      )}
+      <Button
+        type="submit"
+        disabled={isQueryUnchanged}
+        className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded-full disabled:bg-slate-200 disabled:text-slate-400 disabled:opacity-100"
+      >
         Search
       </Button>
     </form>

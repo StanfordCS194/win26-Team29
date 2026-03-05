@@ -1,59 +1,43 @@
 import { Route } from '@/routes/courses'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { EVAL_QUESTION_SLUGS } from '@/data/search/eval-questions'
-import { isEvalSortOption } from '@/data/search/eval-metrics'
-import { extractEvalFilters } from '@/data/search/search.types'
 import { searchQueryOptions } from './courses-query-options'
 import { CourseCard } from './CourseCard'
 import { PaginationControls } from './PaginationControls'
+import { PAGE_SIZE } from '@/data/search/search.query'
 
 import type { EvalSlug } from '@/data/search/eval-questions'
+import { AppliedFilterBadges } from './AppliedFilterBadges'
+import { hasActiveFilters } from './use-clear-all-filters'
 
 type SearchResultsProps = {
-  alwaysVisibleEvalSlugs: EvalSlug[]
+  visibleEvalSlugs: EvalSlug[]
 }
 
-export function SearchResults({ alwaysVisibleEvalSlugs }: SearchResultsProps) {
+export function SearchResults({ visibleEvalSlugs }: SearchResultsProps) {
   const search = Route.useSearch()
-  const { query, year, quarters, ways, unitsMin, unitsMax, sort, order, page } = search
   const queryClient = useQueryClient()
-  const resultsTopRef = useRef<HTMLDivElement | null>(null)
   const bottomPrefetchRef = useRef<HTMLDivElement | null>(null)
-  const previousPageRef = useRef<number | null>(null)
   const lastPrefetchedPageRef = useRef<number | null>(null)
-  const evalFilters = extractEvalFilters(search)
-  const visibleEvalSlugs = useMemo(() => {
-    const combined = new Set<EvalSlug>(alwaysVisibleEvalSlugs)
-    if (isEvalSortOption(sort)) combined.add(sort)
-    for (const filter of evalFilters) combined.add(filter.slug)
-    return EVAL_QUESTION_SLUGS.filter((slug) => combined.has(slug))
-  }, [alwaysVisibleEvalSlugs, evalFilters, sort])
 
   const { data, isPending, isError, error, isPlaceholderData } = useQuery({
-    ...searchQueryOptions(query, year, quarters, ways, unitsMin, unitsMax, sort, order, evalFilters, page),
+    ...searchQueryOptions(search),
     placeholderData: keepPreviousData,
   })
 
   const results = data?.results
-  const hasMore = data?.hasMore ?? false
-  const nextPage = page + 1
+  const totalCount = data?.totalCount ?? 0
+  const hasMore = totalCount > search.page * PAGE_SIZE
+  const nextPage = search.page + 1
 
   useEffect(() => {
-    if (previousPageRef.current !== null && previousPageRef.current !== page) {
-      const topAnchor = document.querySelector('[data-search-top-anchor]')
-      const resultsTop = resultsTopRef.current
-      const targetElement =
-        topAnchor instanceof HTMLElement ? topAnchor : resultsTop instanceof HTMLElement ? resultsTop : null
-      if (targetElement != null) {
-        const headerHeight = document.querySelector('header')?.getBoundingClientRect().height ?? 0
-        const targetY = window.scrollY + targetElement.getBoundingClientRect().top - headerHeight - 12
-        window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' })
-      }
-    }
-    previousPageRef.current = page
-  }, [page])
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      })
+    })
+  }, [search.page])
 
   useEffect(() => {
     const target = bottomPrefetchRef.current
@@ -65,42 +49,14 @@ export function SearchResults({ alwaysVisibleEvalSlugs }: SearchResultsProps) {
         if (!entry?.isIntersecting) return
         if (lastPrefetchedPageRef.current === nextPage) return
         lastPrefetchedPageRef.current = nextPage
-        void queryClient.prefetchQuery(
-          searchQueryOptions(
-            query,
-            year,
-            quarters,
-            ways,
-            unitsMin,
-            unitsMax,
-            sort,
-            order,
-            evalFilters,
-            nextPage,
-          ),
-        )
+        void queryClient.prefetchQuery(searchQueryOptions({ ...search, page: nextPage }))
       },
       { rootMargin: '240px 0px' },
     )
 
     observer.observe(target)
     return () => observer.disconnect()
-  }, [
-    evalFilters,
-    hasMore,
-    isPlaceholderData,
-    nextPage,
-    order,
-    page,
-    query,
-    queryClient,
-    quarters,
-    sort,
-    unitsMax,
-    unitsMin,
-    ways,
-    year,
-  ])
+  }, [hasMore, isPlaceholderData, nextPage, queryClient, search])
 
   if (isPending) {
     return <p className="py-8 text-center text-sm text-slate-500">Searching…</p>
@@ -115,38 +71,52 @@ export function SearchResults({ alwaysVisibleEvalSlugs }: SearchResultsProps) {
   }
 
   if (results === undefined || results.length === 0) {
+    const hasQuery = Boolean(search.query)
+    const hasFilters = hasActiveFilters(search)
+
     return (
-      <p className="text-sm text-slate-600">
-        {query ? `No matches found for "${query}".` : 'No courses match your filters.'}
-      </p>
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <p className="text-lg font-semibold text-slate-800">
+          {hasQuery ? `No matches found for "${search.query}".` : 'No courses match your filters.'}
+        </p>
+        <p className="mt-2 max-w-md text-sm text-slate-500">
+          {hasQuery
+            ? hasFilters
+              ? 'Try a different search term or loosen your filters.'
+              : 'Try a different search term.'
+            : 'Try adjusting or clearing some of your filters.'}
+        </p>
+        {hasFilters && (
+          <div className="mt-4 w-full max-w-md text-left">
+            <AppliedFilterBadges centered />
+          </div>
+        )}
+      </div>
     )
   }
 
   return (
     <TooltipProvider>
-      <div
-        ref={resultsTopRef}
-        className={`transition-opacity duration-150 ${isPlaceholderData ? 'opacity-60' : 'opacity-100'}`}
-      >
+      <div className={`transition-opacity duration-150 ${isPlaceholderData ? 'opacity-60' : 'opacity-100'}`}>
         {results.map((course) => (
           <CourseCard
             key={course.id}
             course={course}
-            selectedQuarters={quarters}
+            selectedQuarters={search.quarters}
             visibleEvalSlugs={visibleEvalSlugs}
           />
         ))}
-        <PaginationControls page={page} hasMore={hasMore} isLoading={isPlaceholderData} />
-        <div ref={bottomPrefetchRef} aria-hidden className="h-px w-full" />
+        <PaginationControls page={search.page} totalCount={totalCount} />
+        <div ref={bottomPrefetchRef} aria-hidden className="h-12 w-full" />
       </div>
     </TooltipProvider>
   )
 }
 
-export function SearchResultsContainer({ alwaysVisibleEvalSlugs }: SearchResultsProps) {
+export function SearchResultsContainer({ visibleEvalSlugs }: SearchResultsProps) {
   return (
     <div className="flex flex-col gap-4">
-      <SearchResults alwaysVisibleEvalSlugs={alwaysVisibleEvalSlugs} />
+      <SearchResults visibleEvalSlugs={visibleEvalSlugs} />
     </div>
   )
 }

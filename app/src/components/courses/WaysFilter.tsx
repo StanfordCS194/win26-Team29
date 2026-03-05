@@ -1,54 +1,25 @@
 import { Route } from '@/routes/courses'
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { WAYS_OPTIONS, type CoursesSearch, extractEvalFilters } from '@/data/search/search.types'
-import { searchQueryOptions } from './courses-query-options'
+import { useQuery } from '@tanstack/react-query'
+import { availableGersQueryOptions, searchQueryOptions } from './courses-query-options'
 import { usePrefetchOnHover } from './usePrefetchOnHover'
 
-import type { EvalFilterParam } from '@/data/search/search.queries'
-import type { Quarter, SortOption, Way } from '@/data/search/search.types'
+import type { SearchParams } from '@/data/search/search.params'
 
-function WaysCheckbox({
-  way,
+function GersCheckbox({
+  ger,
   checked,
   onToggle,
-  query,
-  year,
-  quarters,
-  ways,
-  unitsMin,
-  unitsMax,
-  sort,
-  order,
-  evalFilters,
+  search,
 }: {
-  way: Way
+  ger: string
   checked: boolean
   onToggle: () => void
-  query: string
-  year: string
-  quarters: Quarter[]
-  ways: Way[]
-  unitsMin: number | undefined
-  unitsMax: number | undefined
-  sort: SortOption
-  order: 'asc' | 'desc'
-  evalFilters: EvalFilterParam[]
+  search: SearchParams
 }) {
-  const hoverProps = usePrefetchOnHover(() =>
-    searchQueryOptions(
-      query,
-      year,
-      quarters,
-      checked ? ways.filter((w) => w !== way) : [...ways, way],
-      unitsMin,
-      unitsMax,
-      sort,
-      order,
-      evalFilters,
-      1,
-    ),
-  )
+  const nextGers = checked ? search.gers?.filter((w) => w !== ger) : [...(search.gers ?? []), ger]
+  const hoverProps = usePrefetchOnHover(() => searchQueryOptions({ ...search, gers: nextGers, page: 1 }))
 
   return (
     <label
@@ -59,24 +30,23 @@ function WaysCheckbox({
         type="checkbox"
         checked={checked}
         onChange={onToggle}
-        className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary/30"
+        className="h-4.5 w-4.5 rounded border-slate-300 text-primary focus:ring-primary/30"
       />
-      {way}
+      {ger}
     </label>
   )
 }
 
-export function WaysFilter() {
+export function GersFilter() {
   const [open, setOpen] = useState(false)
   const search = Route.useSearch()
-  const { query, year, quarters, ways, unitsMin, unitsMax, sort, order } = search
-  const evalFilters = extractEvalFilters(search)
   const navigate = Route.useNavigate()
+  const { data: gerCodes = [] } = useQuery(availableGersQueryOptions)
 
-  const toggle = (way: Way) => {
-    const next = ways.includes(way) ? ways.filter((w) => w !== way) : [...ways, way]
+  const toggle = (ger: string) => {
+    const next = search.gers.includes(ger) ? search.gers.filter((w) => w !== ger) : [...search.gers, ger]
     void navigate({
-      search: (prev) => ({ ...prev, ways: next, page: 1 }) as Required<CoursesSearch>,
+      search: (prev) => ({ ...prev, gers: next, page: 1 }) as Required<SearchParams>,
     })
   }
 
@@ -87,7 +57,7 @@ export function WaysFilter() {
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-1 rounded text-xs font-medium tracking-wide text-slate-500 uppercase transition hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:outline-none"
       >
-        Ways
+        Gers
         {open ? (
           <ChevronDown className="h-3.5 w-3.5" aria-hidden />
         ) : (
@@ -96,21 +66,13 @@ export function WaysFilter() {
       </button>
       {open && (
         <div className="flex flex-col gap-0.5">
-          {WAYS_OPTIONS.map((way) => (
-            <WaysCheckbox
-              key={way}
-              way={way}
-              checked={ways.includes(way)}
-              onToggle={() => toggle(way)}
-              query={query}
-              year={year}
-              quarters={quarters}
-              ways={ways}
-              unitsMin={unitsMin}
-              unitsMax={unitsMax}
-              sort={sort}
-              order={order}
-              evalFilters={evalFilters}
+          {gerCodes.map((ger) => (
+            <GersCheckbox
+              key={ger}
+              ger={ger}
+              checked={search.gers.includes(ger)}
+              onToggle={() => toggle(ger)}
+              search={search}
             />
           ))}
         </div>

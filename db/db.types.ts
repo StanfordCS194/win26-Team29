@@ -83,6 +83,33 @@ export interface AuthAuditLogEntries {
   payload: Json | null
 }
 
+export interface AuthCustomOauthProviders {
+  acceptable_client_ids: Generated<string[]>
+  attribute_mapping: Generated<Json>
+  authorization_params: Generated<Json>
+  authorization_url: string | null
+  cached_discovery: Json | null
+  client_id: string
+  client_secret: string
+  created_at: Generated<Temporal.Instant>
+  discovery_cached_at: Temporal.Instant | null
+  discovery_url: string | null
+  email_optional: Generated<boolean>
+  enabled: Generated<boolean>
+  id: Generated<string>
+  identifier: string
+  issuer: string | null
+  jwks_uri: string | null
+  name: string
+  pkce_enabled: Generated<boolean>
+  provider_type: string
+  scopes: Generated<string[]>
+  skip_nonce_check: Generated<boolean>
+  token_url: string | null
+  updated_at: Generated<Temporal.Instant>
+  userinfo_url: string | null
+}
+
 export interface AuthFlowState {
   auth_code: string | null
   auth_code_issued_at: Temporal.Instant | null
@@ -385,6 +412,7 @@ export interface CourseOfferings {
   course_id: number
   created_at: Generated<Temporal.Instant | null>
   description: string
+  embedding: string | null
   final_exam_flag_id: number
   grading_option_id: number
   id: Generated<number>
@@ -447,8 +475,8 @@ export interface EvaluationReportSections {
 
 export interface EvaluationSmartAverages {
   id: Generated<number>
-  is_course_informed: Generated<boolean>
-  is_instructor_informed: Generated<boolean>
+  is_course_informed: boolean
+  is_instructor_informed: boolean
   question_id: number
   section_id: number
   smart_average: number
@@ -555,6 +583,7 @@ export interface FinalExamOptions {
 export interface Gers {
   code: string
   id: Generated<number>
+  is_core: Generated<boolean>
 }
 
 export interface GradingOptions {
@@ -629,6 +658,11 @@ export interface Schedules {
   start_time: Temporal.PlainTime | null
 }
 
+export interface Schools {
+  id: Generated<number>
+  name: string | null
+}
+
 export interface SectionAttributes {
   description: string
   id: Generated<number>
@@ -644,16 +678,12 @@ export interface Sections {
   class_id: number
   component_type_id: number
   course_offering_id: number
-  current_class_size: number
-  current_waitlist_size: number
   drop_consent_id: number
   enroll_status_id: number
   id: Generated<number>
   is_principal: Generated<boolean | null>
-  max_class_size: number
   max_enrolled: number
   max_waitlist: number
-  max_waitlist_size: number
   notes: string | null
   num_enrolled: number
   num_waitlist: number
@@ -764,6 +794,7 @@ export interface Subjects {
   code: string
   id: Generated<number>
   longname: string | null
+  school_id: number | null
 }
 
 export interface SupabaseMigrationsSchemaMigrations {
@@ -805,6 +836,7 @@ export interface DB {
   academic_groups: AcademicGroups
   academic_organizations: AcademicOrganizations
   'auth.audit_log_entries': AuthAuditLogEntries
+  'auth.custom_oauth_providers': AuthCustomOauthProviders
   'auth.flow_state': AuthFlowState
   'auth.identities': AuthIdentities
   'auth.instances': AuthInstances
@@ -855,6 +887,7 @@ export interface DB {
   'realtime.subscription': RealtimeSubscription
   schedule_instructors: ScheduleInstructors
   schedules: Schedules
+  schools: Schools
   section_attributes: SectionAttributes
   sections: Sections
   'storage.buckets': StorageBuckets

@@ -1,22 +1,43 @@
-import { createRouter } from '@tanstack/react-router'
+import { createRouter, parseSearchWith, stringifySearchWith } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
-import qs from 'query-string'
 
 import * as TanstackQuery from './integrations/tanstack-query/root-provider'
 import { routeTree } from './routeTree.gen'
+
+function serializeValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    const badElement = value.find((v) => String(v).includes('.'))
+    if (badElement !== undefined) {
+      throw new Error(
+        `Cannot serialize array whose elements contain dots — dots are used as the array separator: ${JSON.stringify(value)}`,
+      )
+    }
+    return value.map(String).join('.')
+  }
+  if (typeof value === 'object' && value !== null) {
+    return JSON.stringify(value)
+  }
+  return String(value)
+}
+
+function deserializeValue(str: string): unknown {
+  try {
+    const parsed = JSON.parse(str)
+    if (typeof parsed !== 'string') return parsed
+  } catch {}
+
+  if (str.includes('.')) return str.split('.')
+
+  return str
+}
 
 export const getRouter = () => {
   const rqContext = TanstackQuery.getContext()
 
   const router = createRouter({
     routeTree,
-    parseSearch: (searchStr) =>
-      qs.parse(searchStr, { arrayFormat: 'comma', parseBooleans: true, parseNumbers: true }),
-
-    stringifySearch: (search) => {
-      const str = qs.stringify(search as Record<string, unknown>, { arrayFormat: 'comma' })
-      return str ? `?${str}` : ''
-    },
+    stringifySearch: stringifySearchWith(serializeValue),
+    parseSearch: parseSearchWith(deserializeValue),
     context: {
       ...rqContext,
     },

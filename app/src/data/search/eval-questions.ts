@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 
 export const EVAL_QUESTION_SLUGS = [
-  'rating',
+  'quality',
   'hours',
   'learning',
   'organized',
@@ -13,17 +13,18 @@ export const EVAL_QUESTION_SLUGS = [
 export type EvalSlug = (typeof EVAL_QUESTION_SLUGS)[number]
 
 export const SLUG_TO_QUESTION_TEXT: Record<EvalSlug, string> = {
-  rating: 'Overall, how would you describe the quality of the instruction in this course?',
+  quality: 'Overall, how would you describe the quality of the instruction in this course?',
   learning: 'How much did you learn from this course?',
   organized: 'How organized was the course?',
   goals: 'How well did you achieve the learning goals of this course?',
-  attend_in_person: 'About what percent of the class meetings did you attend in person?',
+  attend_in_person:
+    'About what percent of the class meetings (including discussions) did you attend in person?',
   attend_online: 'About what percent of the class meetings did you attend online?',
   hours: 'How many hours per week on average did you spend on this course (including class meetings)?',
 }
 
 export const SLUG_LABEL: Record<EvalSlug, string> = {
-  rating: 'Instruction quality',
+  quality: 'Instruction quality',
   learning: 'How much you learned',
   organized: 'Course organization',
   goals: 'Learning goals achieved',
@@ -67,6 +68,11 @@ export const getEvalQuestions = createServerFn({ method: 'GET' }).handler(
         label: SLUG_LABEL[slug],
         questionText: row.question_text,
       })
+    }
+
+    const missingSlugs = EVAL_QUESTION_SLUGS.filter((slug) => !questions.some((q) => q.slug === slug))
+    if (missingSlugs.length > 0) {
+      throw new Error(`getEvalQuestions: missing slugs from DB: ${missingSlugs.join(', ')}`)
     }
 
     cachedEvalQuestions = questions

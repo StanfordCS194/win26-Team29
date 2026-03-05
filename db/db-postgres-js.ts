@@ -21,11 +21,15 @@ export type {
   MvSectionAttribute,
 } from './db-mv.types.ts'
 
-export interface EligibleOfferingsMv {
+export interface OfferingAggregatesMv {
   offering_id: number
-  year: string
-  subject_id: number
-  term_quarter: QuarterType
+  quarters: QuarterType[]
+  ger_codes: string[]
+}
+
+export interface SectionInstructorSunetsMv {
+  section_id: number
+  instructor_sunets: string[]
 }
 
 export interface CourseContentSearch {
@@ -33,10 +37,21 @@ export interface CourseContentSearch {
   search_vector: string
 }
 
+export interface CrosslistingsMv {
+  course_id: number
+  year: string
+  offering_ids: number[]
+  subject_codes: string[]
+  num_crosslistings: number
+  num_subjects: number
+}
+
 export type DB = GeneratedDB & {
   course_offerings_full_mv: CourseOfferingsFullMv
-  offering_quarters_mv: EligibleOfferingsMv
   course_content_search: CourseContentSearch
+  offering_aggregates_mv: OfferingAggregatesMv
+  section_instructor_sunets_mv: SectionInstructorSunetsMv
+  crosslistings_mv: CrosslistingsMv
 }
 
 // --- Temporal serialization for postgres.js ---

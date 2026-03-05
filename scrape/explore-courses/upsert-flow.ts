@@ -6,7 +6,7 @@ import { Console, Effect, Option, Ref, Sink, Stream, pipe } from 'effect'
 
 import { extractInstructors, extractLookupValues } from './upsert/extract-values.ts'
 import { parsedCourseToUploadCourseOffering } from './upsert/prepare-course.ts'
-import { upsertLookupCodesBatch, upsertSubjects } from './upsert/upsert-codes.ts'
+import { upsertLookupCodesBatch, upsertSchools, upsertSubjects } from './upsert/upsert-codes.ts'
 import { upsertCourseOfferings } from './upsert/upsert-courses.ts'
 import { upsertInstructors } from './upsert/upsert-instructors.ts'
 import type { ParsedSubjectData } from './fetch-parse-flow.ts'
@@ -59,13 +59,23 @@ export const databaseUpsertFlow = ({
     const instructors = extractInstructors(parsedCourses)
     const allParsedCourses = parsedCourses.flatMap((p) => p.courses)
 
-    // Step 1: Upsert lookup values and subjects (subjects from SubjectCourseData: subjectName + longname)
+    // Step 1: Upsert lookup values and subjects (subjects from SubjectCourseData: subjectName + longname + school)
     yield* Console.log('\nUpserting lookup values to database...')
     const lookupCodeToIdMap = yield* upsertLookupCodesBatch(lookupData)
-    const codeToLongname = new Map<string, string | null>(
-      parsedCourses.map((p) => [p.subjectName, p.longname ?? null]),
+
+    const schoolNames = new Set(parsedCourses.flatMap((p) => (p.school != null ? [p.school] : [])))
+    const schoolNameToId = yield* upsertSchools(schoolNames)
+
+    const codeToSubjectData = new Map(
+      parsedCourses.map((p) => [
+        p.subjectName,
+        {
+          longname: p.longname ?? null,
+          school_id: p.school != null ? (schoolNameToId.get(p.school) ?? null) : null,
+        },
+      ]),
     )
-    const subjectIdMap = yield* upsertSubjects(codeToLongname)
+    const subjectIdMap = yield* upsertSubjects(codeToSubjectData)
     yield* Console.log('Lookup values upserted')
 
     // Step 2: Upsert instructors
@@ -193,11 +203,16 @@ export const databaseUpsertFlow = ({
       db.schema.refreshMaterializedView('course_content_search').concurrently().execute(),
     )
     yield* Console.log('Refreshed course content search materialized view...')
-    yield* Console.log('\nRefreshing eligible offerings materialized view...')
+    yield* Console.log('\nRefreshing offering aggregates materialized view...')
     yield* Effect.promise(() =>
-      db.schema.refreshMaterializedView('offering_quarters_mv').concurrently().execute(),
+      db.schema.refreshMaterializedView('offering_aggregates_mv').concurrently().execute(),
     )
-    yield* Console.log('Refreshed eligible offerings materialized view...')
+    yield* Console.log('Refreshed offering aggregates materialized view...')
+    yield* Console.log('\nRefreshing crosslistings materialized view...')
+    yield* Effect.promise(() =>
+      db.schema.refreshMaterializedView('crosslistings_mv').concurrently().execute(),
+    )
+    yield* Console.log('Refreshed crosslistings materialized view...')
     yield* Console.log('\nRefreshing course offerings full materialized view...')
     yield* Effect.promise(() =>
       db.schema.refreshMaterializedView('course_offerings_full_mv').concurrently().execute(),

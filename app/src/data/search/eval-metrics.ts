@@ -4,7 +4,7 @@ import { EVAL_QUESTION_SLUGS, SLUG_LABEL, SLUG_TO_QUESTION_TEXT } from './eval-q
 
 import type { LucideIcon } from 'lucide-react'
 import type { EvalSlug } from './eval-questions'
-import type { SortOption } from './search.types'
+import type { SortOption } from './search.params'
 
 export type EvalMetricDirection = 'higher_better' | 'lower_better' | 'neutral'
 
@@ -20,24 +20,46 @@ type EvalMetricMeta = {
   icon: LucideIcon
   direction: EvalMetricDirection
   range: EvalRange
+  /** When defined, the slider's max position is an open upper bound displayed as this label (e.g. "40+"). */
+  openLabel?: string
   visualRange: EvalRange
   curveExponent: number
   badgeClassName: string
   iconClassName: string
   formatValue: (value: number) => string
+  sliderFormatInput?: (value: number) => string
+  sliderParseInput?: (raw: string) => number | undefined
+  sliderValidateInput?: (raw: string) => boolean
+  sliderInputClassName?: string
+}
+
+function formatHours(v: number): string {
+  return `${v % 1 === 0 ? String(v) : v.toFixed(1)}h`
+}
+
+function parseHours(raw: string): number | undefined {
+  const s = raw.replace(/h$/i, '')
+  if (s === '') return undefined
+  const n = Number(s)
+  return Number.isFinite(n) ? n : undefined
+}
+
+function validateHoursInput(raw: string): boolean {
+  return /^[\d.h]*$/i.test(raw)
 }
 
 const ONE_TO_FIVE_RANGE: EvalRange = { min: 1, max: 5 }
 const ZERO_TO_HUNDRED_RANGE: EvalRange = { min: 0, max: 100 }
+
 const ONE_TO_FIVE_VISUAL_RANGE: EvalRange = { min: 3, max: 5 }
 
-export const DEFAULT_ALWAYS_VISIBLE_EVAL_SLUGS: EvalSlug[] = ['rating', 'hours']
+export const DEFAULT_ALWAYS_VISIBLE_EVAL_SLUGS: EvalSlug[] = ['quality', 'hours']
 
 export const EVAL_METRIC_REGISTRY: Record<EvalSlug, EvalMetricMeta> = {
-  rating: {
-    slug: 'rating',
-    label: SLUG_LABEL.rating,
-    questionText: SLUG_TO_QUESTION_TEXT.rating,
+  quality: {
+    slug: 'quality',
+    label: SLUG_LABEL.quality,
+    questionText: SLUG_TO_QUESTION_TEXT.quality,
     icon: Star,
     direction: 'higher_better',
     range: ONE_TO_FIVE_RANGE,
@@ -118,12 +140,17 @@ export const EVAL_METRIC_REGISTRY: Record<EvalSlug, EvalMetricMeta> = {
     questionText: SLUG_TO_QUESTION_TEXT.hours,
     icon: Clock3,
     direction: 'lower_better',
-    range: ZERO_TO_HUNDRED_RANGE,
+    range: { min: 0, max: 40 },
+    openLabel: '40+',
     visualRange: { min: 2, max: 16 },
     curveExponent: 1.2,
     badgeClassName: 'border-orange-200 bg-orange-50',
     iconClassName: 'text-orange-700',
-    formatValue: (value) => `${value.toFixed(1)}h`,
+    formatValue: formatHours,
+    sliderFormatInput: formatHours,
+    sliderParseInput: parseHours,
+    sliderValidateInput: validateHoursInput,
+    sliderInputClassName: 'w-10',
   },
 }
 

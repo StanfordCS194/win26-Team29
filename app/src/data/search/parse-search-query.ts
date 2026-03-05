@@ -6,7 +6,7 @@
  */
 
 export interface CourseCode {
-  subject: string
+  subject: string | undefined
   codeNumber: number
   codeSuffix: string | undefined
 }
@@ -83,7 +83,13 @@ export function parseSearchQuery(raw: string, knownSubjects: string[]): ParsedSe
   }
 
   // Clean up remaining query
-  const remainingQuery = working.replace(/\s+/g, ' ').trim()
+  let remainingQuery = working.replace(/\s+/g, ' ').trim()
+
+  // A query that is purely a number (and nothing else) is treated as a bare code number filter.
+  if (/^\d+$/.test(remainingQuery)) {
+    codes.push({ subject: undefined, codeNumber: parseInt(remainingQuery, 10), codeSuffix: undefined })
+    remainingQuery = ''
+  }
 
   return { codes, subjectsOnly, remainingQuery }
 }

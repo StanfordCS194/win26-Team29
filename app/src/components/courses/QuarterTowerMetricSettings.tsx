@@ -18,13 +18,16 @@ import type { EvalSlug } from '@/data/search/eval-questions'
 type QuarterTowerMetricSettingsProps = {
   alwaysVisibleEvalSlugs: EvalSlug[]
   onAlwaysVisibleEvalSlugsChange: (slugs: EvalSlug[]) => void
+  visibleEvalSlugs: EvalSlug[]
 }
 
 export function QuarterTowerMetricSettings({
   alwaysVisibleEvalSlugs,
   onAlwaysVisibleEvalSlugsChange,
+  visibleEvalSlugs,
 }: QuarterTowerMetricSettingsProps) {
   const selected = new Set(alwaysVisibleEvalSlugs)
+  const forceChecked = new Set(visibleEvalSlugs.filter((slug) => !selected.has(slug)))
 
   const toggle = (slug: EvalSlug, nextChecked: boolean) => {
     const next = new Set(selected)
@@ -52,15 +55,17 @@ export function QuarterTowerMetricSettings({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-72">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>Quarter tower always-show metrics</DropdownMenuLabel>
+          <DropdownMenuLabel>Show Smart Averages</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {EVAL_QUESTION_SLUGS.map((slug) => {
             const meta = getEvalMetricMeta(slug)
             const Icon = meta.icon
+            const isForced = forceChecked.has(slug)
             return (
               <DropdownMenuCheckboxItem
                 key={slug}
-                checked={selected.has(slug)}
+                checked={selected.has(slug) || isForced}
+                disabled={isForced}
                 onCheckedChange={(value) => toggle(slug, value === true)}
               >
                 <Icon className="mr-1.5 h-3.5 w-3.5 text-slate-500" />

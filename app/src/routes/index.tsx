@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { ALL_QUARTERS, CoursesSearch } from '@/data/search/search.types'
+import { ALL_QUARTERS, SearchParams } from '@/data/search/search.params'
 
 export const Route = createFileRoute('/')({ component: App })
 
@@ -16,7 +16,7 @@ function App() {
         query: query.trim(),
         quarters: ALL_QUARTERS,
         page: 1,
-      } as Required<CoursesSearch>,
+      } as Required<SearchParams>,
     })
   }
 
@@ -39,7 +39,7 @@ function App() {
                   goToSearch()
                 }
               }}
-              placeholder="Search by course, instructor, or keyword"
+              placeholder="Search courses"
               className="w-full rounded-full border border-slate-300 bg-white py-5 pr-28 pl-6 text-lg text-slate-900 shadow-[0_14px_28px_color-mix(in_srgb,var(--primary)_25%,transparent)] placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
             />
             <button

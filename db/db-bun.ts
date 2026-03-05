@@ -30,6 +30,17 @@ export interface OfferingQuartersMv {
   gers: string[]
 }
 
+export interface OfferingAggregatesMv {
+  offering_id: number
+  quarters: QuarterType[] // term_quarter[]
+  ger_codes: string[] // string[]
+}
+
+export interface SectionInstructorSunetsMv {
+  section_id: number
+  instructor_sunets: string[]
+}
+
 export interface CourseContentSearch {
   offering_id: number
   search_vector: string
@@ -39,6 +50,8 @@ export type DB = GeneratedDB & {
   course_offerings_full_mv: CourseOfferingsFullMv
   offering_quarters_mv: OfferingQuartersMv
   course_content_search: CourseContentSearch
+  offering_aggregates_mv: OfferingAggregatesMv
+  section_instructor_sunets_mv: SectionInstructorSunetsMv
 }
 
 // --- Temporal serialization for postgres.js ---
