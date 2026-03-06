@@ -79,7 +79,7 @@ export function SortSelect() {
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-sm text-slate-400">Sort by</span>
+      <span className="text-sm text-slate-500">Sort by</span>
       <div className="flex items-center gap-1.5">
         <Select
           value={search.sort}

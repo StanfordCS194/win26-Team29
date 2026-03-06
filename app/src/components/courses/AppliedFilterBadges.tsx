@@ -99,9 +99,11 @@ const EVAL_BADGE_LABEL: Record<EvalSlug, string> = {
 export function AppliedFilterBadges({
   autoFocusClearAll,
   centered,
+  large,
 }: {
   autoFocusClearAll?: boolean
   centered?: boolean
+  large?: boolean
 }) {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -512,13 +514,24 @@ export function AppliedFilterBadges({
     }
   }, [autoFocusClearAll, badges.length])
 
+  const badgeClass =
+    large === true
+      ? 'group inline-flex cursor-pointer items-center gap-1 rounded-full border border-slate-200 bg-white px-3 py-1 text-sm text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:ring-2 focus:ring-slate-300 focus:outline-none'
+      : 'group inline-flex cursor-pointer items-center gap-0.5 rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-xs text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:ring-2 focus:ring-slate-300 focus:outline-none'
+  const textMaxW = large === true ? 'max-w-[16rem]' : 'max-w-[11.5rem]'
+  const iconClass = large === true ? 'h-3.5 w-3.5' : 'h-3 w-3'
+  const clearAllClass =
+    large === true
+      ? 'inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-bold text-slate-600 transition animate-pulse hover:animate-none hover:border-slate-300 hover:bg-red-50 hover:text-red-500 focus-visible:text-red-500 focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none'
+      : 'inline-flex items-center gap-0.5 rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-medium text-slate-500 transition hover:border-slate-300 hover:bg-red-50 hover:text-red-500 focus-visible:text-red-500 focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none'
+
   return (
     <div>
       {badges.length > 0 && (
-        <div className="border-t border-slate-200">
+        <div className={large === true ? '' : 'border-t border-slate-200'}>
           <div
             ref={containerRef}
-            className={`flex flex-wrap gap-1 pt-2 pb-1.5 ${centered === true ? 'justify-center' : ''}`}
+            className={`flex flex-wrap gap-1.5 pt-1 pb-1.5 ${centered === true ? 'justify-center' : ''}`}
           >
             {badges.map((badge, idx) => (
               <span
@@ -529,9 +542,9 @@ export function AppliedFilterBadges({
                 onClick={() => scrollToFilter(badge.id)}
                 onKeyDown={(e) => handleBadgeKeyDown(e, idx, badge.onClear)}
                 aria-label={`${badge.label}: ${badge.summary}. Press Enter to jump to filter, Delete to clear.`}
-                className="group inline-flex cursor-pointer items-center gap-0.5 rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-xs text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:ring-2 focus:ring-primary/30 focus:outline-none"
+                className={badgeClass}
               >
-                <span className="max-w-[11.5rem] truncate group-hover:[-webkit-text-stroke:0.2px_currentColor]">
+                <span className={`${textMaxW} truncate group-hover:[-webkit-text-stroke:0.2px_currentColor]`}>
                   <span className="font-medium text-slate-500">{badge.label}:</span> {badge.summary}
                 </span>
                 <button
@@ -544,7 +557,7 @@ export function AppliedFilterBadges({
                   aria-label={`Clear ${badge.label} filter`}
                   className="rounded-full p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-red-500 focus-visible:outline-none"
                 >
-                  <Eraser className="h-3 w-3" />
+                  <Eraser className={iconClass} />
                 </button>
               </span>
             ))}
@@ -555,16 +568,16 @@ export function AppliedFilterBadges({
               data-flat-idx={badges.length}
               onClick={clearAll}
               onKeyDown={(e) => handleBadgeKeyDown(e, badges.length, clearAll)}
-              className="inline-flex items-center gap-0.5 rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-medium text-slate-500 transition hover:border-slate-300 hover:bg-red-50 hover:text-red-500 focus-visible:text-red-500 focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none"
+              className={clearAllClass}
               aria-label="Clear all filters"
             >
               Clear all
-              <Eraser className="h-3 w-3" />
+              <Eraser className={iconClass} />
             </button>
           </div>
         </div>
       )}
-      <div className="border-b border-slate-200" />
+      {large !== true && <div className="border-b border-slate-200" />}
     </div>
   )
 }

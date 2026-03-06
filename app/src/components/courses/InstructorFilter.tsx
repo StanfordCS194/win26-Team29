@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils'
 const COL_W = 'w-12'
 
 type HighlightedCol = null | 'include' | 'exclude'
-const COL_CYCLE: HighlightedCol[] = [null, 'include', 'exclude']
 
 function includeButtonClass(
   isIncluded: boolean,
@@ -47,11 +46,14 @@ function excludeButtonClass(isExcluded: boolean, isLabelHovered: boolean, colHig
 export function InstructorFilter() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const advancedMode = search.advancedMode === true
   const { data: instructors = [] } = useQuery(availableInstructorsQueryOptions(search.year))
 
   const include = search.instructorSunets
   const exclude = search.instructorSunetsExclude
   const includeMode = search.instructorSunetsIncludeMode
+
+  const colCycle: HighlightedCol[] = advancedMode ? [null, 'include', 'exclude'] : [null, 'include']
 
   const includeSet = useMemo(() => new Set(include), [include])
   const excludeSet = useMemo(() => new Set(exclude), [exclude])
@@ -190,14 +192,14 @@ export function InstructorFilter() {
       focusElement(newIdx, newCol)
     } else if (e.key === 'ArrowRight' && highlightedIndex >= 0) {
       e.preventDefault()
-      const idx = COL_CYCLE.indexOf(highlightedCol)
-      const newCol = COL_CYCLE[(idx + 1) % COL_CYCLE.length]
+      const idx = colCycle.indexOf(highlightedCol)
+      const newCol = colCycle[(idx + 1) % colCycle.length]
       setHighlightedCol(newCol)
       focusElement(highlightedIndex, newCol)
     } else if (e.key === 'ArrowLeft' && highlightedIndex >= 0) {
       e.preventDefault()
-      const idx = COL_CYCLE.indexOf(highlightedCol)
-      const newCol = COL_CYCLE[(idx - 1 + COL_CYCLE.length) % COL_CYCLE.length]
+      const idx = colCycle.indexOf(highlightedCol)
+      const newCol = colCycle[(idx - 1 + colCycle.length) % colCycle.length]
       setHighlightedCol(newCol)
       focusElement(highlightedIndex, newCol)
     } else if (e.key === 'Enter' && highlightedIndex >= 0) {
@@ -292,7 +294,8 @@ export function InstructorFilter() {
       <div
         key={sunet}
         className={cn(
-          'group/row col-span-3 grid grid-cols-subgrid items-center overflow-hidden rounded transition-colors focus-within:bg-slate-100 focus-within:ring-1 focus-within:ring-slate-200 hover:bg-slate-50',
+          'group/row grid grid-cols-subgrid items-center overflow-hidden rounded transition-colors focus-within:bg-slate-100 focus-within:ring-1 focus-within:ring-slate-200 hover:bg-slate-50',
+          advancedMode ? 'col-span-3' : 'col-span-2',
           isRowHighlighted && 'bg-slate-100 ring-1 ring-slate-200',
         )}
       >
@@ -325,24 +328,26 @@ export function InstructorFilter() {
             {isIncluded && <Check className="h-2.5 w-2.5" />}
           </button>
         </div>
-        <div
-          className={`group/exclude-col flex ${COL_W} cursor-pointer items-center justify-center py-1`}
-          onClick={() => toggleExclude(sunet)}
-        >
-          <button
-            type="button"
-            data-flat-idx={flatIdx}
-            data-col="exclude"
-            onClick={(e) => {
-              e.stopPropagation()
-              toggleExclude(sunet)
-            }}
-            aria-label={`Exclude ${name}`}
-            className={excludeButtonClass(isExcluded, isLabelHovered, colHighlight)}
+        {advancedMode && (
+          <div
+            className={`group/exclude-col flex ${COL_W} cursor-pointer items-center justify-center py-1`}
+            onClick={() => toggleExclude(sunet)}
           >
-            {isExcluded && <X className="h-2.5 w-2.5" />}
-          </button>
-        </div>
+            <button
+              type="button"
+              data-flat-idx={flatIdx}
+              data-col="exclude"
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleExclude(sunet)
+              }}
+              aria-label={`Exclude ${name}`}
+              className={excludeButtonClass(isExcluded, isLabelHovered, colHighlight)}
+            >
+              {isExcluded && <X className="h-2.5 w-2.5" />}
+            </button>
+          </div>
+        )}
       </div>
     )
   }
@@ -356,9 +361,19 @@ export function InstructorFilter() {
       onFocus={handleContainerFocus}
       onBlur={handleContainerBlur}
     >
-      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-y-[1.5px]">
+      <div
+        className={cn(
+          'grid items-center gap-y-[1.5px]',
+          advancedMode ? 'grid-cols-[1fr_auto_auto]' : 'grid-cols-[1fr_auto]',
+        )}
+      >
         {/* Header row */}
-        <div className="col-span-3 flex items-center justify-between py-0.5">
+        <div
+          className={cn(
+            'flex items-center justify-between py-0.5',
+            advancedMode ? 'col-span-3' : 'col-span-2',
+          )}
+        >
           <div className="flex items-center gap-0.5">
             <span className="text-xs font-medium text-slate-500 uppercase">Instructor</span>
             <button
@@ -386,35 +401,43 @@ export function InstructorFilter() {
             />
           </div>
         </div>
-        <div className={`flex ${COL_W} items-center justify-center py-1`}>
-          <div className="flex items-center gap-0.25 rounded border border-slate-200 bg-slate-50 p-0.5">
-            <button
-              type="button"
-              onClick={() => navigate_({ instructorSunetsIncludeMode: 'or' })}
-              className={`w-6 rounded py-0.5 text-center text-[10px] font-medium transition ${
-                includeMode === 'or'
-                  ? 'bg-white text-slate-700 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              Or
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate_({ instructorSunetsIncludeMode: 'and' })}
-              className={`w-6 rounded py-0.5 text-center text-[10px] font-medium transition ${
-                includeMode === 'and'
-                  ? 'bg-white text-slate-700 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-600'
-              }`}
-            >
-              And
-            </button>
+        {advancedMode ? (
+          <>
+            <div className={`flex ${COL_W} items-center justify-center py-1`}>
+              <div className="flex items-center gap-0.25 rounded border border-slate-200 bg-slate-50 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => navigate_({ instructorSunetsIncludeMode: 'or' })}
+                  className={`w-6 rounded py-0.5 text-center text-[10px] font-medium transition ${
+                    includeMode === 'or'
+                      ? 'bg-white text-slate-700 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  Or
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate_({ instructorSunetsIncludeMode: 'and' })}
+                  className={`w-6 rounded py-0.5 text-center text-[10px] font-medium transition ${
+                    includeMode === 'and'
+                      ? 'bg-white text-slate-700 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  And
+                </button>
+              </div>
+            </div>
+            <div className={`flex ${COL_W} items-center justify-center py-1`}>
+              <span className="text-[10px] font-medium text-slate-400">Exclude</span>
+            </div>
+          </>
+        ) : (
+          <div className={`flex ${COL_W} items-center justify-center py-1`}>
+            <span className="text-[10px] font-medium text-slate-400">Include</span>
           </div>
-        </div>
-        <div className={`flex ${COL_W} items-center justify-center py-1`}>
-          <span className="text-[10px] font-medium text-slate-400">Exclude</span>
-        </div>
+        )}
 
         {[...selectedInstructors, ...filteredInstructors].map((inst, idx) => {
           const showDivider =
@@ -423,7 +446,14 @@ export function InstructorFilter() {
             filteredInstructors.length > 0
           return (
             <Fragment key={inst.sunet}>
-              {showDivider && <div className="col-span-3 mb-0.5 border-t border-slate-200" />}
+              {showDivider && (
+                <div
+                  className={cn(
+                    'mb-0.5 border-t border-slate-200',
+                    advancedMode ? 'col-span-3' : 'col-span-2',
+                  )}
+                />
+              )}
               {renderRow(inst.sunet, inst.name, idx)}
             </Fragment>
           )
@@ -431,12 +461,23 @@ export function InstructorFilter() {
 
         {/* No results */}
         {localQuery.trim() !== '' && filteredInstructors.length === 0 && (
-          <p className="col-span-3 py-2 text-center text-xs text-slate-400">No instructors found</p>
+          <p
+            className={cn(
+              'py-2 text-center text-xs text-slate-400',
+              advancedMode ? 'col-span-3' : 'col-span-2',
+            )}
+          >
+            No instructors found
+          </p>
         )}
 
         {/* Prompt to search */}
         {localQuery.trim() === '' && selectedInstructors.length === 0 && (
-          <p className="col-span-3 py-1.5 pl-1.5 text-xs text-slate-400">Search to add instructors</p>
+          <p
+            className={cn('py-1.5 pl-1.5 text-xs text-slate-400', advancedMode ? 'col-span-3' : 'col-span-2')}
+          >
+            Search to add instructors
+          </p>
         )}
       </div>
     </div>

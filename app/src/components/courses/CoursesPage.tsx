@@ -4,6 +4,8 @@ import { EVAL_QUESTION_SLUGS } from '@/data/search/eval-questions'
 import { DEFAULT_ALWAYS_VISIBLE_EVAL_SLUGS, isEvalSortOption } from '@/data/search/eval-metrics'
 import { Route } from '@/routes/courses'
 import type { SearchParams } from '@/data/search/search.params'
+import { SlidersHorizontal } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 import { SearchBar } from './SearchBar'
 import { SearchResultsContainer } from './SearchResults'
@@ -11,6 +13,7 @@ import { SortSelect } from './SortSelect'
 import { QuarterTowerMetricSettings } from './QuarterTowerMetricSettings'
 import { YearSelect } from './YearSelect'
 import { AppliedFilterBadges } from './AppliedFilterBadges'
+import { FilterSearch } from './FilterSearch'
 import { QuarterFilter } from './QuarterFilter'
 import { DaysFilter } from './DaysFilter'
 import { UnitsFilter } from './UnitsFilter'
@@ -39,6 +42,46 @@ const ALWAYS_SHOW_LOCAL_STORAGE_KEY = 'courses.alwaysVisibleEvalSlugs'
 
 export function CoursesPage() {
   const search = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const advancedMode = search.advancedMode === true
+
+  const toggleAdvancedMode = () => {
+    if (advancedMode) {
+      void navigate({
+        search: (prev) =>
+          ({
+            ...prev,
+            advancedMode: undefined,
+            quartersExclude: [],
+            quartersIncludeMode: undefined,
+            numQuartersMin: undefined,
+            numQuartersMax: undefined,
+            gersExclude: [],
+            gersIncludeMode: undefined,
+            numGersMin: undefined,
+            numGersMax: undefined,
+            subjectsExclude: [],
+            subjectsIncludeMode: undefined,
+            subjectsWithCrosslistings: undefined,
+            numSubjectsMin: undefined,
+            numSubjectsMax: undefined,
+            daysExclude: undefined,
+            daysIncludeMode: undefined,
+            careersExclude: [],
+            gradingOptionsExclude: [],
+            finalExamFlagsExclude: [],
+            instructorSunetsExclude: [],
+            instructorSunetsIncludeMode: undefined,
+            page: 1,
+          }) as Required<SearchParams>,
+      })
+    } else {
+      void navigate({
+        search: (prev) => ({ ...prev, advancedMode: true }) as Required<SearchParams>,
+      })
+    }
+  }
+
   const [alwaysVisibleEvalSlugs, setAlwaysVisibleEvalSlugs] = useState<EvalSlug[]>(
     DEFAULT_ALWAYS_VISIBLE_EVAL_SLUGS,
   )
@@ -147,6 +190,26 @@ export function CoursesPage() {
               <div className="py-1">
                 <YearSelect />
               </div>
+              <div className="flex items-center gap-2 border-t border-slate-200 pt-1 pb-1">
+                <div className="min-w-0 flex-1">
+                  <FilterSearch />
+                </div>
+                <button
+                  type="button"
+                  onClick={toggleAdvancedMode}
+                  aria-pressed={advancedMode}
+                  aria-label="Toggle advanced filters"
+                  className={cn(
+                    'flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium transition',
+                    advancedMode
+                      ? 'bg-slate-100 text-slate-700 ring-1 ring-slate-300'
+                      : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600',
+                  )}
+                >
+                  <SlidersHorizontal className="h-3 w-3" />
+                  Advanced
+                </button>
+              </div>
               <AppliedFilterBadges />
             </div>
             <div
@@ -157,18 +220,18 @@ export function CoursesPage() {
               <div className="flex flex-col divide-y divide-slate-200">
                 <div id="filter-quarters" className="flex flex-col gap-2 py-1.25">
                   <QuarterFilter />
-                  <NumQuartersFilter />
+                  {advancedMode && <NumQuartersFilter />}
                 </div>
                 <div id="filter-gers" className="flex flex-col gap-2 py-1.25">
                   <GERFilter />
-                  <NumGersFilter />
+                  {advancedMode && <NumGersFilter />}
                 </div>
                 <div id="filter-units" className="py-1.25">
                   <UnitsFilter />
                 </div>
                 <div id="filter-subjects" className="flex flex-col gap-2 py-1.25">
                   <SubjectFilter />
-                  <SubjectCountFilter />
+                  {advancedMode && <SubjectCountFilter />}
                 </div>
                 <div id="filter-days" className="flex flex-col gap-2 py-1.25">
                   <DaysFilter />

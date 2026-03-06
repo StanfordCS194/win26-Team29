@@ -87,8 +87,8 @@ export function SearchResults({ visibleEvalSlugs }: SearchResultsProps) {
             : 'Try adjusting or clearing some of your filters.'}
         </p>
         {hasFilters && (
-          <div className="mt-4 w-full max-w-md text-left">
-            <AppliedFilterBadges centered />
+          <div className="mt-4 w-full max-w-lg text-left">
+            <AppliedFilterBadges centered large />
           </div>
         )}
       </div>

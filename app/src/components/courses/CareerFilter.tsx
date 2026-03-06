@@ -2,11 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 import { Route } from '@/routes/courses'
 import { availableCareersQueryOptions } from './courses-query-options'
 import { SetFilter } from './SetFilter'
+import { PickFilter } from './PickFilter'
 import type { SearchParams } from '@/data/search/search.params'
 
 export function CareerFilter() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const advancedMode = search.advancedMode === true
   const { data: careerCodes = [] } = useQuery(availableCareersQueryOptions(search.year))
 
   const items = careerCodes.map((c) => ({ value: c, label: c }))
@@ -15,6 +17,19 @@ export function CareerFilter() {
     void navigate({
       search: (prev) => ({ ...prev, ...patch, page: 1 }) as Required<SearchParams>,
     })
+  }
+
+  if (!advancedMode) {
+    return (
+      <PickFilter
+        label="Career"
+        mode="multi"
+        options={items}
+        value={search.careers}
+        onChange={(v) => navigate_({ careers: v })}
+        onClear={search.careers.length > 0 ? () => navigate_({ careers: [] }) : undefined}
+      />
+    )
   }
 
   return (

@@ -6,7 +6,7 @@ import { WeekdaySchema } from '@courses/scrape/shared/schemas'
 
 // --- URL coercion helpers ---
 // These handle the raw values that come out of the router's deserializeValue, which
-// only does JSON.parse and dot-splitting — all other type coercion is our responsibility.
+// only does dot-splitting for arrays — all other type coercion is our responsibility.
 
 /** Wraps a plain string in a singleton array; passes arrays through unchanged. */
 function coerceToArray(val: unknown): unknown {
@@ -210,6 +210,8 @@ export const searchParamsSchema = z.object({
   max_eval_hours: z.coerce.number().optional().catch(undefined),
 
   dedupeCrosslistings: z.preprocess(coerceBoolString, z.boolean().optional()).catch(undefined),
+
+  advancedMode: z.preprocess(coerceBoolString, z.boolean().optional()).catch(undefined),
 })
 
 export type SearchParams = z.infer<typeof searchParamsSchema>

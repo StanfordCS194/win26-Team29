@@ -21,13 +21,7 @@ function serializeValue(value: unknown): string {
 }
 
 function deserializeValue(str: string): unknown {
-  try {
-    const parsed = JSON.parse(str)
-    if (typeof parsed !== 'string') return parsed
-  } catch {}
-
   if (str.includes('.')) return str.split('.')
-
   return str
 }
 

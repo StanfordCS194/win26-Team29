@@ -40,7 +40,7 @@ export function YearSelect() {
             })
         }}
       >
-        <SelectTrigger>
+        <SelectTrigger size="sm">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

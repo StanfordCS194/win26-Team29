@@ -55,7 +55,6 @@ const COL_W = 'w-12'
 // ── Keyboard column cycling ───────────────────────────────────────────────────
 
 type HighlightedCol = null | 'include' | 'exclude'
-const COL_CYCLE: HighlightedCol[] = [null, 'include', 'exclude']
 
 function includeButtonClass(
   isIncluded: boolean,
@@ -101,10 +100,13 @@ type FlatItem = FlatCode | FlatHeader
 export function GradingOptionFilter() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const advancedMode = search.advancedMode === true
   const { data: availableCodes = [] } = useQuery(availableGradingOptionsQueryOptions(search.year))
 
   const include = search.gradingOptions ?? []
   const exclude = search.gradingOptionsExclude ?? []
+
+  const colCycle: HighlightedCol[] = advancedMode ? [null, 'include', 'exclude'] : [null, 'include']
 
   const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
   const [highlightedIndex, setHighlightedIndex] = useState(-1)
@@ -263,14 +265,14 @@ export function GradingOptionFilter() {
       focusElement(newIdx, highlightedCol)
     } else if (e.key === 'ArrowRight' && highlightedIndex >= 0) {
       e.preventDefault()
-      const idx = COL_CYCLE.indexOf(highlightedCol)
-      const newCol = COL_CYCLE[(idx + 1) % COL_CYCLE.length]
+      const idx = colCycle.indexOf(highlightedCol)
+      const newCol = colCycle[(idx + 1) % colCycle.length]
       setHighlightedCol(newCol)
       focusElement(highlightedIndex, newCol)
     } else if (e.key === 'ArrowLeft' && highlightedIndex >= 0) {
       e.preventDefault()
-      const idx = COL_CYCLE.indexOf(highlightedCol)
-      const newCol = COL_CYCLE[(idx - 1 + COL_CYCLE.length) % COL_CYCLE.length]
+      const idx = colCycle.indexOf(highlightedCol)
+      const newCol = colCycle[(idx - 1 + colCycle.length) % colCycle.length]
       setHighlightedCol(newCol)
       focusElement(highlightedIndex, newCol)
     } else if (e.key === 'Enter' && highlightedIndex >= 0) {
@@ -369,34 +371,36 @@ export function GradingOptionFilter() {
             {allIncluded && <Check className="h-2.5 w-2.5" />}
           </button>
         </div>
-        <div
-          className={`group/exclude-col flex ${COL_W} cursor-pointer items-center justify-center self-stretch py-1`}
-          onClick={() => toggleBulkExclude(codes)}
-        >
-          <button
-            type="button"
-            data-flat-idx={headerFlatIdx}
-            data-col="exclude"
-            onClick={(e) => {
-              e.stopPropagation()
-              toggleBulkExclude(codes)
-            }}
-            aria-label={`Exclude all ${groupName}`}
-            className={cn(
-              "relative flex h-4.5 w-4.5 items-center justify-center rounded border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
-              allExcluded
-                ? 'border-rose-400 bg-rose-400 text-white'
-                : 'border-slate-300 bg-white hover:border-rose-300',
-              allExcluded
-                ? 'group-hover/exclude-col:ring-2 group-hover/exclude-col:ring-rose-300 group-hover/exclude-col:ring-offset-1'
-                : 'group-hover/exclude-col:border-rose-300 group-hover/exclude-col:ring-2 group-hover/exclude-col:ring-rose-200 group-hover/exclude-col:ring-offset-1',
-              colHighlight === 'exclude' && 'ring-2 ring-rose-400 ring-offset-1',
-              'focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-1',
-            )}
+        {advancedMode && (
+          <div
+            className={`group/exclude-col flex ${COL_W} cursor-pointer items-center justify-center self-stretch py-1`}
+            onClick={() => toggleBulkExclude(codes)}
           >
-            {allExcluded && <X className="h-2.5 w-2.5" />}
-          </button>
-        </div>
+            <button
+              type="button"
+              data-flat-idx={headerFlatIdx}
+              data-col="exclude"
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleBulkExclude(codes)
+              }}
+              aria-label={`Exclude all ${groupName}`}
+              className={cn(
+                "relative flex h-4.5 w-4.5 items-center justify-center rounded border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
+                allExcluded
+                  ? 'border-rose-400 bg-rose-400 text-white'
+                  : 'border-slate-300 bg-white hover:border-rose-300',
+                allExcluded
+                  ? 'group-hover/exclude-col:ring-2 group-hover/exclude-col:ring-rose-300 group-hover/exclude-col:ring-offset-1'
+                  : 'group-hover/exclude-col:border-rose-300 group-hover/exclude-col:ring-2 group-hover/exclude-col:ring-rose-200 group-hover/exclude-col:ring-offset-1',
+                colHighlight === 'exclude' && 'ring-2 ring-rose-400 ring-offset-1',
+                'focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-1',
+              )}
+            >
+              {allExcluded && <X className="h-2.5 w-2.5" />}
+            </button>
+          </div>
+        )}
       </>
     )
   }
@@ -413,7 +417,8 @@ export function GradingOptionFilter() {
       <div
         key={code}
         className={cn(
-          'group/row col-span-3 grid grid-cols-subgrid items-center overflow-hidden rounded transition-colors',
+          'group/row grid grid-cols-subgrid items-center overflow-hidden rounded transition-colors',
+          advancedMode ? 'col-span-3' : 'col-span-2',
           isRowHighlighted
             ? 'bg-slate-100 ring-1 ring-slate-200'
             : 'focus-within:bg-slate-100 focus-within:ring-1 focus-within:ring-slate-200 hover:bg-slate-50',
@@ -448,24 +453,26 @@ export function GradingOptionFilter() {
             {isIncluded && <Check className="h-2.5 w-2.5" />}
           </button>
         </div>
-        <div
-          className={`group/exclude-col flex ${COL_W} cursor-pointer items-center justify-center self-stretch py-1`}
-          onClick={() => toggleExclude(code)}
-        >
-          <button
-            type="button"
-            data-flat-idx={currentFlatIdx}
-            data-col="exclude"
-            onClick={(e) => {
-              e.stopPropagation()
-              toggleExclude(code)
-            }}
-            aria-label={`Exclude ${code}`}
-            className={excludeButtonClass(isExcluded, isLabelHovered, colHighlight)}
+        {advancedMode && (
+          <div
+            className={`group/exclude-col flex ${COL_W} cursor-pointer items-center justify-center self-stretch py-1`}
+            onClick={() => toggleExclude(code)}
           >
-            {isExcluded && <X className="h-2.5 w-2.5" />}
-          </button>
-        </div>
+            <button
+              type="button"
+              data-flat-idx={currentFlatIdx}
+              data-col="exclude"
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleExclude(code)
+              }}
+              aria-label={`Exclude ${code}`}
+              className={excludeButtonClass(isExcluded, isLabelHovered, colHighlight)}
+            >
+              {isExcluded && <X className="h-2.5 w-2.5" />}
+            </button>
+          </div>
+        )}
       </div>
     )
   }
@@ -481,7 +488,12 @@ export function GradingOptionFilter() {
       onFocus={handleContainerFocus}
       onBlur={handleContainerBlur}
     >
-      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-y-[1.5px]">
+      <div
+        className={cn(
+          'grid items-center gap-y-[1.5px]',
+          advancedMode ? 'grid-cols-[1fr_auto_auto]' : 'grid-cols-[1fr_auto]',
+        )}
+      >
         {/* Header row */}
         <div className="flex items-center gap-1">
           <span className="text-xs font-medium text-slate-500 uppercase">Grading</span>
@@ -496,12 +508,16 @@ export function GradingOptionFilter() {
             </button>
           )}
         </div>
-        <div className={`flex ${COL_W} items-center justify-center py-1`}>
-          <span className="text-[10.5px] font-medium text-slate-400">Include</span>
-        </div>
-        <div className={`flex ${COL_W} items-center justify-center py-1`}>
-          <span className="text-[10.5px] font-medium text-slate-400">Exclude</span>
-        </div>
+        {advancedMode && (
+          <div className={`flex ${COL_W} items-center justify-center py-1`}>
+            <span className="text-[10.5px] font-medium text-slate-400">Include</span>
+          </div>
+        )}
+        {advancedMode && (
+          <div className={`flex ${COL_W} items-center justify-center py-1`}>
+            <span className="text-[10.5px] font-medium text-slate-400">Exclude</span>
+          </div>
+        )}
 
         {/* Group rows */}
         {groups.map((group) => {
@@ -519,7 +535,8 @@ export function GradingOptionFilter() {
             <Fragment key={group.name}>
               <div
                 className={cn(
-                  'col-span-3 grid grid-cols-subgrid items-center overflow-hidden rounded transition-colors',
+                  'grid grid-cols-subgrid items-center overflow-hidden rounded transition-colors',
+                  advancedMode ? 'col-span-3' : 'col-span-2',
                   isHeaderHighlighted ? 'bg-slate-100 ring-1 ring-slate-200' : 'hover:bg-slate-50',
                 )}
               >

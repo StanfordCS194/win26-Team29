@@ -163,12 +163,13 @@ type FlatItem = FlatCode | FlatHeader
 export function SubjectFilter() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const advancedMode = search.advancedMode === true
   const { data: subjects = [] } = useQuery(availableSubjectsQueryOptions(search.year))
 
   const include = search.subjects ?? []
   const exclude = search.subjectsExclude ?? []
   const includeMode = search.subjectsIncludeMode
-  const crosslistings = search.subjectsWithCrosslistings !== false
+  const crosslistings = advancedMode && search.subjectsWithCrosslistings !== false
 
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -848,32 +849,34 @@ export function SubjectFilter() {
               <Eraser className="h-3 w-3" />
             </button>
           </div>
-          <button
-            type="button"
-            role="checkbox"
-            aria-checked={crosslistings}
-            onClick={() =>
-              navigate_({
-                subjectsWithCrosslistings: crosslistings ? false : undefined,
-                ...(crosslistings ? { subjectsIncludeMode: 'or' } : {}),
-              })
-            }
-            className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10.5px] font-medium transition ${
-              crosslistings
-                ? 'border-slate-300 bg-white/80 text-slate-700'
-                : 'border-slate-200 bg-white/80 text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            <span>Consider Crosslistings</span>
-            <span
-              className={`flex h-3 w-3 items-center justify-center rounded-[2px] border text-[0] ${
-                crosslistings ? 'border-slate-500 bg-slate-50' : 'border-slate-300 bg-white'
+          {advancedMode && (
+            <button
+              type="button"
+              role="checkbox"
+              aria-checked={crosslistings}
+              onClick={() =>
+                navigate_({
+                  subjectsWithCrosslistings: crosslistings ? false : undefined,
+                  ...(crosslistings ? { subjectsIncludeMode: 'or' } : {}),
+                })
+              }
+              className={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10.5px] font-medium transition ${
+                crosslistings
+                  ? 'border-slate-300 bg-white/80 text-slate-700'
+                  : 'border-slate-200 bg-white/80 text-slate-500 hover:text-slate-700'
               }`}
-              aria-hidden="true"
             >
-              {crosslistings && <Check className="h-2 w-2 text-slate-600" strokeWidth={3} />}
-            </span>
-          </button>
+              <span>Consider Crosslistings</span>
+              <span
+                className={`flex h-3 w-3 items-center justify-center rounded-[2px] border text-[0] ${
+                  crosslistings ? 'border-slate-500 bg-slate-50' : 'border-slate-300 bg-white'
+                }`}
+                aria-hidden="true"
+              >
+                {crosslistings && <Check className="h-2 w-2 text-slate-600" strokeWidth={3} />}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* Row 2: Search input | Or/And | Exclude */}

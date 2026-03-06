@@ -8,6 +8,7 @@ const DAY_ITEMS = ALL_WEEKDAYS.map((d) => ({ value: d, label: d }))
 export function DaysFilter() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const advancedMode = search.advancedMode === true
 
   const navigate_ = (patch: Partial<SearchParams>) => {
     void navigate({
@@ -21,7 +22,7 @@ export function DaysFilter() {
       items={DAY_ITEMS}
       include={search.days ?? []}
       exclude={search.daysExclude ?? []}
-      includeMode={search.daysIncludeMode}
+      includeMode={advancedMode ? search.daysIncludeMode : undefined}
       onIncludeChange={(days) => navigate_({ days: days.length ? (days as Weekday[]) : undefined })}
       onExcludeChange={(daysExclude) =>
         navigate_({ daysExclude: daysExclude.length ? (daysExclude as Weekday[]) : undefined })
