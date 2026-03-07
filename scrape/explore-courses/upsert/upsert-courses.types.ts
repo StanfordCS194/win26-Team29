@@ -1,7 +1,7 @@
 import type { DB } from '@courses/db/db.types'
 import type { Selectable } from 'kysely'
 
-type KnownDefaultedColumns = 'id' | 'created_at' | 'updated_at'
+type KnownDefaultedColumns = 'id' | 'created_at' | 'updated_at' | 'embedding'
 type OmitColumnsAndDefaults<T, TForeignKey extends keyof T = never> = Omit<
   T,
   TForeignKey | KnownDefaultedColumns
@@ -28,7 +28,10 @@ export type UploadSchedule = OmitColumnsAndDefaults<InsertSchedule, 'section_id'
 export type UploadSectionAttribute = OmitColumnsAndDefaults<InsertSectionAttribute, 'section_id'>
 
 // Level 2
-export type UploadSection = OmitColumnsAndDefaults<InsertSection, 'course_offering_id' | 'cancelled'> & {
+export type UploadSection = OmitColumnsAndDefaults<
+  InsertSection,
+  'course_offering_id' | 'cancelled' | 'is_principal'
+> & {
   attributes: Array<UploadSectionAttribute>
   schedules: Array<UploadSchedule>
 }

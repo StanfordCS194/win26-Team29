@@ -77,10 +77,7 @@ const SCHEDULE_COURSES: ScheduleCourse[] = [
   },
 ]
 
-function getBlockAt(
-  rowIndex: number,
-  day: DayKey,
-): { course: ScheduleCourse; rowSpan: number } | null {
+function getBlockAt(rowIndex: number, day: DayKey): { course: ScheduleCourse; rowSpan: number } | null {
   const rowStartMin = START_MIN + rowIndex * SLOT_MINUTES
   for (const course of SCHEDULE_COURSES) {
     if (!course.days.includes(day)) continue
@@ -112,12 +109,10 @@ function SchedulePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 via-slate-50 to-sky-100">
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pb-16 pt-10">
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 pt-10 pb-16">
         <header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-3xl font-normal text-slate-900">
-              Weekly schedule
-            </h1>
+            <h1 className="text-3xl font-normal text-slate-900">Weekly schedule</h1>
             <p className="mt-1 text-sm text-slate-600">
               Visualize how your classes fit together across the week.
             </p>
@@ -132,49 +127,34 @@ function SchedulePage() {
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,0.65fr)_minmax(0,1.85fr)]">
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
-              Current term
-            </h2>
+            <h2 className="text-sm font-semibold tracking-[0.18em] text-slate-500 uppercase">Current term</h2>
             <div
               className="rounded-2xl border-2 border-slate-200 bg-slate-50/80 px-4 py-4 shadow-sm"
               aria-label="Load summary"
             >
               <div className="flex items-baseline justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                    Load
-                  </p>
-                  <p className="mt-1 text-base font-semibold text-slate-900">
-                    16 units
-                  </p>
+                  <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">Load</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">16 units</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">
                     Est. hours
                   </p>
-                  <p className="mt-1 text-base font-semibold text-slate-900">
-                    ~18 hrs
-                  </p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">~18 hrs</p>
                 </div>
               </div>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <ul className="divide-y divide-slate-100">
                 {SCHEDULE_COURSES.map((course) => (
-                  <li
-                    key={course.code}
-                    className="flex items-start justify-between gap-4 py-3"
-                  >
+                  <li key={course.code} className="flex items-start justify-between gap-4 py-3">
                     <div>
-                      <p className="text-xs font-medium uppercase tracking-[0.15em] text-slate-500">
+                      <p className="text-xs font-medium tracking-[0.15em] text-slate-500 uppercase">
                         {course.code}
                       </p>
-                      <p className="mt-0.5 text-sm font-normal text-slate-900">
-                        {course.title}
-                      </p>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {course.timing}
-                      </p>
+                      <p className="mt-0.5 text-sm font-normal text-slate-900">{course.title}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">{course.timing}</p>
                     </div>
                     <button
                       type="button"
@@ -189,7 +169,7 @@ function SchedulePage() {
           </section>
 
           <section className="space-y-4">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">
+            <h2 className="text-sm font-semibold tracking-[0.18em] text-slate-500 uppercase">
               Week at a glance
             </h2>
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -245,15 +225,12 @@ function SchedulePage() {
                         >
                           {block ? (
                             <div className="absolute inset-0.5 flex flex-col rounded-md bg-[#8C1515]/12 px-1.5 py-1 text-[10px] text-[#3b0b0b]">
-                              <p className="font-semibold leading-tight tracking-[0.08em]">
+                              <p className="leading-tight font-semibold tracking-[0.08em]">
                                 {block.course.code}
                               </p>
-                              <p className="mt-0.5 leading-tight text-[9px] text-slate-600">
-                                {formatTime(block.course.startMin)}–
-                                {formatTime(block.course.endMin)}
-                                {block.course.location
-                                  ? ` · ${block.course.location}`
-                                  : ''}
+                              <p className="mt-0.5 text-[9px] leading-tight text-slate-600">
+                                {formatTime(block.course.startMin)}–{formatTime(block.course.endMin)}
+                                {block.course.location != null ? ` · ${block.course.location}` : ''}
                               </p>
                             </div>
                           ) : null}
@@ -270,4 +247,3 @@ function SchedulePage() {
     </div>
   )
 }
-

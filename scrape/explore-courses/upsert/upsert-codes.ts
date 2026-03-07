@@ -47,20 +47,52 @@ export const upsertLookupCodes = (tableName: LookupTable, codes: Set<string>) =>
   })
 
 /**
- * Upserts subjects. Map keys are codes, values are longnames (null when absent).
- * When longname is provided it is upserted; when absent, existing longname is preserved.
+ * Upserts schools by name. Returns a mapping of school names to their IDs.
+ * Requires a UNIQUE constraint on `schools.name`.
  */
-export const upsertSubjects = (codeToLongname: Map<string, string | null>) =>
+export const upsertSchools = (names: Set<string>) =>
   Effect.gen(function* () {
-    if (codeToLongname.size === 0) {
+    if (names.size === 0) {
+      return new Map() as Map<string, number>
+    }
+
+    const db = yield* DbService
+    const records = Array.from(names, (name) => ({ name }))
+
+    const upsertedRecords = yield* Effect.promise(() =>
+      db
+        .insertInto('schools')
+        .values(records)
+        .onConflict((oc) => oc.column('name').doUpdateSet((eb) => ({ name: eb.ref('excluded.name') })))
+        .returning(['id', 'name'])
+        .execute(),
+    )
+
+    return new Map<string, number>(
+      upsertedRecords
+        .filter((r): r is { id: number; name: string } => r.name !== null)
+        .map((r) => [r.name, r.id]),
+    )
+  })
+
+/**
+ * Upserts subjects. Map keys are codes, values are `{ longname, school_id }`.
+ * When longname or school_id is provided it is upserted; when absent, existing values are preserved.
+ */
+export const upsertSubjects = (
+  subjects: Map<string, { longname: string | null; school_id: number | null }>,
+) =>
+  Effect.gen(function* () {
+    if (subjects.size === 0) {
       return new Map() as Map<string, number>
     }
 
     const db = yield* DbService
 
-    const records = Array.from(codeToLongname.entries(), ([code, longname]) => ({
+    const records = Array.from(subjects.entries(), ([code, { longname, school_id }]) => ({
       code,
       longname,
+      school_id,
     }))
 
     const upsertedRecords = yield* Effect.promise(() =>
@@ -71,6 +103,7 @@ export const upsertSubjects = (codeToLongname: Map<string, string | null>) =>
           oc.column('code').doUpdateSet((eb) => ({
             code: eb.ref('excluded.code'),
             longname: eb.fn.coalesce('excluded.longname', 'subjects.longname'),
+            school_id: eb.fn.coalesce('excluded.school_id', 'subjects.school_id'),
           })),
         )
         .returning(['id', 'code'])

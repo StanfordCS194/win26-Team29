@@ -28,6 +28,7 @@ export type SubjectCourseData = {
   academicYear: string
   xmlContent: string
   longname?: string // only set when fetching via HTTP (not from cache)
+  school?: string // only set when fetching via HTTP (not from cache)
 }
 
 const SubjectSchemaXML = z.object({
@@ -91,7 +92,7 @@ export const fetchSubjects = (academicYear: string) =>
     return yield* parseSubjectsXML(text)
   })
 
-const fetchSubjectCourses = (name: string, academicYear: string, longname?: string) =>
+const fetchSubjectCourses = (name: string, academicYear: string, longname?: string, school?: string) =>
   Effect.gen(function* () {
     const url =
       `${ENDPOINT}search?view=xml-20140630&academicYear=${academicYear}` +
@@ -125,6 +126,7 @@ const fetchSubjectCourses = (name: string, academicYear: string, longname?: stri
       academicYear,
       xmlContent,
       longname,
+      school,
     } as SubjectCourseData
   })
 
@@ -142,7 +144,11 @@ export const streamAllCourses = (academicYear: string) =>
     const stream = pipe(
       Stream.fromIterable(subjects),
       Stream.mapEffect(
-        (subject) => pipe(fetchSubjectCourses(subject.name, academicYear, subject.longname), Effect.either),
+        (subject) =>
+          pipe(
+            fetchSubjectCourses(subject.name, academicYear, subject.longname, subject.school),
+            Effect.either,
+          ),
         {
           concurrency: 'unbounded',
         },

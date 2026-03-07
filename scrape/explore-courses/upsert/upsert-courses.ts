@@ -173,7 +173,7 @@ const mergeCourseOfferings = (courseOfferings: ReadonlyArray<UploadCourseOfferin
       (db) =>
         db
           .mergeInto('course_offerings as trg')
-          .using(values(courseOfferingRecords, 'src', { code_suffix: 'text', embedding: 'vector' }), (join) =>
+          .using(values(courseOfferingRecords, 'src', { code_suffix: 'text' }), (join) =>
             join.on(({ eb, and, ref }) =>
               and([
                 eb(ref('trg.course_id'), '=', ref('src.course_id')),
@@ -610,12 +610,8 @@ const mergeSections = (
             add_consent_id: ref('src.add_consent_id'),
             drop_consent_id: ref('src.drop_consent_id'),
             enroll_status_id: ref('src.enroll_status_id'),
-            current_class_size: ref('src.current_class_size'),
-            current_waitlist_size: ref('src.current_waitlist_size'),
-            max_class_size: ref('src.max_class_size'),
             max_enrolled: ref('src.max_enrolled'),
             max_waitlist: ref('src.max_waitlist'),
-            max_waitlist_size: ref('src.max_waitlist_size'),
             notes: ref('src.notes'),
             num_enrolled: ref('src.num_enrolled'),
             num_waitlist: ref('src.num_waitlist'),
@@ -633,12 +629,8 @@ const mergeSections = (
             add_consent_id: ref('src.add_consent_id'),
             drop_consent_id: ref('src.drop_consent_id'),
             enroll_status_id: ref('src.enroll_status_id'),
-            current_class_size: ref('src.current_class_size'),
-            current_waitlist_size: ref('src.current_waitlist_size'),
-            max_class_size: ref('src.max_class_size'),
             max_enrolled: ref('src.max_enrolled'),
             max_waitlist: ref('src.max_waitlist'),
-            max_waitlist_size: ref('src.max_waitlist_size'),
             notes: ref('src.notes'),
             num_enrolled: ref('src.num_enrolled'),
             num_waitlist: ref('src.num_waitlist'),

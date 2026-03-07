@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Arimo:wght@400;500;600;700&display=swap');
-@import 'tailwindcss';
+@import 'tailwindcss' source('./');
 @import 'tw-animate-css';
 @import '@fontsource-variable/nunito-sans';
 
@@ -30,6 +30,7 @@ code {
 }
 
 :root {
+  --header-height: 4rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

@@ -2,11 +2,11 @@
   "projectName": "courses",
   "mode": "file-router",
   "typescript": true,
-  "packageManager": "pnpm",
+  "packageManager": "bun",
   "tailwind": true,
   "addOnOptions": {},
   "git": true,
   "version": 1,
   "framework": "react-cra",
-  "chosenAddOns": ["eslint", "netlify", "start", "compiler", "shadcn", "tanstack-query"]
+  "chosenAddOns": ["eslint", "nitro", "start", "compiler", "shadcn", "tanstack-query"]
 }

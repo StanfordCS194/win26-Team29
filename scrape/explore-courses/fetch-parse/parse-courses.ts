@@ -33,6 +33,8 @@ const WHITESPACE_REGEX = /\s+/
 
 const xmlParser = new XMLParser({
   ignoreAttributes: true,
+  processEntities: true,
+  htmlEntities: true,
   isArray: (name) =>
     [
       'course',
@@ -46,6 +48,15 @@ const xmlParser = new XMLParser({
       'learningObjective',
     ].includes(name),
   parseTagValue: false,
+  tagValueProcessor: (_tag, value) =>
+    typeof value === 'string'
+      ? value
+          .replace(/&quot;/g, '"')
+          .replace(/&apos;/g, "'")
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+      : value,
 })
 
 const ConsentOptionSchema = z.enum(['Y', 'N', 'I', 'D'])
