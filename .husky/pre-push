@@ -1,1 +1,1 @@
-pnpm git:safe:push
+bun git:safe:push

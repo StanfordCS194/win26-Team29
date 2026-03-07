@@ -10,8 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ScheduleRouteImport } from './routes/schedule'
-import { Route as ResultsRouteImport } from './routes/results'
 import { Route as PlanRouteImport } from './routes/plan'
+import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DemoTanstackQueryRouteImport } from './routes/demo/tanstack-query'
 import { Route as CourseCourseIdRouteImport } from './routes/course.$courseId'
@@ -19,7 +19,6 @@ import { Route as DemoStartServerFuncsRouteImport } from './routes/demo/start.se
 import { Route as DemoStartApiRequestRouteImport } from './routes/demo/start.api-request'
 import { Route as DemoApiTqTodosRouteImport } from './routes/demo/api.tq-todos'
 import { Route as DemoApiNamesRouteImport } from './routes/demo/api.names'
-import { Route as ApiSearchSemanticRouteImport } from './routes/api.search.semantic'
 import { Route as DemoStartSsrIndexRouteImport } from './routes/demo/start.ssr.index'
 import { Route as DemoStartSsrSpaModeRouteImport } from './routes/demo/start.ssr.spa-mode'
 import { Route as DemoStartSsrFullSsrRouteImport } from './routes/demo/start.ssr.full-ssr'
@@ -30,14 +29,14 @@ const ScheduleRoute = ScheduleRouteImport.update({
   path: '/schedule',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResultsRoute = ResultsRouteImport.update({
-  id: '/results',
-  path: '/results',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const PlanRoute = PlanRouteImport.update({
   id: '/plan',
   path: '/plan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CoursesRoute = CoursesRouteImport.update({
+  id: '/courses',
+  path: '/courses',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -75,11 +74,6 @@ const DemoApiNamesRoute = DemoApiNamesRouteImport.update({
   path: '/demo/api/names',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiSearchSemanticRoute = ApiSearchSemanticRouteImport.update({
-  id: '/api/search/semantic',
-  path: '/api/search/semantic',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DemoStartSsrIndexRoute = DemoStartSsrIndexRouteImport.update({
   id: '/demo/start/ssr/',
   path: '/demo/start/ssr/',
@@ -103,12 +97,11 @@ const DemoStartSsrDataOnlyRoute = DemoStartSsrDataOnlyRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/courses': typeof CoursesRoute
   '/plan': typeof PlanRoute
-  '/results': typeof ResultsRoute
   '/schedule': typeof ScheduleRoute
   '/course/$courseId': typeof CourseCourseIdRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/api/search/semantic': typeof ApiSearchSemanticRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
@@ -120,12 +113,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/courses': typeof CoursesRoute
   '/plan': typeof PlanRoute
-  '/results': typeof ResultsRoute
   '/schedule': typeof ScheduleRoute
   '/course/$courseId': typeof CourseCourseIdRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/api/search/semantic': typeof ApiSearchSemanticRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
@@ -138,12 +130,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/courses': typeof CoursesRoute
   '/plan': typeof PlanRoute
-  '/results': typeof ResultsRoute
   '/schedule': typeof ScheduleRoute
   '/course/$courseId': typeof CourseCourseIdRoute
   '/demo/tanstack-query': typeof DemoTanstackQueryRoute
-  '/api/search/semantic': typeof ApiSearchSemanticRoute
   '/demo/api/names': typeof DemoApiNamesRoute
   '/demo/api/tq-todos': typeof DemoApiTqTodosRoute
   '/demo/start/api-request': typeof DemoStartApiRequestRoute
@@ -157,12 +148,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/courses'
     | '/plan'
-    | '/results'
     | '/schedule'
     | '/course/$courseId'
     | '/demo/tanstack-query'
-    | '/api/search/semantic'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/start/api-request'
@@ -174,12 +164,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/courses'
     | '/plan'
-    | '/results'
     | '/schedule'
     | '/course/$courseId'
     | '/demo/tanstack-query'
-    | '/api/search/semantic'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/start/api-request'
@@ -191,12 +180,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/courses'
     | '/plan'
-    | '/results'
     | '/schedule'
     | '/course/$courseId'
     | '/demo/tanstack-query'
-    | '/api/search/semantic'
     | '/demo/api/names'
     | '/demo/api/tq-todos'
     | '/demo/start/api-request'
@@ -209,12 +197,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CoursesRoute: typeof CoursesRoute
   PlanRoute: typeof PlanRoute
-  ResultsRoute: typeof ResultsRoute
   ScheduleRoute: typeof ScheduleRoute
   CourseCourseIdRoute: typeof CourseCourseIdRoute
   DemoTanstackQueryRoute: typeof DemoTanstackQueryRoute
-  ApiSearchSemanticRoute: typeof ApiSearchSemanticRoute
   DemoApiNamesRoute: typeof DemoApiNamesRoute
   DemoApiTqTodosRoute: typeof DemoApiTqTodosRoute
   DemoStartApiRequestRoute: typeof DemoStartApiRequestRoute
@@ -234,18 +221,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ScheduleRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/results': {
-      id: '/results'
-      path: '/results'
-      fullPath: '/results'
-      preLoaderRoute: typeof ResultsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/plan': {
       id: '/plan'
       path: '/plan'
       fullPath: '/plan'
       preLoaderRoute: typeof PlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/courses': {
+      id: '/courses'
+      path: '/courses'
+      fullPath: '/courses'
+      preLoaderRoute: typeof CoursesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -297,13 +284,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemoApiNamesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/search/semantic': {
-      id: '/api/search/semantic'
-      path: '/api/search/semantic'
-      fullPath: '/api/search/semantic'
-      preLoaderRoute: typeof ApiSearchSemanticRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/demo/start/ssr/': {
       id: '/demo/start/ssr/'
       path: '/demo/start/ssr'
@@ -337,12 +317,11 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CoursesRoute: CoursesRoute,
   PlanRoute: PlanRoute,
-  ResultsRoute: ResultsRoute,
   ScheduleRoute: ScheduleRoute,
   CourseCourseIdRoute: CourseCourseIdRoute,
   DemoTanstackQueryRoute: DemoTanstackQueryRoute,
-  ApiSearchSemanticRoute: ApiSearchSemanticRoute,
   DemoApiNamesRoute: DemoApiNamesRoute,
   DemoApiTqTodosRoute: DemoApiTqTodosRoute,
   DemoStartApiRequestRoute: DemoStartApiRequestRoute,

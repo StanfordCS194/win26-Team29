@@ -13,6 +13,7 @@ import type { ParsedCourse, SchemaValidationError, XMLParseError } from './fetch
 export interface ParsedSubjectData {
   subjectName: string
   longname?: string // only present when data came from HTTP fetch
+  school?: string // only present when data came from HTTP fetch
   courses: Array<ParsedCourse>
 }
 
@@ -21,6 +22,7 @@ function processCourseData(
     subjectName: string
     xmlContent: string
     longname?: string
+    school?: string
   },
   options: {
     writeXml: boolean
@@ -47,7 +49,7 @@ function processCourseData(
       yield* fs.writeFileString(jsonFilePath, JSON.stringify(courses, null, 2))
     }
 
-    return { subjectName: data.subjectName, longname: data.longname, courses }
+    return { subjectName: data.subjectName, longname: data.longname, school: data.school, courses }
   })
 }
 

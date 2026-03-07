@@ -30,7 +30,7 @@ export function values<TRecord extends Record<string, unknown>, TAlias extends s
 
   // Assume there's at least one record and all records
   // have the same keys.
-  const keys = Object.keys(records[0]) as Array<keyof TRecord & string>
+  const keys = Object.keys(records[0]!) as Array<keyof TRecord & string>
 
   // Validate that all values for each key have the same type
   const keyTypes = new Map<keyof TRecord, string>()
@@ -64,7 +64,7 @@ export function values<TRecord extends Record<string, unknown>, TAlias extends s
       throw new Error(`Inconsistent types for key "${key}". Found types: ${Array.from(types).join(', ')}`)
     }
 
-    keyTypes.set(key, Array.from(types)[0])
+    keyTypes.set(key, Array.from(types)[0]!)
   }
 
   // Transform the records into a list of lists such as

@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "ignorePatterns": ["**/.netlify/**", "**/routeTree.gen.ts", "**/dist/**"],
+  "ignorePatterns": ["**/routeTree.gen.ts", "**/dist/**"],
   "rules": {
     "typescript/no-floating-promises": "error",
     "typescript/no-misused-promises": "error",

@@ -23,5 +23,6 @@
       "@/*": ["./src/*"]
     }
   },
+  "references": [{ "path": "../db" }],
   "include": ["**/*.ts", "**/*.tsx"]
 }

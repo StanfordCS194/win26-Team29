@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
+import { ALL_QUARTERS, SearchParams, MAX_QUERY_LENGTH } from '@/data/search/search.params'
 
 export const Route = createFileRoute('/')({ component: App })
 
@@ -12,8 +13,12 @@ function App() {
     e.preventDefault()
     if (query.trim()) {
       void navigate({
-        to: '/results',
-        search: { q: query.trim() },
+        to: '/courses',
+        search: {
+          query: query.trim(),
+          quarters: ALL_QUARTERS,
+          page: 1,
+        } as Required<SearchParams>,
       })
     }
   }
@@ -31,24 +36,25 @@ function App() {
                 id="course-search"
                 type="text"
                 value={query}
+                maxLength={MAX_QUERY_LENGTH}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by course, instructor, or keyword"
-                className="w-full rounded-full border border-slate-300 bg-white py-5 pr-16 pl-6 text-lg text-slate-900 shadow-[0_14px_28px_color-mix(in_srgb,var(--primary)_25%,transparent)] placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
+                placeholder="Search courses"
+                className="w-full rounded-full border border-slate-300 bg-white py-5 pr-28 pl-6 text-lg text-slate-900 shadow-[0_14px_28px_color-mix(in_srgb,var(--primary)_25%,transparent)] placeholder:text-slate-400 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               />
               <button
                 type="submit"
                 aria-label="Search"
                 disabled={!query.trim()}
-                className="absolute top-1/2 right-2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground transition hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                className="absolute top-1/2 right-2 flex h-12 -translate-y-1/2 items-center justify-center rounded-full bg-primary px-5 text-base font-normal text-primary-foreground transition hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none"
               >
-                <span className="text-base font-semibold">Go</span>
+                Search
               </button>
             </div>
           </form>
         </div>
 
         <div className="absolute top-[calc(50%-2rem)] left-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-[calc(100%+6rem)] px-6 text-center">
-          <h1 className="text-4xl font-normal text-slate-900 sm:text-5xl">Master your schedule.</h1>
+          <h1 className="text-4xl font-normal text-slate-900 sm:text-5xl">Master Your Schedule.</h1>
         </div>
 
         <div className="absolute top-[calc(50%-2rem)] left-1/2 w-full max-w-2xl -translate-x-1/2 translate-y-[calc(100%+2rem)] px-6">

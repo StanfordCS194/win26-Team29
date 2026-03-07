@@ -33,6 +33,8 @@ const WHITESPACE_REGEX = /\s+/
 
 const xmlParser = new XMLParser({
   ignoreAttributes: true,
+  processEntities: true,
+  htmlEntities: true,
   isArray: (name) =>
     [
       'course',
