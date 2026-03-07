@@ -1,5 +1,5 @@
 import { Link, useRouteContext, useRouter, useSearch } from '@tanstack/react-router'
-import { LogOut, User } from 'lucide-react'
+import { Loader2, LogOut, User } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { signInWithGoogle, signOut } from '@/data/auth'
@@ -88,9 +88,7 @@ export default function Header() {
             </div>
           ) : null}
 
-          {loading ? (
-            <div className="h-9 w-24 animate-pulse rounded-full bg-slate-200" aria-hidden />
-          ) : user ? (
+          {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger className="inline-flex h-8 shrink-0 items-center justify-center gap-2 rounded-full border border-border bg-background px-4 py-2 text-sm font-medium transition outline-none hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50">
                 <User className="size-4" />
@@ -116,8 +114,21 @@ export default function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button type="button" onClick={() => void handleSignIn()} className="rounded-full px-5 py-2.5">
-              Sign in
+            <Button
+              type="button"
+              onClick={() => void handleSignIn()}
+              disabled={loading}
+              variant={loading ? 'outline' : 'default'}
+              className="rounded-full px-5 py-2.5"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                  Signing in…
+                </>
+              ) : (
+                'Sign in'
+              )}
             </Button>
           )}
         </div>
