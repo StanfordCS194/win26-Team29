@@ -46,12 +46,20 @@ export interface CrosslistingsMv {
   num_subjects: number
 }
 
+export interface CourseEnrollmentTrendsMv {
+  course_id: number
+  year: string
+  cumulative_num_sections: number
+  cumulative_num_enrolled: number
+}
+
 export type DB = GeneratedDB & {
   course_offerings_full_mv: CourseOfferingsFullMv
   course_content_search: CourseContentSearch
   offering_aggregates_mv: OfferingAggregatesMv
   section_instructor_sunets_mv: SectionInstructorSunetsMv
   crosslistings_mv: CrosslistingsMv
+  course_enrollment_trends_mv: CourseEnrollmentTrendsMv
 }
 
 // --- Temporal serialization for postgres.js ---

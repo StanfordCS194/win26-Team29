@@ -88,6 +88,7 @@ const MANUAL_HS_CATEGORIES: Record<string, string[]> = {
 }
 
 const HS_KEY = 'School of Humanities & Sciences'
+const VPUE_KEY = 'Office of Vice Provost for Undergraduate Education'
 
 // ── Group types ──────────────────────────────────────────────────────────────
 
@@ -103,6 +104,8 @@ type NestedGroup = {
   allCodes: string[]
   subcategories: { name: string; codes: string[] }[]
   uncategorized: string[]
+  /** When true, uncategorized codes render inline (no "Other" collapsible header) */
+  flatUncategorized?: boolean
 }
 
 type GroupEntry = FlatGroup | NestedGroup
@@ -193,7 +196,7 @@ export function SubjectFilter() {
     const entries: GroupEntry[] = []
 
     for (const [school, codes] of schoolMap) {
-      if (school === HS_KEY || school === 'Other') continue
+      if (school === HS_KEY || school === VPUE_KEY || school === 'Other') continue
       entries.push({ kind: 'flat', school, codes })
     }
 
@@ -221,6 +224,22 @@ export function SubjectFilter() {
         allCodes: [...hsSet],
         subcategories,
         uncategorized,
+      })
+    }
+
+    const vpueCodes = schoolMap.get(VPUE_KEY) ?? []
+    if (vpueCodes.length > 0) {
+      const bospCodes = vpueCodes.filter((c) => c.startsWith('OSP'))
+      const subcategories = bospCodes.length > 0 ? [{ name: 'BOSP', codes: bospCodes }] : []
+      const categorized = new Set(bospCodes)
+      const uncategorized = vpueCodes.filter((c) => !categorized.has(c))
+      entries.push({
+        kind: 'nested',
+        school: VPUE_KEY,
+        allCodes: vpueCodes,
+        subcategories,
+        uncategorized,
+        flatUncategorized: true,
       })
     }
 
@@ -300,17 +319,8 @@ export function SubjectFilter() {
 
   const isOpenKey = (key: string) => openSchools.has(key) || autoExpandedKeys.has(key)
 
-  const isCodeVisible = (code: string, parentOpen: boolean, fullParentCodes: string[]) => {
-    if (parentOpen) return true
-    const parentAllIncluded = fullParentCodes.length > 0 && fullParentCodes.every((c) => include.includes(c))
-    const parentAllExcluded = fullParentCodes.length > 0 && fullParentCodes.every((c) => exclude.includes(c))
-    const isIncluded = include.includes(code)
-    const isExcluded = exclude.includes(code)
-    return (isIncluded && !parentAllIncluded) || (isExcluded && !parentAllExcluded)
-  }
-
-  const hasVisibleWhenCollapsed = (codes: string[], fullParentCodes: string[]) => {
-    return codes.some((c) => isCodeVisible(c, false, fullParentCodes))
+  const isCodeVisible = (_code: string, parentOpen: boolean, _fullParentCodes: string[]) => {
+    return parentOpen
   }
 
   // ── Flat item list for keyboard navigation (always built) ────────────────
@@ -341,7 +351,7 @@ export function SubjectFilter() {
           const subKey = `${entry.school}::${sub.name}`
           const fullSubCodes = fullCodesByKey.get(subKey) ?? sub.codes
 
-          if (!schoolOpen && !hasVisibleWhenCollapsed(sub.codes, fullSubCodes)) continue
+          if (!schoolOpen) continue
 
           const subOpen = isOpenKey(subKey)
           items.push({ kind: 'header', groupKey: subKey, codes: fullSubCodes })
@@ -349,12 +359,13 @@ export function SubjectFilter() {
         }
 
         if (entry.uncategorized.length > 0) {
-          const uncatKey = `${entry.school}::Other`
-          const fullUncatCodes = fullCodesByKey.get(uncatKey) ?? entry.uncategorized
-
-          if (!schoolOpen && !hasVisibleWhenCollapsed(entry.uncategorized, fullUncatCodes)) {
-            // skip entirely
-          } else {
+          if (entry.flatUncategorized === true) {
+            if (schoolOpen) {
+              addCodesForGroup(entry.uncategorized, schoolOpen, fullCodes)
+            }
+          } else if (schoolOpen) {
+            const uncatKey = `${entry.school}::Other`
+            const fullUncatCodes = fullCodesByKey.get(uncatKey) ?? entry.uncategorized
             const uncatOpen = isOpenKey(uncatKey)
             items.push({ kind: 'header', groupKey: uncatKey, codes: fullUncatCodes })
             addCodesForGroup(entry.uncategorized, uncatOpen, fullUncatCodes)
@@ -422,7 +433,8 @@ export function SubjectFilter() {
   const toggleBulkInclude = (codes: string[], groupKey: string) => {
     const codeSet = new Set(codes)
     const allIncluded = codes.every((c) => include.includes(c))
-    if (allIncluded) {
+    const someIncluded = codes.some((c) => include.includes(c))
+    if (allIncluded || someIncluded) {
       const protectedCodes = new Set<string>()
       for (const [key, groupCodes] of fullCodesByKey) {
         if (key === groupKey) continue
@@ -447,7 +459,8 @@ export function SubjectFilter() {
   const toggleBulkExclude = (codes: string[], groupKey: string) => {
     const codeSet = new Set(codes)
     const allExcluded = codes.every((c) => exclude.includes(c))
-    if (allExcluded) {
+    const someExcluded = codes.some((c) => exclude.includes(c))
+    if (allExcluded || someExcluded) {
       const protectedCodes = new Set<string>()
       for (const [key, groupCodes] of fullCodesByKey) {
         if (key === groupKey) continue
@@ -623,6 +636,8 @@ export function SubjectFilter() {
   const renderBulkButtons = (fullCodes: string[], label: string, groupKey: string, headerFlatIdx: number) => {
     const allIncluded = fullCodes.length > 0 && fullCodes.every((c) => include.includes(c))
     const allExcluded = fullCodes.length > 0 && fullCodes.every((c) => exclude.includes(c))
+    const someIncluded = !allIncluded && fullCodes.some((c) => include.includes(c))
+    const someExcluded = !allExcluded && fullCodes.some((c) => exclude.includes(c))
 
     const isRowHighlighted = headerFlatIdx === highlightedIndex
     const colHighlight = isRowHighlighted ? highlightedCol : null
@@ -646,14 +661,21 @@ export function SubjectFilter() {
               "relative flex h-4.5 w-4.5 items-center justify-center rounded border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
               allIncluded
                 ? 'border-emerald-500 bg-emerald-500 text-white'
-                : 'border-slate-300 bg-white hover:border-emerald-400',
+                : someIncluded
+                  ? 'border-emerald-500 text-white'
+                  : 'border-slate-300 bg-white hover:border-emerald-400',
               'group-hover/include-col:ring-2 group-hover/include-col:ring-emerald-300 group-hover/include-col:ring-offset-1',
-              !allIncluded && 'group-hover/include-col:border-emerald-400',
+              !allIncluded && !someIncluded && 'group-hover/include-col:border-emerald-400',
               colHighlight === 'include' && 'ring-2 ring-emerald-400 ring-offset-1',
               'focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1',
             )}
+            style={
+              someIncluded
+                ? { background: 'linear-gradient(225deg, rgba(16,185,129,0.2) 50%, #10b981 50%)' }
+                : undefined
+            }
           >
-            {allIncluded && <Check className="h-2.5 w-2.5" />}
+            {(allIncluded || someIncluded) && <Check className="h-2.5 w-2.5" />}
           </button>
         </div>
         <div
@@ -673,15 +695,22 @@ export function SubjectFilter() {
               "relative flex h-4.5 w-4.5 items-center justify-center rounded border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
               allExcluded
                 ? 'border-rose-400 bg-rose-400 text-white'
-                : 'border-slate-300 bg-white hover:border-rose-300',
+                : someExcluded
+                  ? 'border-rose-400 text-white'
+                  : 'border-slate-300 bg-white hover:border-rose-300',
               allExcluded
                 ? 'group-hover/exclude-col:ring-2 group-hover/exclude-col:ring-rose-300 group-hover/exclude-col:ring-offset-1'
                 : 'group-hover/exclude-col:border-rose-300 group-hover/exclude-col:ring-2 group-hover/exclude-col:ring-rose-200 group-hover/exclude-col:ring-offset-1',
               colHighlight === 'exclude' && 'ring-2 ring-rose-400 ring-offset-1',
               'focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-1',
             )}
+            style={
+              someExcluded
+                ? { background: 'linear-gradient(225deg, rgba(248,113,113,0.2) 50%, #f87171 50%)' }
+                : undefined
+            }
           >
-            {allExcluded && <X className="h-2.5 w-2.5" />}
+            {(allExcluded || someExcluded) && <X className="h-2.5 w-2.5" />}
           </button>
         </div>
       </>
@@ -785,9 +814,7 @@ export function SubjectFilter() {
     const subOpen = isOpenKey(subKey)
     const fullSubCodes = fullCodesByKey.get(subKey) ?? sub.codes
 
-    if (!schoolOpen && !hasVisibleWhenCollapsed(sub.codes, fullSubCodes)) {
-      return null
-    }
+    if (!schoolOpen) return null
 
     const headerFlatIdx = takeFlatIdx()
     const isHeaderHighlighted = headerFlatIdx === highlightedIndex
@@ -994,47 +1021,47 @@ export function SubjectFilter() {
               {entry.subcategories.map((sub) => renderSubcategory(entry, sub, schoolOpen))}
 
               {entry.uncategorized.length > 0 &&
-                (() => {
-                  const uncatKey = `${entry.school}::Other`
-                  const uncatOpen = isOpenKey(uncatKey)
-                  const fullUncatCodes = fullCodesByKey.get(uncatKey) ?? entry.uncategorized
+                (entry.flatUncategorized === true
+                  ? renderCodeRows(entry.uncategorized, 'pl-4', schoolOpen, fullCodes)
+                  : (() => {
+                      const uncatKey = `${entry.school}::Other`
+                      const uncatOpen = isOpenKey(uncatKey)
+                      const fullUncatCodes = fullCodesByKey.get(uncatKey) ?? entry.uncategorized
 
-                  if (!schoolOpen && !hasVisibleWhenCollapsed(entry.uncategorized, fullUncatCodes)) {
-                    return null
-                  }
+                      if (!schoolOpen) return null
 
-                  const uncatHeaderFlatIdx = takeFlatIdx()
-                  const isUncatHighlighted = uncatHeaderFlatIdx === highlightedIndex
+                      const uncatHeaderFlatIdx = takeFlatIdx()
+                      const isUncatHighlighted = uncatHeaderFlatIdx === highlightedIndex
 
-                  return (
-                    <Fragment key={uncatKey}>
-                      <div
-                        className={cn(
-                          'col-span-3 grid grid-cols-subgrid items-center overflow-hidden rounded transition-colors',
-                          isUncatHighlighted ? 'bg-slate-100 ring-1 ring-slate-200' : 'hover:bg-slate-50',
-                        )}
-                      >
-                        <button
-                          type="button"
-                          tabIndex={0}
-                          data-flat-idx={uncatHeaderFlatIdx}
-                          data-col="row"
-                          onClick={() => toggleOpen(uncatKey)}
-                          className="flex min-w-0 items-center gap-0.5 overflow-hidden py-1 pl-4 text-left text-[11.5px] font-medium text-slate-500 transition outline-none hover:text-slate-700"
-                        >
-                          {uncatOpen ? (
-                            <ChevronDown className="h-2 w-2 shrink-0" />
-                          ) : (
-                            <ChevronRight className="h-2 w-2 shrink-0" />
-                          )}
-                          <span className="truncate">Other</span>
-                        </button>
-                        {renderBulkButtons(fullUncatCodes, 'Other H&S', uncatKey, uncatHeaderFlatIdx)}
-                      </div>
-                      {renderCodeRows(entry.uncategorized, 'pl-8', uncatOpen, fullUncatCodes)}
-                    </Fragment>
-                  )
-                })()}
+                      return (
+                        <Fragment key={uncatKey}>
+                          <div
+                            className={cn(
+                              'col-span-3 grid grid-cols-subgrid items-center overflow-hidden rounded transition-colors',
+                              isUncatHighlighted ? 'bg-slate-100 ring-1 ring-slate-200' : 'hover:bg-slate-50',
+                            )}
+                          >
+                            <button
+                              type="button"
+                              tabIndex={0}
+                              data-flat-idx={uncatHeaderFlatIdx}
+                              data-col="row"
+                              onClick={() => toggleOpen(uncatKey)}
+                              className="flex min-w-0 items-center gap-0.5 overflow-hidden py-1 pl-4 text-left text-[11.5px] font-medium text-slate-500 transition outline-none hover:text-slate-700"
+                            >
+                              {uncatOpen ? (
+                                <ChevronDown className="h-2 w-2 shrink-0" />
+                              ) : (
+                                <ChevronRight className="h-2 w-2 shrink-0" />
+                              )}
+                              <span className="truncate">Other</span>
+                            </button>
+                            {renderBulkButtons(fullUncatCodes, 'Other H&S', uncatKey, uncatHeaderFlatIdx)}
+                          </div>
+                          {renderCodeRows(entry.uncategorized, 'pl-8', uncatOpen, fullUncatCodes)}
+                        </Fragment>
+                      )
+                    })())}
             </Fragment>
           )
         })}

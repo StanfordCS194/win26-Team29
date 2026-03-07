@@ -4,11 +4,14 @@ import { z } from 'zod'
 
 import { searchParamsSchema } from './search.params'
 import { getEvalQuestions, EVAL_QUESTION_SLUGS } from './eval-questions'
+import { generateQueryEmbedding, preloadModel } from './embeddings'
 
 import type { EvalSlug } from './eval-questions'
 import type { SearchParams, SearchCourseResult } from './search.params'
 import type { SearchQueryParams } from './search.query'
 import { QuarterEnum } from '@courses/scrape/shared/schemas'
+
+void preloadModel()
 
 const cachedSubjectsByYear = new Map<string, { code: string; school: string | null }[]>()
 const cachedInstructorsByYear = new Map<string, { sunet: string; name: string }[]>()
@@ -480,10 +483,20 @@ export const searchCourses = createServerFn({ method: 'GET' })
     }
 
     const start = performance.now()
-    const { results, totalCount } = await searchCourseOfferings(db, searchParams)
+
+    const t0 = performance.now()
+    const embedding = rawQuery ? await generateQueryEmbedding(rawQuery).catch(() => null) : null
+    const embeddingMs = (performance.now() - t0).toFixed(1)
+
+    const t1 = performance.now()
+    const { results, totalCount } = await searchCourseOfferings(db, {
+      ...searchParams,
+      embedding: embedding ?? undefined,
+    })
+    const queryMs = (performance.now() - t1).toFixed(1)
 
     console.log(
-      `[query] total: ${(performance.now() - start).toFixed(1)}ms (query="${rawQuery}", ${results.length} results, totalCount=${totalCount})`,
+      `[search] total=${(performance.now() - start).toFixed(1)}ms embedding=${embeddingMs}ms query=${queryMs}ms (q="${rawQuery}", results=${results.length}, totalCount=${totalCount})`,
     )
     return { results, totalCount }
   })

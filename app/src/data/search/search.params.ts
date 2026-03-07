@@ -87,6 +87,8 @@ const rangeModeEnum = z.enum(['overlaps_with', 'contained_in'])
 // Used for both URL validation (TanStack Router) and as the server function input.
 // Uses .catch() so invalid URL values silently fall back to defaults rather than erroring.
 
+export const MAX_QUERY_LENGTH = 200
+
 export const searchParamsSchema = z.object({
   query: z
     .preprocess((v) => {
@@ -97,7 +99,7 @@ export const searchParamsSchema = z.object({
       }
 
       return v
-    }, z.string())
+    }, z.string().max(MAX_QUERY_LENGTH))
     .catch(''),
   year: z.string().catch(DEFAULT_YEAR),
 

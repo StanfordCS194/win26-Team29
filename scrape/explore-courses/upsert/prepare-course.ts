@@ -144,6 +144,7 @@ export function parsedCourseToUploadCourseOffering(
       code_suffix: parsed.code.suffix === '' ? null : (parsed.code.suffix ?? null),
       course_id: parsed.administrativeInformation.courseId,
       description: parsed.description,
+      embedding: null,
       final_exam_flag_id,
       grading_option_id,
       max_times_repeat: parsed.administrativeInformation.maxTimesRepeat,

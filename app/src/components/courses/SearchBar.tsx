@@ -7,7 +7,7 @@ import { Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { searchQueryOptions } from './courses-query-options'
-import { SearchParams } from '@/data/search/search.params'
+import { SearchParams, MAX_QUERY_LENGTH } from '@/data/search/search.params'
 import { useClearAllFilters, hasActiveFilters } from './use-clear-all-filters'
 
 export function SearchBar() {
@@ -21,9 +21,11 @@ export function SearchBar() {
     setValue(search.query)
   }, [search.query])
 
+  const normalizeQuery = (v: string) => v.trim().replace(/\./g, '')
+
   const prefetchDebouncer = useDebouncer(
-    (trimmed: string) => {
-      void queryClient.prefetchQuery(searchQueryOptions({ ...search, query: trimmed, page: 1 }))
+    (normalized: string) => {
+      void queryClient.prefetchQuery(searchQueryOptions({ ...search, query: normalized, page: 1 }))
     },
     { wait: 325, enabled: value.trim().length > 0 },
   )
@@ -49,7 +51,7 @@ export function SearchBar() {
 
   const showHint = isFocused && hasFilters && hasNoResults
 
-  const isQueryUnchanged = value.trim() === search.query
+  const isQueryUnchanged = normalizeQuery(value) === search.query
 
   const commitSearch = () => {
     prefetchDebouncer.cancel()
@@ -57,7 +59,7 @@ export function SearchBar() {
       search: (prev) =>
         ({
           ...prev,
-          query: value.trim(),
+          query: normalizeQuery(value),
           page: 1,
         }) as Required<SearchParams>,
     })
@@ -83,10 +85,12 @@ export function SearchBar() {
         name="query"
         type="text"
         value={value}
+        maxLength={MAX_QUERY_LENGTH}
         onChange={(e) => {
           setValue(e.target.value)
-          if (e.target.value.trim().length > 0) {
-            prefetchDebouncer.maybeExecute(e.target.value.trim())
+          const normalized = normalizeQuery(e.target.value)
+          if (normalized.length > 0) {
+            prefetchDebouncer.maybeExecute(normalized)
           } else {
             prefetchDebouncer.cancel()
           }
