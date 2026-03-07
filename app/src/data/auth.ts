@@ -21,8 +21,8 @@ export const signInWithGoogle = createServerFn({ method: 'GET' }).handler(async 
       redirectTo: `${
         process.env.VERCEL_BRANCH_URL != null
           ? `https://${process.env.VERCEL_BRANCH_URL}`
-          : process.env.VERCEL_PROJECT_PRODUCTION_URL != null
-            ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+          : process.env.VERCEL_URL != null
+            ? `https://${process.env.VERCEL_URL}`
             : (process.env.APP_URL ?? 'http://localhost:3000')
       }/auth/callback`,
       scopes: 'email profile',
