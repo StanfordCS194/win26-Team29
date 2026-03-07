@@ -199,25 +199,49 @@ export const databaseUpsertFlow = ({
     yield* Console.log('Set statement timeout to 25 minutes')
 
     yield* Console.log('\nRefreshing materialized views...')
+
+    // 1
+    yield* Console.log('\nRefreshing course content search materialized view...')
     yield* Effect.promise(() =>
       db.schema.refreshMaterializedView('course_content_search').concurrently().execute(),
     )
     yield* Console.log('Refreshed course content search materialized view...')
+
+    // 2
     yield* Console.log('\nRefreshing offering aggregates materialized view...')
     yield* Effect.promise(() =>
       db.schema.refreshMaterializedView('offering_aggregates_mv').concurrently().execute(),
     )
     yield* Console.log('Refreshed offering aggregates materialized view...')
+
+    // 3
+    yield* Console.log('\nRefreshing section instructor sunets materialized view...')
+    yield* Effect.promise(() =>
+      db.schema.refreshMaterializedView('section_instructor_sunets_mv').concurrently().execute(),
+    )
+    yield* Console.log('Refreshed section instructor sunets materialized view...')
+
+    // 4
     yield* Console.log('\nRefreshing crosslistings materialized view...')
     yield* Effect.promise(() =>
       db.schema.refreshMaterializedView('crosslistings_mv').concurrently().execute(),
     )
     yield* Console.log('Refreshed crosslistings materialized view...')
+
+    // 5
+    yield* Console.log('\nRefreshing course enrollment trends materialized view...')
+    yield* Effect.promise(() =>
+      db.schema.refreshMaterializedView('course_enrollment_trends_mv').concurrently().execute(),
+    )
+    yield* Console.log('Refreshed course enrollment trends materialized view...')
+
+    // 6 (depends on offering_aggregates_mv)
     yield* Console.log('\nRefreshing course offerings full materialized view...')
     yield* Effect.promise(() =>
       db.schema.refreshMaterializedView('course_offerings_full_mv').concurrently().execute(),
     )
     yield* Console.log('Refreshed course offerings full materialized view...')
+
     yield* Console.log('\nMaterialized views refreshed')
 
     yield* Console.log('Database upsert complete')
