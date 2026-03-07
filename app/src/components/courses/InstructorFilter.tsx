@@ -17,7 +17,7 @@ function includeButtonClass(
   colHighlight: HighlightedCol,
 ) {
   return cn(
-    "relative flex h-4.5 w-4.5 items-center justify-center rounded-full border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
+    "relative flex h-4.5 w-4.5 items-center justify-center rounded border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
     isIncluded
       ? 'border-emerald-500 bg-emerald-500 text-white'
       : 'border-slate-300 bg-white hover:border-emerald-400',
@@ -32,7 +32,7 @@ function includeButtonClass(
 
 function excludeButtonClass(isExcluded: boolean, isLabelHovered: boolean, colHighlight: HighlightedCol) {
   return cn(
-    "relative flex h-4.5 w-4.5 items-center justify-center rounded-full border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
+    "relative flex h-4.5 w-4.5 items-center justify-center rounded border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
     isExcluded ? 'border-rose-400 bg-rose-400 text-white' : 'border-slate-300 bg-white hover:border-rose-300',
     isExcluded
       ? 'group-hover/exclude-col:ring-2 group-hover/exclude-col:ring-rose-300 group-hover/exclude-col:ring-offset-1'

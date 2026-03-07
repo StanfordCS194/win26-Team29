@@ -43,7 +43,7 @@ export function hasActiveFilters(search: SearchParams): boolean {
     search.classDurationMin != null ||
     search.classDurationMax != null ||
     search.startTimeMin != null ||
-    search.startTimeMax != null ||
+    search.endTimeMax != null ||
     EVAL_QUESTION_SLUGS.some(
       (slug) => search[`min_eval_${slug}`] != null || search[`max_eval_${slug}`] != null,
     ) ||
@@ -71,7 +71,7 @@ export function useClearAllFilters() {
           classDurationMin: undefined,
           classDurationMax: undefined,
           startTimeMin: undefined,
-          startTimeMax: undefined,
+          endTimeMax: undefined,
           gers: [],
           gersExclude: [],
           numGersMin: undefined,

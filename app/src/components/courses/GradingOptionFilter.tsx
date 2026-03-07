@@ -5,50 +5,7 @@ import { Route } from '@/routes/courses'
 import { availableGradingOptionsQueryOptions } from './courses-query-options'
 import type { SearchParams } from '@/data/search/search.params'
 import { cn } from '@/lib/utils'
-
-// ── Hardcoded group mapping ───────────────────────────────────────────────────
-
-const GRADING_GROUPS: { name: string; topLevel?: boolean; codes: string[] }[] = [
-  {
-    name: 'Standard',
-    topLevel: true,
-    codes: [
-      'Letter (ABCD/NP)',
-      'Letter or Credit/No Credit',
-      'Credit / No Credit',
-      'Credit/No Credit',
-      'Satisfactory/No Credit',
-    ],
-  },
-  {
-    name: 'GSB',
-    codes: ['GSB Letter Graded', 'GSB Pass/Fail', 'GSB Student Option LTR/PF'],
-  },
-  {
-    name: 'Law',
-    codes: [
-      'Law Honors/Pass/Restrd Cr/Fail',
-      'Law Mandatory Credit 3K',
-      'Law Mandatory P/R/F',
-      'Law Mixed H/P/R/F or MP/R/F',
-      'Law Student Option NM/KE',
-      'Law Student Option NM/KM',
-    ],
-  },
-  {
-    name: 'Medical',
-    codes: [
-      'MED Letter Graded',
-      'Medical Option (Med-Ltr-CR/NC)',
-      'Medical Satisfactory/No Credit',
-      'Medical School MD Grades',
-    ],
-  },
-  {
-    name: 'Other',
-    codes: ['NQF Scale', 'RO Satisfactory/Unsatisfactory', 'TGR'],
-  },
-]
+import { GRADING_GROUPS, compressGradingCodes, expandGradingTokens } from './grading-groups'
 
 const COL_W = 'w-12'
 
@@ -63,7 +20,7 @@ function includeButtonClass(
   colHighlight: HighlightedCol,
 ) {
   return cn(
-    "relative flex h-4.5 w-4.5 items-center justify-center rounded-full border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
+    "relative flex h-4.5 w-4.5 items-center justify-center rounded border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
     isIncluded
       ? 'border-emerald-500 bg-emerald-500 text-white'
       : 'border-slate-300 bg-white hover:border-emerald-400',
@@ -78,7 +35,7 @@ function includeButtonClass(
 
 function excludeButtonClass(isExcluded: boolean, isLabelHovered: boolean, colHighlight: HighlightedCol) {
   return cn(
-    "relative flex h-4.5 w-4.5 items-center justify-center rounded-full border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
+    "relative flex h-4.5 w-4.5 items-center justify-center rounded border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
     isExcluded ? 'border-rose-400 bg-rose-400 text-white' : 'border-slate-300 bg-white hover:border-rose-300',
     isExcluded
       ? 'group-hover/exclude-col:ring-2 group-hover/exclude-col:ring-rose-300 group-hover/exclude-col:ring-offset-1'
@@ -105,6 +62,11 @@ export function GradingOptionFilter() {
 
   const include = search.gradingOptions ?? []
   const exclude = search.gradingOptionsExclude ?? []
+
+  // Expand group tokens (e.g. `-GSB`) to full codes for display/logic.
+  // `include`/`exclude` (which may contain tokens) are the write-back base for compressGradingCodes.
+  const expandedInclude = useMemo(() => expandGradingTokens(include), [include])
+  const expandedExclude = useMemo(() => expandGradingTokens(exclude), [exclude])
 
   const colCycle: HighlightedCol[] = advancedMode ? [null, 'include', 'exclude'] : [null, 'include']
 
@@ -139,14 +101,7 @@ export function GradingOptionFilter() {
 
   // ── Visibility helper ────────────────────────────────────────────────────
 
-  const isCodeVisible = (code: string, groupOpen: boolean, groupCodes: string[]) => {
-    if (groupOpen) return true
-    const groupAllIncluded = groupCodes.length > 0 && groupCodes.every((c) => include.includes(c))
-    const groupAllExcluded = groupCodes.length > 0 && groupCodes.every((c) => exclude.includes(c))
-    const isIncluded = include.includes(code)
-    const isExcluded = exclude.includes(code)
-    return (isIncluded && !groupAllIncluded) || (isExcluded && !groupAllExcluded)
-  }
+  const isCodeVisible = (_code: string, groupOpen: boolean) => groupOpen
 
   // ── Flat item list for keyboard navigation ───────────────────────────────
 
@@ -161,7 +116,7 @@ export function GradingOptionFilter() {
         items.push({ kind: 'header', groupName: group.name, codes: group.codes })
         const open = openGroups.has(group.name)
         for (const code of group.codes) {
-          if (isCodeVisible(code, open, group.codes)) {
+          if (isCodeVisible(code, open)) {
             items.push({ kind: 'code', code })
           }
         }
@@ -182,49 +137,89 @@ export function GradingOptionFilter() {
   // ── Toggle handlers ──────────────────────────────────────────────────────
 
   const toggleInclude = (code: string) => {
-    if (include.includes(code)) {
-      navigate_({ gradingOptions: include.filter((v) => v !== code) })
+    if (expandedInclude.includes(code)) {
+      navigate_({
+        gradingOptions: compressGradingCodes(
+          expandedInclude.filter((v) => v !== code),
+          availableCodes,
+        ),
+      })
     } else {
       navigate_({
-        gradingOptions: [...include, code],
-        gradingOptionsExclude: exclude.filter((v) => v !== code),
+        gradingOptions: compressGradingCodes([...expandedInclude, code], availableCodes),
+        gradingOptionsExclude: compressGradingCodes(
+          expandedExclude.filter((v) => v !== code),
+          availableCodes,
+        ),
       })
     }
   }
 
   const toggleExclude = (code: string) => {
-    if (exclude.includes(code)) {
-      navigate_({ gradingOptionsExclude: exclude.filter((v) => v !== code) })
+    if (expandedExclude.includes(code)) {
+      navigate_({
+        gradingOptionsExclude: compressGradingCodes(
+          expandedExclude.filter((v) => v !== code),
+          availableCodes,
+        ),
+      })
     } else {
       navigate_({
-        gradingOptionsExclude: [...exclude, code],
-        gradingOptions: include.filter((v) => v !== code),
+        gradingOptionsExclude: compressGradingCodes([...expandedExclude, code], availableCodes),
+        gradingOptions: compressGradingCodes(
+          expandedInclude.filter((v) => v !== code),
+          availableCodes,
+        ),
       })
     }
   }
 
   const toggleBulkInclude = (codes: string[]) => {
     const codeSet = new Set(codes)
-    const allIncluded = codes.every((c) => include.includes(c))
-    if (allIncluded) {
-      navigate_({ gradingOptions: include.filter((c) => !codeSet.has(c)) })
+    const allIncluded = codes.every((c) => expandedInclude.includes(c))
+    const someIncluded = codes.some((c) => expandedInclude.includes(c))
+    if (allIncluded || someIncluded) {
+      navigate_({
+        gradingOptions: compressGradingCodes(
+          expandedInclude.filter((c) => !codeSet.has(c)),
+          availableCodes,
+        ),
+      })
     } else {
       navigate_({
-        gradingOptions: [...include.filter((c) => !codeSet.has(c)), ...codes],
-        gradingOptionsExclude: exclude.filter((c) => !codeSet.has(c)),
+        gradingOptions: compressGradingCodes(
+          [...expandedInclude.filter((c) => !codeSet.has(c)), ...codes],
+          availableCodes,
+        ),
+        gradingOptionsExclude: compressGradingCodes(
+          expandedExclude.filter((c) => !codeSet.has(c)),
+          availableCodes,
+        ),
       })
     }
   }
 
   const toggleBulkExclude = (codes: string[]) => {
     const codeSet = new Set(codes)
-    const allExcluded = codes.every((c) => exclude.includes(c))
-    if (allExcluded) {
-      navigate_({ gradingOptionsExclude: exclude.filter((c) => !codeSet.has(c)) })
+    const allExcluded = codes.every((c) => expandedExclude.includes(c))
+    const someExcluded = codes.some((c) => expandedExclude.includes(c))
+    if (allExcluded || someExcluded) {
+      navigate_({
+        gradingOptionsExclude: compressGradingCodes(
+          expandedExclude.filter((c) => !codeSet.has(c)),
+          availableCodes,
+        ),
+      })
     } else {
       navigate_({
-        gradingOptionsExclude: [...exclude.filter((c) => !codeSet.has(c)), ...codes],
-        gradingOptions: include.filter((c) => !codeSet.has(c)),
+        gradingOptionsExclude: compressGradingCodes(
+          [...expandedExclude.filter((c) => !codeSet.has(c)), ...codes],
+          availableCodes,
+        ),
+        gradingOptions: compressGradingCodes(
+          expandedInclude.filter((c) => !codeSet.has(c)),
+          availableCodes,
+        ),
       })
     }
   }
@@ -286,8 +281,8 @@ export function GradingOptionFilter() {
         if (highlightedCol === 'include') toggleInclude(item.code)
         else if (highlightedCol === 'exclude') toggleExclude(item.code)
         else {
-          if (include.includes(item.code)) toggleInclude(item.code)
-          else if (exclude.includes(item.code)) toggleExclude(item.code)
+          if (expandedInclude.includes(item.code)) toggleInclude(item.code)
+          else if (expandedExclude.includes(item.code)) toggleExclude(item.code)
           else toggleInclude(item.code)
         }
       }
@@ -301,8 +296,8 @@ export function GradingOptionFilter() {
         if (highlightedCol === 'include') toggleInclude(item.code)
         else if (highlightedCol === 'exclude') toggleExclude(item.code)
         else {
-          if (include.includes(item.code)) toggleInclude(item.code)
-          else if (exclude.includes(item.code)) toggleExclude(item.code)
+          if (expandedInclude.includes(item.code)) toggleInclude(item.code)
+          else if (expandedExclude.includes(item.code)) toggleExclude(item.code)
           else toggleInclude(item.code)
         }
       }
@@ -337,8 +332,10 @@ export function GradingOptionFilter() {
   const takeFlatIdx = () => flatIdx++
 
   const renderBulkButtons = (codes: string[], groupName: string, headerFlatIdx: number) => {
-    const allIncluded = codes.length > 0 && codes.every((c) => include.includes(c))
-    const allExcluded = codes.length > 0 && codes.every((c) => exclude.includes(c))
+    const allIncluded = codes.length > 0 && codes.every((c) => expandedInclude.includes(c))
+    const allExcluded = codes.length > 0 && codes.every((c) => expandedExclude.includes(c))
+    const someIncluded = !allIncluded && codes.some((c) => expandedInclude.includes(c))
+    const someExcluded = !allExcluded && codes.some((c) => expandedExclude.includes(c))
     const isRowHighlighted = headerFlatIdx === highlightedIndex
     const colHighlight = isRowHighlighted ? highlightedCol : null
 
@@ -361,14 +358,21 @@ export function GradingOptionFilter() {
               "relative flex h-4.5 w-4.5 items-center justify-center rounded border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
               allIncluded
                 ? 'border-emerald-500 bg-emerald-500 text-white'
-                : 'border-slate-300 bg-white hover:border-emerald-400',
+                : someIncluded
+                  ? 'border-emerald-500 text-white'
+                  : 'border-slate-300 bg-white hover:border-emerald-400',
               'group-hover/include-col:ring-2 group-hover/include-col:ring-emerald-300 group-hover/include-col:ring-offset-1',
-              !allIncluded && 'group-hover/include-col:border-emerald-400',
+              !allIncluded && !someIncluded && 'group-hover/include-col:border-emerald-400',
               colHighlight === 'include' && 'ring-2 ring-emerald-400 ring-offset-1',
               'focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-1',
             )}
+            style={
+              someIncluded
+                ? { background: 'linear-gradient(225deg, rgba(16,185,129,0.2) 50%, #10b981 50%)' }
+                : undefined
+            }
           >
-            {allIncluded && <Check className="h-2.5 w-2.5" />}
+            {(allIncluded || someIncluded) && <Check className="h-2.5 w-2.5" />}
           </button>
         </div>
         {advancedMode && (
@@ -389,15 +393,22 @@ export function GradingOptionFilter() {
                 "relative flex h-4.5 w-4.5 items-center justify-center rounded border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
                 allExcluded
                   ? 'border-rose-400 bg-rose-400 text-white'
-                  : 'border-slate-300 bg-white hover:border-rose-300',
+                  : someExcluded
+                    ? 'border-rose-400 text-white'
+                    : 'border-slate-300 bg-white hover:border-rose-300',
                 allExcluded
                   ? 'group-hover/exclude-col:ring-2 group-hover/exclude-col:ring-rose-300 group-hover/exclude-col:ring-offset-1'
                   : 'group-hover/exclude-col:border-rose-300 group-hover/exclude-col:ring-2 group-hover/exclude-col:ring-rose-200 group-hover/exclude-col:ring-offset-1',
                 colHighlight === 'exclude' && 'ring-2 ring-rose-400 ring-offset-1',
                 'focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-1',
               )}
+              style={
+                someExcluded
+                  ? { background: 'linear-gradient(225deg, rgba(248,113,113,0.2) 50%, #f87171 50%)' }
+                  : undefined
+              }
             >
-              {allExcluded && <X className="h-2.5 w-2.5" />}
+              {(allExcluded || someExcluded) && <X className="h-2.5 w-2.5" />}
             </button>
           </div>
         )}
@@ -406,8 +417,8 @@ export function GradingOptionFilter() {
   }
 
   const renderCodeRow = (code: string, indent = 'pl-4') => {
-    const isIncluded = include.includes(code)
-    const isExcluded = exclude.includes(code)
+    const isIncluded = expandedInclude.includes(code)
+    const isExcluded = expandedExclude.includes(code)
     const currentFlatIdx = takeFlatIdx()
     const isRowHighlighted = currentFlatIdx === highlightedIndex
     const colHighlight = isRowHighlighted ? highlightedCol : null
@@ -497,7 +508,7 @@ export function GradingOptionFilter() {
         {/* Header row */}
         <div className="flex items-center gap-1">
           <span className="text-xs font-medium text-slate-500 uppercase">Grading</span>
-          {(include.length > 0 || exclude.length > 0) && (
+          {(expandedInclude.length > 0 || expandedExclude.length > 0) && (
             <button
               type="button"
               onClick={() => navigate_({ gradingOptions: [], gradingOptionsExclude: [] })}
@@ -558,7 +569,7 @@ export function GradingOptionFilter() {
                 {renderBulkButtons(group.codes, group.name, headerFlatIdx)}
               </div>
               {group.codes.map((code) => {
-                if (!isCodeVisible(code, groupOpen, group.codes)) return null
+                if (!isCodeVisible(code, groupOpen)) return null
                 return renderCodeRow(code)
               })}
             </Fragment>

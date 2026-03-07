@@ -246,6 +246,7 @@ export const dbQuerySchema = z.object({
 
   days: setFilter(WeekdaySchema).optional(),
   startTime: pointTimeRangeFilter.optional(),
+  endTime: pointTimeRangeFilter.optional(),
   classDuration: pointNumberRangeFilter.optional(),
 
   evalFilters: evalFiltersSchema,

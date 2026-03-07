@@ -191,9 +191,9 @@ export const searchParamsSchema = z.object({
   classDurationMin: z.coerce.number().optional().catch(undefined),
   classDurationMax: z.coerce.number().optional().catch(undefined),
 
-  // Start time (ISO time string "HH:MM:SS" — no mode)
+  // Class time window (ISO time string "HH:MM:SS") — startTimeMin filters start_time, endTimeMax filters end_time
   startTimeMin: z.string().optional().catch(undefined),
-  startTimeMax: z.string().optional().catch(undefined),
+  endTimeMax: z.string().optional().catch(undefined),
 
   // Eval filters (flat per-slug min/max)
   min_eval_quality: z.coerce.number().optional().catch(undefined),

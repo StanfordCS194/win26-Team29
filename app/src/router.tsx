@@ -3,6 +3,7 @@ import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query
 
 import * as TanstackQuery from './integrations/tanstack-query/root-provider'
 import { routeTree } from './routeTree.gen'
+import type { RouterContext } from './routes/__root'
 
 function serializeValue(value: unknown): string {
   if (Array.isArray(value)) {
@@ -34,7 +35,8 @@ export const getRouter = () => {
     parseSearch: parseSearchWith(deserializeValue),
     context: {
       ...rqContext,
-    },
+      user: null,
+    } satisfies RouterContext,
 
     defaultPreload: 'intent',
   })

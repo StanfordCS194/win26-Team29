@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { EVAL_QUESTION_SLUGS } from '@/data/search/eval-questions'
 import { DEFAULT_ALWAYS_VISIBLE_EVAL_SLUGS, isEvalSortOption } from '@/data/search/eval-metrics'
@@ -44,6 +44,9 @@ export function CoursesPage() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const advancedMode = search.advancedMode === true
+
+  const [committedSearch, setCommittedSearch] = useState(search)
+  const handleCommit = useCallback((s: SearchParams) => setCommittedSearch(s), [])
 
   const toggleAdvancedMode = () => {
     if (advancedMode) {
@@ -160,15 +163,30 @@ export function CoursesPage() {
   })
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] overflow-x-clip bg-sky-50">
+    <div className="min-h-[calc(100vh-var(--header-height))] overflow-x-clip bg-sky-50">
       <div className="mx-auto flex w-full max-w-6xl gap-6 px-2.5">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div
             data-search-top-anchor
-            className="sticky top-19 z-40 -mx-3 -mb-4 flex items-center gap-2 px-2.5 pt-3 pb-7 backdrop-blur-lg"
+            className="sticky top-[var(--header-height)] z-40 -mx-5 -mb-6 flex items-center gap-2 bg-sky-50/60 px-6 pt-3 pb-8 backdrop-blur-lg"
             style={{
-              maskImage: 'linear-gradient(to bottom, black 75%, transparent 100%)',
-              WebkitMaskImage: 'linear-gradient(to bottom, black 75%, transparent 100%)',
+              maskImage: [
+                'linear-gradient(to bottom, black 60%, transparent 100%)',
+                'linear-gradient(to right, transparent 0, black 0.75rem)',
+                'linear-gradient(to left, transparent 0, black 0.75rem)',
+                // radial fills at each bottom corner round the sharp intersection
+                'radial-gradient(circle at 0.75rem 60%, black 0.5rem, transparent 1.25rem)',
+                'radial-gradient(circle at calc(100% - 0.75rem) 60%, black 0.5rem, transparent 1.25rem)',
+              ].join(', '),
+              WebkitMaskImage: [
+                'linear-gradient(to bottom, black 60%, transparent 100%)',
+                'linear-gradient(to right, transparent 0, black 0.75rem)',
+                'linear-gradient(to left, transparent 0, black 0.75rem)',
+                'radial-gradient(circle at 0.75rem 60%, black 0.5rem, transparent 1.25rem)',
+                'radial-gradient(circle at calc(100% - 0.75rem) 60%, black 0.5rem, transparent 1.25rem)',
+              ].join(', '),
+              maskComposite: 'intersect, intersect, add, add',
+              WebkitMaskComposite: 'destination-in, destination-in, source-over, source-over',
             }}
           >
             <div className="min-w-0 flex-1">
@@ -182,10 +200,14 @@ export function CoursesPage() {
               visibleEvalSlugs={visibleEvalSlugs}
             />
           </div>
-          <SearchResultsContainer visibleEvalSlugs={visibleEvalSlugs} />
+          <SearchResultsContainer
+            visibleEvalSlugs={visibleEvalSlugs}
+            committedSearch={committedSearch}
+            onCommit={handleCommit}
+          />
         </div>
-        <aside className="hidden min-h-[calc(100vh-5rem)] w-64 shrink-0 lg:block">
-          <div className="sticky top-20 flex max-h-[calc(100vh-6rem)] flex-col pt-1.5">
+        <aside className="hidden min-h-[calc(100vh-var(--header-height))] w-64 shrink-0 lg:block">
+          <div className="sticky top-[var(--header-height)] flex max-h-[calc(100vh-var(--header-height)-1rem)] flex-col pt-1.5">
             <div ref={filterStickyRef} data-filter-sticky className="-mr-40 -ml-4 bg-sky-50 pr-36 pl-4">
               <div className="py-1">
                 <YearSelect />
@@ -210,7 +232,7 @@ export function CoursesPage() {
                   Advanced
                 </button>
               </div>
-              <AppliedFilterBadges />
+              <AppliedFilterBadges committedSearch={committedSearch} />
             </div>
             <div
               ref={filterScrollRef}

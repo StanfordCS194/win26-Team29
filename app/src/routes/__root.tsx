@@ -1,14 +1,23 @@
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from '@tanstack/react-router'
+import type { QueryClient } from '@tanstack/react-query'
+import type { User } from '@supabase/supabase-js'
 
 import Header from '../components/Header'
+import { NotFoundComponent } from '../components/errors/NotFoundComponent'
+import { RootErrorComponent } from '../components/errors/RootErrorComponent'
+import { getUser } from '../data/auth'
 import appCss from '../styles.css?url'
-import type { QueryClient } from '@tanstack/react-query'
 
-export interface MyRouterContext {
+export interface RouterContext {
   queryClient: QueryClient
+  user: User | null
 }
 
-export const Route = createRootRouteWithContext<MyRouterContext>()({
+export const Route = createRootRouteWithContext<RouterContext>()({
+  beforeLoad: async () => {
+    const user = await getUser()
+    return { user }
+  },
   head: () => ({
     meta: [
       {
@@ -31,6 +40,8 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
   }),
   component: RootLayout,
   shellComponent: RootDocument,
+  errorComponent: RootErrorComponent,
+  notFoundComponent: NotFoundComponent,
 })
 
 function RootLayout() {

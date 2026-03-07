@@ -5,6 +5,8 @@ import { z } from 'zod'
 import { searchParamsSchema } from './search.params'
 import { getEvalQuestions, EVAL_QUESTION_SLUGS } from './eval-questions'
 import { generateQueryEmbedding, preloadModel } from './embeddings'
+import { expandSubjectTokens } from '@/components/courses/subject-tokens'
+import { expandGradingTokens } from '@/components/courses/grading-groups'
 
 import type { EvalSlug } from './eval-questions'
 import type { SearchParams, SearchCourseResult } from './search.params'
@@ -350,8 +352,9 @@ export const searchCourses = createServerFn({ method: 'GET' })
     const hasDays = (data.days?.length ?? 0) > 0 || (data.daysExclude?.length ?? 0) > 0
     const hasInstructors = data.instructorSunets.length > 0 || data.instructorSunetsExclude.length > 0
 
-    const subjectInclude = data.subjects ?? []
-    const hasSubjects = subjectInclude.length > 0 || (data.subjectsExclude?.length ?? 0) > 0
+    const subjectInclude = expandSubjectTokens(data.subjects ?? [], subjects)
+    const subjectExclude = expandSubjectTokens(data.subjectsExclude ?? [], subjects)
+    const hasSubjects = subjectInclude.length > 0 || subjectExclude.length > 0
 
     const searchParams: SearchQueryParams = {
       year: data.year,
@@ -365,7 +368,7 @@ export const searchCourses = createServerFn({ method: 'GET' })
       subjects: hasSubjects
         ? {
             include: subjectInclude,
-            exclude: data.subjectsExclude ?? [],
+            exclude: subjectExclude,
             includeMode: data.subjectsIncludeMode,
             withCrosslistings: data.subjectsWithCrosslistings ?? true,
           }
@@ -398,8 +401,8 @@ export const searchCourses = createServerFn({ method: 'GET' })
           : undefined,
 
       repeatable: data.repeatable,
-      gradingOptionId: resolveGradingIds(data.gradingOptions),
-      gradingOptionIdExclude: resolveGradingIds(data.gradingOptionsExclude),
+      gradingOptionId: resolveGradingIds(expandGradingTokens(data.gradingOptions)),
+      gradingOptionIdExclude: resolveGradingIds(expandGradingTokens(data.gradingOptionsExclude)),
       academicCareerId: resolveCareerIds(data.careers),
       academicCareerIdExclude: resolveCareerIds(data.careersExclude),
       finalExamFlagId: resolveFinalExamIds(data.finalExamFlags),
@@ -465,11 +468,13 @@ export const searchCourses = createServerFn({ method: 'GET' })
           : undefined,
 
       startTime:
-        data.startTimeMin != null || data.startTimeMax != null
-          ? {
-              min: data.startTimeMin != null ? Temporal.PlainTime.from(data.startTimeMin) : undefined,
-              max: data.startTimeMax != null ? Temporal.PlainTime.from(data.startTimeMax) : undefined,
-            }
+        data.startTimeMin != null
+          ? { min: Temporal.PlainTime.from(data.startTimeMin), max: undefined }
+          : undefined,
+
+      endTime:
+        data.endTimeMax != null
+          ? { min: undefined, max: Temporal.PlainTime.from(data.endTimeMax) }
           : undefined,
 
       evalFilters:
@@ -485,7 +490,9 @@ export const searchCourses = createServerFn({ method: 'GET' })
     const start = performance.now()
 
     const t0 = performance.now()
-    const embedding = rawQuery ? await generateQueryEmbedding(rawQuery).catch(() => null) : null
+    const embedding = parsed.remainingQuery
+      ? await generateQueryEmbedding(parsed.remainingQuery).catch(() => null)
+      : null
     const embeddingMs = (performance.now() - t0).toFixed(1)
 
     const t1 = performance.now()

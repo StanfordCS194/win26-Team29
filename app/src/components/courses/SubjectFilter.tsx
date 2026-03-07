@@ -5,90 +5,16 @@ import { Route } from '@/routes/courses'
 import { availableSubjectsQueryOptions } from './courses-query-options'
 import type { SearchParams } from '@/data/search/search.params'
 import { cn } from '@/lib/utils'
+import {
+  SCHOOL_SHORT,
+  MANUAL_HS_CATEGORIES,
+  HS_KEY,
+  VPUE_KEY,
+  expandSubjectTokens,
+  compressSubjectCodes,
+} from './subject-tokens'
 
 const COL_W = 'w-12'
-
-const SCHOOL_SHORT: Record<string, string> = {
-  'Department of Athletics, Physical Education and Recreation': 'Athletics',
-  'Doerr School of Sustainability': 'Sustainability',
-  'Graduate School of Business': 'Business',
-  'School of Education': 'Education',
-  'School of Engineering': 'Engineering',
-  'School of Humanities & Sciences': 'Humanities & Sciences',
-  'Law School': 'Law',
-  'School of Medicine': 'Medicine',
-  'Office of Vice Provost for Undergraduate Education': 'VPUE',
-  'Office of Vice Provost for Teaching and Learning': 'Teaching & Learning',
-}
-
-const MANUAL_HS_CATEGORIES: Record<string, string[]> = {
-  'Analytical Sciences': ['DATASCI', 'ECON', 'MATH', 'MCS', 'STATS', 'SYMSYS'],
-  'Natural Sciences': ['APPPHYS', 'BIO', 'BIOHOPK', 'BIOPHYS', 'CHEM', 'HUMBIO', 'PHYSICS', 'PSYCH'],
-  'Social Sciences': [
-    'AFRICAAM',
-    'AFRICAST',
-    'AMSTUD',
-    'ANTHRO',
-    'ASNAMST',
-    'CHILATST',
-    'COMM',
-    'CSRE',
-    'EASTASN',
-    'ECON',
-    'FEMGEN',
-    'GLOBAL',
-    'HISTORY',
-    'HUMRTS',
-    'INTLPOL',
-    'INTNLREL',
-    'IIS',
-    'SIW',
-    'LATINAM',
-    'LINGUIST',
-    'NATIVEAM',
-    'POLISCI',
-    'PUBLPOL',
-    'PSYCH',
-    'SOC',
-    'STS',
-    'URBANST',
-    'SYMSYS',
-    'REES',
-  ],
-  Humanities: [
-    'ARCHLGY',
-    'ARTHIST',
-    'CHINA',
-    'CLASSICS',
-    'COMPLIT',
-    'DLCL',
-    'EALC',
-    'ENGLISH',
-    'ETHICSOC',
-    'FILMEDIA',
-    'FRENCH',
-    'GERMAN',
-    'HISTORY',
-    'HPS',
-    'HUMCORE',
-    'HUMSCI',
-    'ITALIAN',
-    'JAPAN',
-    'JEWISHST',
-    'KOREA',
-    'MLA',
-    'MEDVLST',
-    'MTL',
-    'PHIL',
-    'RELIGST',
-    'SLAVIC',
-    'ILAC',
-  ],
-  Arts: ['ARTSTUDI', 'ARTSINST', 'DANCE', 'FILMPROD', 'MUSIC', 'TAPS'],
-}
-
-const HS_KEY = 'School of Humanities & Sciences'
-const VPUE_KEY = 'Office of Vice Provost for Undergraduate Education'
 
 // ── Group types ──────────────────────────────────────────────────────────────
 
@@ -129,7 +55,7 @@ function includeButtonClass(
   colHighlight: HighlightedCol,
 ) {
   return cn(
-    "relative flex h-4.5 w-4.5 items-center justify-center rounded-full border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
+    "relative flex h-4.5 w-4.5 items-center justify-center rounded border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
     isIncluded
       ? 'border-emerald-500 bg-emerald-500 text-white'
       : 'border-slate-300 bg-white hover:border-emerald-400',
@@ -144,7 +70,7 @@ function includeButtonClass(
 
 function excludeButtonClass(isExcluded: boolean, isLabelHovered: boolean, colHighlight: HighlightedCol) {
   return cn(
-    "relative flex h-4.5 w-4.5 items-center justify-center rounded-full border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
+    "relative flex h-4.5 w-4.5 items-center justify-center rounded border transition outline-none before:absolute before:-inset-x-3 before:-inset-y-2 before:content-['']",
     isExcluded ? 'border-rose-400 bg-rose-400 text-white' : 'border-slate-300 bg-white hover:border-rose-300',
     isExcluded
       ? 'group-hover/exclude-col:ring-2 group-hover/exclude-col:ring-rose-300 group-hover/exclude-col:ring-offset-1'
@@ -173,6 +99,11 @@ export function SubjectFilter() {
   const exclude = search.subjectsExclude ?? []
   const includeMode = search.subjectsIncludeMode
   const crosslistings = advancedMode && search.subjectsWithCrosslistings !== false
+
+  // Expand any group tokens (e.g. `-school-Engineering`) to individual codes for display/logic.
+  // The raw `include`/`exclude` from the URL are only used as the write-back base (after compress).
+  const expandedInclude = useMemo(() => expandSubjectTokens(include, subjects), [include, subjects])
+  const expandedExclude = useMemo(() => expandSubjectTokens(exclude, subjects), [exclude, subjects])
 
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -376,7 +307,7 @@ export function SubjectFilter() {
 
     return items
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredEntries, fullCodesByKey, openSchools, autoExpandedKeys, include, exclude])
+  }, [filteredEntries, fullCodesByKey, openSchools, autoExpandedKeys, expandedInclude, expandedExclude])
 
   // ── Auto-select first code when typing a search query ────────────────────
 
@@ -415,69 +346,113 @@ export function SubjectFilter() {
   }
 
   const toggleInclude = (code: string) => {
-    if (include.includes(code)) {
-      navigate_({ subjects: include.filter((v) => v !== code) })
+    if (expandedInclude.includes(code)) {
+      navigate_({
+        subjects: compressSubjectCodes(
+          expandedInclude.filter((v) => v !== code),
+          subjects,
+        ),
+      })
     } else {
-      navigate_({ subjects: [...include, code], subjectsExclude: exclude.filter((v) => v !== code) })
+      navigate_({
+        subjects: compressSubjectCodes([...expandedInclude, code], subjects),
+        subjectsExclude: compressSubjectCodes(
+          expandedExclude.filter((v) => v !== code),
+          subjects,
+        ),
+      })
     }
   }
 
   const toggleExclude = (code: string) => {
-    if (exclude.includes(code)) {
-      navigate_({ subjectsExclude: exclude.filter((v) => v !== code) })
+    if (expandedExclude.includes(code)) {
+      navigate_({
+        subjectsExclude: compressSubjectCodes(
+          expandedExclude.filter((v) => v !== code),
+          subjects,
+        ),
+      })
     } else {
-      navigate_({ subjectsExclude: [...exclude, code], subjects: include.filter((v) => v !== code) })
+      navigate_({
+        subjectsExclude: compressSubjectCodes([...expandedExclude, code], subjects),
+        subjects: compressSubjectCodes(
+          expandedInclude.filter((v) => v !== code),
+          subjects,
+        ),
+      })
     }
   }
 
   const toggleBulkInclude = (codes: string[], groupKey: string) => {
     const codeSet = new Set(codes)
-    const allIncluded = codes.every((c) => include.includes(c))
-    const someIncluded = codes.some((c) => include.includes(c))
+    const allIncluded = codes.every((c) => expandedInclude.includes(c))
+    const someIncluded = codes.some((c) => expandedInclude.includes(c))
     if (allIncluded || someIncluded) {
       const protectedCodes = new Set<string>()
       for (const [key, groupCodes] of fullCodesByKey) {
         if (key === groupKey) continue
         if (key.startsWith(groupKey + '::')) continue
         if (groupKey.startsWith(key + '::')) continue
-        const isFullyIncluded = groupCodes.every((c) => include.includes(c))
+        const isFullyIncluded = groupCodes.every((c) => expandedInclude.includes(c))
         if (isFullyIncluded) {
           for (const c of groupCodes) {
             if (codeSet.has(c)) protectedCodes.add(c)
           }
         }
       }
-      navigate_({ subjects: include.filter((c) => !codeSet.has(c) || protectedCodes.has(c)) })
+      navigate_({
+        subjects: compressSubjectCodes(
+          expandedInclude.filter((c) => !codeSet.has(c) || protectedCodes.has(c)),
+          subjects,
+        ),
+      })
     } else {
       navigate_({
-        subjects: [...include.filter((c) => !codeSet.has(c)), ...codes],
-        subjectsExclude: exclude.filter((c) => !codeSet.has(c)),
+        subjects: compressSubjectCodes(
+          [...expandedInclude.filter((c) => !codeSet.has(c)), ...codes],
+          subjects,
+        ),
+        subjectsExclude: compressSubjectCodes(
+          expandedExclude.filter((c) => !codeSet.has(c)),
+          subjects,
+        ),
       })
     }
   }
 
   const toggleBulkExclude = (codes: string[], groupKey: string) => {
     const codeSet = new Set(codes)
-    const allExcluded = codes.every((c) => exclude.includes(c))
-    const someExcluded = codes.some((c) => exclude.includes(c))
+    const allExcluded = codes.every((c) => expandedExclude.includes(c))
+    const someExcluded = codes.some((c) => expandedExclude.includes(c))
     if (allExcluded || someExcluded) {
       const protectedCodes = new Set<string>()
       for (const [key, groupCodes] of fullCodesByKey) {
         if (key === groupKey) continue
         if (key.startsWith(groupKey + '::')) continue
         if (groupKey.startsWith(key + '::')) continue
-        const isFullyExcluded = groupCodes.every((c) => exclude.includes(c))
+        const isFullyExcluded = groupCodes.every((c) => expandedExclude.includes(c))
         if (isFullyExcluded) {
           for (const c of groupCodes) {
             if (codeSet.has(c)) protectedCodes.add(c)
           }
         }
       }
-      navigate_({ subjectsExclude: exclude.filter((c) => !codeSet.has(c) || protectedCodes.has(c)) })
+      navigate_({
+        subjectsExclude: compressSubjectCodes(
+          expandedExclude.filter((c) => !codeSet.has(c) || protectedCodes.has(c)),
+          subjects,
+        ),
+      })
     } else {
       navigate_({
-        subjectsExclude: [...exclude.filter((c) => !codeSet.has(c)), ...codes],
-        subjects: include.filter((c) => !codeSet.has(c)),
+        subjectsExclude: compressSubjectCodes(
+          [...expandedExclude.filter((c) => !codeSet.has(c)), ...codes],
+          subjects,
+        ),
+        subjects: compressSubjectCodes(
+          expandedInclude.filter((c) => !codeSet.has(c)),
+          subjects,
+        ),
       })
     }
   }
@@ -558,8 +533,8 @@ export function SubjectFilter() {
         } else if (highlightedCol === 'exclude') {
           toggleExclude(item.code)
         } else {
-          const isIncluded = include.includes(item.code)
-          const isExcluded = exclude.includes(item.code)
+          const isIncluded = expandedInclude.includes(item.code)
+          const isExcluded = expandedExclude.includes(item.code)
           if (isIncluded) toggleInclude(item.code)
           else if (isExcluded) toggleExclude(item.code)
           else toggleInclude(item.code)
@@ -579,8 +554,8 @@ export function SubjectFilter() {
         } else if (highlightedCol === 'exclude') {
           toggleExclude(item.code)
         } else {
-          const isIncluded = include.includes(item.code)
-          const isExcluded = exclude.includes(item.code)
+          const isIncluded = expandedInclude.includes(item.code)
+          const isExcluded = expandedExclude.includes(item.code)
           if (isIncluded) toggleInclude(item.code)
           else if (isExcluded) toggleExclude(item.code)
           else toggleInclude(item.code)
@@ -634,10 +609,10 @@ export function SubjectFilter() {
 
   /** Render the include/exclude bulk-toggle buttons for a group header */
   const renderBulkButtons = (fullCodes: string[], label: string, groupKey: string, headerFlatIdx: number) => {
-    const allIncluded = fullCodes.length > 0 && fullCodes.every((c) => include.includes(c))
-    const allExcluded = fullCodes.length > 0 && fullCodes.every((c) => exclude.includes(c))
-    const someIncluded = !allIncluded && fullCodes.some((c) => include.includes(c))
-    const someExcluded = !allExcluded && fullCodes.some((c) => exclude.includes(c))
+    const allIncluded = fullCodes.length > 0 && fullCodes.every((c) => expandedInclude.includes(c))
+    const allExcluded = fullCodes.length > 0 && fullCodes.every((c) => expandedExclude.includes(c))
+    const someIncluded = !allIncluded && fullCodes.some((c) => expandedInclude.includes(c))
+    const someExcluded = !allExcluded && fullCodes.some((c) => expandedExclude.includes(c))
 
     const isRowHighlighted = headerFlatIdx === highlightedIndex
     const colHighlight = isRowHighlighted ? highlightedCol : null
@@ -719,8 +694,8 @@ export function SubjectFilter() {
 
   /** Render a single subject code row */
   const renderCodeRow = (code: string, indent: string) => {
-    const isIncluded = include.includes(code)
-    const isExcluded = exclude.includes(code)
+    const isIncluded = expandedInclude.includes(code)
+    const isExcluded = expandedExclude.includes(code)
 
     const currentFlatIdx = takeFlatIdx()
     const isRowHighlighted = currentFlatIdx === highlightedIndex

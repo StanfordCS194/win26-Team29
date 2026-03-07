@@ -22,6 +22,8 @@
     "@fontsource-variable/nunito-sans": "^5.2.7",
     "@huggingface/transformers": "^3.8.1",
     "@js-temporal/polyfill": "^0.5.1",
+    "@supabase/ssr": "^0.9.0",
+    "@supabase/supabase-js": "^2.98.0",
     "@tailwindcss/vite": "^4.2.1",
     "@tanstack/react-devtools": "^0.9.9",
     "@tanstack/react-pacer": "^0.20.0",

@@ -9,6 +9,8 @@ import type { SearchParams } from '@/data/search/search.params'
 import type { EvalSlug } from '@/data/search/eval-questions'
 import { availableInstructorsQueryOptions } from './courses-query-options'
 import { useClearAllFilters } from './use-clear-all-filters'
+import { labelGradingTokens } from './grading-groups'
+import { labelSubjectTokens } from './subject-tokens'
 
 interface FilterBadge {
   id: string
@@ -29,12 +31,12 @@ function formatRange(
   return ''
 }
 
-function formatList(items: string[], maxInline = 2): string {
+function formatList(items: string[], maxInline = 2, separator = ', '): string {
   if (items.length === 0) return ''
   const shown = items.slice(0, maxInline)
   const overflow = items.length - shown.length
   if (overflow > 0) shown.push(`+${overflow}`)
-  return shown.join(', ')
+  return shown.join(separator)
 }
 
 const ENROLLMENT_STATUS_LABELS: Record<string, string> = {
@@ -100,12 +102,15 @@ export function AppliedFilterBadges({
   autoFocusClearAll,
   centered,
   large,
+  committedSearch,
 }: {
   autoFocusClearAll?: boolean
   centered?: boolean
   large?: boolean
+  committedSearch?: SearchParams
 }) {
-  const search = Route.useSearch()
+  const liveSearch = Route.useSearch()
+  const search = committedSearch ?? liveSearch
   const navigate = Route.useNavigate()
   const { data: instructors = [] } = useQuery(availableInstructorsQueryOptions(search.year))
   const containerRef = useRef<HTMLDivElement>(null)
@@ -202,7 +207,11 @@ export function AppliedFilterBadges({
       result.push({
         id: 'subjects',
         label: 'Subjects',
-        summary: formatList(search.subjects),
+        summary: formatList(
+          labelSubjectTokens(search.subjects),
+          2,
+          search.subjectsIncludeMode === 'and' ? ' & ' : ', ',
+        ),
         onClear: () => nav({ subjects: [] }),
       })
     }
@@ -211,7 +220,7 @@ export function AppliedFilterBadges({
       result.push({
         id: 'subjectsExclude',
         label: 'Exclude Subjects',
-        summary: formatList(search.subjectsExclude),
+        summary: formatList(labelSubjectTokens(search.subjectsExclude)),
         onClear: () => nav({ subjectsExclude: [] }),
       })
     }
@@ -229,7 +238,7 @@ export function AppliedFilterBadges({
       result.push({
         id: 'quarters',
         label: 'Quarters',
-        summary: formatList(search.quarters),
+        summary: formatList(search.quarters, 2, search.quartersIncludeMode === 'and' ? ' & ' : ', '),
         onClear: () => nav({ quarters: [] }),
       })
     }
@@ -256,7 +265,7 @@ export function AppliedFilterBadges({
       result.push({
         id: 'days',
         label: 'Days',
-        summary: formatList(search.days ?? []),
+        summary: formatList(search.days ?? [], 2, search.daysIncludeMode === 'and' ? ' & ' : ', '),
         onClear: () => nav({ days: undefined }),
       })
     }
@@ -306,7 +315,7 @@ export function AppliedFilterBadges({
       })
     }
 
-    if (search.startTimeMin !== undefined || search.startTimeMax !== undefined) {
+    if (search.startTimeMin !== undefined || search.endTimeMax !== undefined) {
       const formatIsoTime = (s: string) => {
         const parts = s.split(':').map(Number)
         const totalMinutes = (parts[0] ?? 0) * 60 + (parts[1] ?? 0)
@@ -317,7 +326,7 @@ export function AppliedFilterBadges({
         return m === 0 ? `${hour} ${period}` : `${hour}:${String(m).padStart(2, '0')} ${period}`
       }
       const minLabel = search.startTimeMin !== undefined ? formatIsoTime(search.startTimeMin) : undefined
-      const maxLabel = search.startTimeMax !== undefined ? formatIsoTime(search.startTimeMax) : undefined
+      const maxLabel = search.endTimeMax !== undefined ? formatIsoTime(search.endTimeMax) : undefined
       const summary =
         minLabel !== undefined && maxLabel !== undefined
           ? `${minLabel}–${maxLabel}`
@@ -326,9 +335,9 @@ export function AppliedFilterBadges({
             : `≤${maxLabel}`
       result.push({
         id: 'startTime',
-        label: 'Start time',
+        label: 'Class time',
         summary,
-        onClear: () => nav({ startTimeMin: undefined, startTimeMax: undefined }),
+        onClear: () => nav({ startTimeMin: undefined, endTimeMax: undefined }),
       })
     }
 
@@ -336,7 +345,7 @@ export function AppliedFilterBadges({
       result.push({
         id: 'gers',
         label: 'GERs',
-        summary: formatList(search.gers),
+        summary: formatList(search.gers, 2, search.gersIncludeMode === 'and' ? ' & ' : ', '),
         onClear: () => nav({ gers: [] }),
       })
     }
@@ -381,7 +390,7 @@ export function AppliedFilterBadges({
       result.push({
         id: 'gradingOptions',
         label: 'Grading',
-        summary: formatList(search.gradingOptions),
+        summary: formatList(labelGradingTokens(search.gradingOptions)),
         onClear: () => nav({ gradingOptions: [] }),
       })
     }
@@ -390,7 +399,7 @@ export function AppliedFilterBadges({
       result.push({
         id: 'gradingOptionsExclude',
         label: 'Exclude Grading',
-        summary: formatList(search.gradingOptionsExclude),
+        summary: formatList(labelGradingTokens(search.gradingOptionsExclude)),
         onClear: () => nav({ gradingOptionsExclude: [] }),
       })
     }
@@ -491,7 +500,11 @@ export function AppliedFilterBadges({
       result.push({
         id: 'instructorSunets',
         label: 'Instructors',
-        summary: formatList(search.instructorSunets.map((s) => sunetToName.get(s) ?? s)),
+        summary: formatList(
+          search.instructorSunets.map((s) => sunetToName.get(s) ?? s),
+          2,
+          search.instructorSunetsIncludeMode === 'and' ? ' & ' : ', ',
+        ),
         onClear: () => nav({ instructorSunets: [] }),
       })
     }

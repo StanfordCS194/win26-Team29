@@ -8,14 +8,17 @@ import { PaginationControls } from './PaginationControls'
 import { PAGE_SIZE } from '@/data/search/search.query'
 
 import type { EvalSlug } from '@/data/search/eval-questions'
+import type { SearchParams } from '@/data/search/search.params'
 import { AppliedFilterBadges } from './AppliedFilterBadges'
 import { hasActiveFilters } from './use-clear-all-filters'
 
 type SearchResultsProps = {
   visibleEvalSlugs: EvalSlug[]
+  committedSearch: SearchParams
+  onCommit: (s: SearchParams) => void
 }
 
-export function SearchResults({ visibleEvalSlugs }: SearchResultsProps) {
+export function SearchResults({ visibleEvalSlugs, committedSearch, onCommit }: SearchResultsProps) {
   const search = Route.useSearch()
   const queryClient = useQueryClient()
   const bottomPrefetchRef = useRef<HTMLDivElement | null>(null)
@@ -25,6 +28,12 @@ export function SearchResults({ visibleEvalSlugs }: SearchResultsProps) {
     ...searchQueryOptions(search),
     placeholderData: keepPreviousData,
   })
+
+  useEffect(() => {
+    if (!isPlaceholderData && !isPending) {
+      onCommit(search)
+    }
+  }, [isPlaceholderData, isPending, search, onCommit])
 
   const results = data?.results
   const totalCount = data?.totalCount ?? 0
@@ -71,26 +80,28 @@ export function SearchResults({ visibleEvalSlugs }: SearchResultsProps) {
   }
 
   if (results === undefined || results.length === 0) {
-    const hasQuery = Boolean(search.query)
-    const hasFilters = hasActiveFilters(search)
+    const hasQuery = Boolean(committedSearch.query)
+    const hasFilters = hasActiveFilters(committedSearch)
 
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <p className="text-lg font-semibold text-slate-800">
-          {hasQuery ? `No matches found for "${search.query}".` : 'No courses match your filters.'}
-        </p>
-        <p className="mt-2 max-w-md text-sm text-slate-500">
-          {hasQuery
-            ? hasFilters
-              ? 'Try a different search term or loosen your filters.'
-              : 'Try a different search term.'
-            : 'Try adjusting or clearing some of your filters.'}
-        </p>
-        {hasFilters && (
-          <div className="mt-4 w-full max-w-lg text-left">
-            <AppliedFilterBadges centered large />
-          </div>
-        )}
+      <div className={`transition-opacity duration-150 ${isPlaceholderData ? 'opacity-60' : 'opacity-100'}`}>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <p className="text-lg font-semibold text-slate-800">
+            {hasQuery ? `No matches found for "${committedSearch.query}".` : 'No courses match your filters.'}
+          </p>
+          <p className="mt-2 max-w-md text-sm text-slate-500">
+            {hasQuery
+              ? hasFilters
+                ? 'Try a different search term or loosen your filters.'
+                : 'Try a different search term.'
+              : 'Try adjusting or clearing some of your filters.'}
+          </p>
+          {hasFilters && (
+            <div className="mt-4 w-full max-w-lg text-left">
+              <AppliedFilterBadges centered large committedSearch={committedSearch} />
+            </div>
+          )}
+        </div>
       </div>
     )
   }
@@ -113,10 +124,14 @@ export function SearchResults({ visibleEvalSlugs }: SearchResultsProps) {
   )
 }
 
-export function SearchResultsContainer({ visibleEvalSlugs }: SearchResultsProps) {
+export function SearchResultsContainer({ visibleEvalSlugs, committedSearch, onCommit }: SearchResultsProps) {
   return (
     <div className="flex flex-col gap-4">
-      <SearchResults visibleEvalSlugs={visibleEvalSlugs} />
+      <SearchResults
+        visibleEvalSlugs={visibleEvalSlugs}
+        committedSearch={committedSearch}
+        onCommit={onCommit}
+      />
     </div>
   )
 }

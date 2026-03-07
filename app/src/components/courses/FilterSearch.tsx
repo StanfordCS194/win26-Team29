@@ -94,6 +94,7 @@ export function FilterSearch() {
 
   return (
     <Combobox
+      autoHighlight
       inputValue={query}
       onInputValueChange={(newValue) => {
         // base-ui fills the input with the item's value on selection — ignore those

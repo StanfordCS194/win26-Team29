@@ -12,7 +12,7 @@ import { dbQuerySchema, EVAL_QUESTION_SLUGS } from './search.query-schema'
 
 export const PAGE_SIZE = 10
 
-function inlineParams(sql: string, params: readonly unknown[]): string {
+export function inlineParams(sql: string, params: readonly unknown[]): string {
   return sql.replace(/\$(\d+)/g, (_, i) => {
     const value = params[Number(i) - 1]
     if (value === null || value === undefined) return 'NULL'
@@ -82,6 +82,7 @@ export async function searchCourseOfferings(
     instructorSunets,
     days,
     startTime,
+    endTime,
     classDuration,
     evalFilters,
     evalQuestionIds,
@@ -100,7 +101,7 @@ export async function searchCourseOfferings(
 
   const isEvalSort = (EVAL_QUESTION_SLUGS as readonly string[]).includes(sort.by)
 
-  const needsScheduleFilter = days != null || startTime != null || classDuration != null
+  const needsScheduleFilter = days != null || startTime != null || endTime != null || classDuration != null
 
   const needsSectionJoin =
     componentTypeId != null ||
@@ -551,8 +552,13 @@ export async function searchCourseOfferings(
                     }
 
                     // Start time filter active → require non-null start_time
-                    if (startTime?.min != null || startTime?.max != null) {
+                    if (startTime?.min != null) {
                       predicates.push(eb('sch_exists.start_time', 'is not', null))
+                    }
+
+                    // End time filter active → require non-null end_time
+                    if (endTime?.max != null) {
+                      predicates.push(eb('sch_exists.end_time', 'is not', null))
                     }
 
                     // Class duration filter active → require non-null start & end
@@ -616,13 +622,10 @@ export async function searchCourseOfferings(
                         )
                       }
 
-                      // Start time max: violation = start_time after max
-                      if (startTime?.max != null) {
+                      // End time max: violation = end_time after max
+                      if (endTime?.max != null) {
                         violations.push(
-                          eb.and([
-                            eb('sch.start_time', 'is not', null),
-                            eb('sch.start_time', '>', startTime.max),
-                          ]),
+                          eb.and([eb('sch.end_time', 'is not', null), eb('sch.end_time', '>', endTime.max)]),
                         )
                       }
 
@@ -947,7 +950,7 @@ export async function searchCourseOfferings(
     ])
     .compile()
 
-  console.log(inlineParams(compiledQuery.sql, compiledQuery.parameters))
+  // console.log(inlineParams(compiledQuery.sql, compiledQuery.parameters))
 
   const { rows } = await db.executeQuery(compiledQuery)
 
