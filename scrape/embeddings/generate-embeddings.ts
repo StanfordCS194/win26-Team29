@@ -6,7 +6,7 @@ import { DbService } from '@scrape/shared/db-layer.ts'
 import { ModelLoadError, EmbeddingGenerationError, DatabaseUpdateError } from './errors.ts'
 
 import type { Kysely } from 'kysely'
-import type { DB } from '@courses/db/db.types'
+import type { DB } from '@courses/db/db-postgres-js'
 import type { SingleBar } from 'cli-progress'
 
 const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2'
