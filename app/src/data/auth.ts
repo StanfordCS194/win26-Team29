@@ -18,7 +18,13 @@ export const signInWithGoogle = createServerFn({ method: 'GET' }).handler(async 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${process.env.APP_URL ?? 'http://localhost:3000'}/auth/callback`,
+      redirectTo: `${
+        process.env.VERCEL_BRANCH_URL != null
+          ? `https://${process.env.VERCEL_BRANCH_URL}`
+          : process.env.VERCEL_PROJECT_PRODUCTION_URL != null
+            ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+            : (process.env.APP_URL ?? 'http://localhost:3000')
+      }/auth/callback`,
       scopes: 'email profile',
       queryParams: {
         // Suggests stanford.edu accounts in the Google account picker.
