@@ -13,16 +13,21 @@ export const getUser = createServerFn({ method: 'GET' }).handler(async () => {
 })
 
 export const signInWithGoogle = createServerFn({ method: 'GET' }).handler(async () => {
+  console.log({
+    VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL,
+    VERCEL_URL: process.env.VERCEL_URL,
+    APP_URL: process.env.APP_URL,
+  })
   const { getSupabaseServerClient } = await import('@/lib/supabase.server')
   const supabase = getSupabaseServerClient()
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: `${
-        process.env.VITE_VERCEL_BRANCH_URL != null
-          ? `https://${process.env.VITE_VERCEL_BRANCH_URL}`
-          : process.env.VITE_VERCEL_URL != null
-            ? `https://${process.env.VITE_VERCEL_URL}`
+        process.env.VERCEL_BRANCH_URL != null
+          ? `https://${process.env.VERCEL_BRANCH_URL}`
+          : process.env.VERCEL_URL != null
+            ? `https://${process.env.VERCEL_URL}`
             : (process.env.APP_URL ?? 'http://localhost:3000')
       }/auth/callback`,
       scopes: 'email profile',
