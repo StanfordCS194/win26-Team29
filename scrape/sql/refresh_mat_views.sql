@@ -39,5 +39,7 @@ REFRESH MATERIALIZED VIEW CONCURRENTLY public.section_instructor_sunets_mv;
 
 REFRESH MATERIALIZED VIEW CONCURRENTLY public.crosslistings_mv;
 
+REFRESH MATERIALIZED VIEW CONCURRENTLY public.course_enrollment_trends_mv;
+
 -- Depends on offering_aggregates_mv
 REFRESH MATERIALIZED VIEW CONCURRENTLY public.course_offerings_full_mv;
