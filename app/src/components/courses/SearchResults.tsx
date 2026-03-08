@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { Route } from '@/routes/courses'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef } from 'react'
@@ -109,14 +110,23 @@ export function SearchResults({ visibleEvalSlugs, committedSearch, onCommit }: S
   return (
     <TooltipProvider>
       <div className={`transition-opacity duration-150 ${isPlaceholderData ? 'opacity-60' : 'opacity-100'}`}>
-        {results.map((course) => (
-          <CourseCard
-            key={course.id}
-            course={course}
-            selectedQuarters={search.quarters}
-            visibleEvalSlugs={visibleEvalSlugs}
-          />
-        ))}
+        {results.map((course) => {
+          const courseCodeSlug = `${course.subject_code}${course.code_number}${course.code_suffix ?? ''}`
+          return (
+            <Link
+              key={course.id}
+              to="/course/$courseId"
+              params={{ courseId: courseCodeSlug }}
+              className="block"
+            >
+              <CourseCard
+                course={course}
+                selectedQuarters={search.quarters}
+                visibleEvalSlugs={visibleEvalSlugs}
+              />
+            </Link>
+          )
+        })}
         <PaginationControls page={search.page} totalCount={totalCount} />
         <div ref={bottomPrefetchRef} aria-hidden className="h-12 w-full" />
       </div>

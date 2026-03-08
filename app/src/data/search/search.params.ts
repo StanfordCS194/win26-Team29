@@ -271,6 +271,7 @@ export type SearchCourseResult = {
   units_max: number
   gers: string[]
   sections: MvSection[]
+  instructorQualityBySunet?: Record<string, number>
 }
 
 export type SearchResultSections = SearchCourseResult['sections']

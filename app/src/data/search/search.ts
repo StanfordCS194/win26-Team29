@@ -12,6 +12,8 @@ import type { EvalSlug } from './eval-questions'
 import type { SearchParams, SearchCourseResult } from './search.params'
 import type { SearchQueryParams } from './search.query'
 import { QuarterEnum } from '@courses/scrape/shared/schemas'
+import { parseCourseCodeSlug } from '@/lib/course-code'
+import { DEFAULT_YEAR } from './search.params'
 
 void preloadModel()
 
@@ -228,6 +230,299 @@ export const getAvailableYears = createServerFn({ method: 'GET' }).handler(async
   console.log(`[startup] warmed ${cachedYears.length} available years`)
   return cachedYears
 })
+
+export const getCourseByCode = createServerFn({ method: 'GET' })
+  .inputValidator(z.object({ year: z.string().optional(), courseCodeSlug: z.string().min(1) }))
+  .handler(async ({ data }): Promise<SearchCourseResult | null> => {
+    const year = data.year ?? DEFAULT_YEAR
+    const parsed = parseCourseCodeSlug(data.courseCodeSlug)
+    if (!parsed) return null
+
+    const { getServerDb } = await import('@/lib/server-db')
+    const db = getServerDb()
+
+    let q = db
+      .selectFrom('course_offerings_full_mv')
+      .select([
+        'offering_id as id',
+        'year',
+        'subject_code',
+        'code_number',
+        'code_suffix',
+        'title',
+        'description',
+        'academic_group',
+        'academic_career',
+        'academic_organization',
+        'grading_option',
+        'final_exam_flag',
+        'units_min',
+        'units_max',
+        'gers',
+        'sections',
+      ])
+      .where('year', '=', year)
+      .where('subject_code', '=', parsed.subjectCode)
+      .where('code_number', '=', parsed.codeNumber)
+
+    if (parsed.codeSuffix === null) {
+      q = q.where((eb) => eb.or([eb('code_suffix', 'is', null), eb('code_suffix', '=', '')]))
+    } else {
+      q = q.where('code_suffix', '=', parsed.codeSuffix)
+    }
+
+    const row = await q.limit(1).executeTakeFirst()
+    if (!row) return null
+
+    const course = row as SearchCourseResult
+
+    const startYear = parseInt(year.split('-')[0]!, 10)
+    const prevYear = `${startYear - 1}-${startYear}`
+    const years = [year, prevYear]
+
+    const evalQuestions = await getEvalQuestions()
+    const qualityId = evalQuestions.find((eq) => eq.slug === 'quality')?.id
+    if (qualityId != null) {
+      let iq = db
+        .selectFrom('instructors as i')
+        .innerJoin('schedule_instructors as si', 'si.instructor_id', 'i.id')
+        .innerJoin('schedules as sch', 'sch.id', 'si.schedule_id')
+        .innerJoin('sections as sec', 'sec.id', 'sch.section_id')
+        .innerJoin('course_offerings as co', 'co.id', 'sec.course_offering_id')
+        .innerJoin('subjects as s', 's.id', 'co.subject_id')
+        .innerJoin('evaluation_smart_averages as esa', (join) =>
+          join.onRef('esa.section_id', '=', 'sec.id').on('esa.question_id', '=', qualityId),
+        )
+        .select(['i.sunet', db.fn.avg<number>('esa.smart_average').as('avg_quality')])
+        .where('s.code', '=', parsed.subjectCode)
+        .where('co.code_number', '=', parsed.codeNumber)
+        .where('co.year', 'in', years)
+        .where('sec.is_principal', '=', true)
+        .where('sec.cancelled', '=', false)
+        .groupBy('i.sunet')
+
+      if (parsed.codeSuffix === null) {
+        iq = iq.where((eb) => eb.or([eb('co.code_suffix', 'is', null), eb('co.code_suffix', '=', '')]))
+      } else {
+        iq = iq.where('co.code_suffix', '=', parsed.codeSuffix)
+      }
+
+      const qualityRows = await iq.execute()
+      if (qualityRows.length > 0) {
+        const map: Record<string, number> = {}
+        for (const r of qualityRows) {
+          if (r.sunet && r.avg_quality != null) {
+            map[r.sunet] = Number(r.avg_quality)
+          }
+        }
+        course.instructorQualityBySunet = map
+      }
+    }
+
+    return course
+  })
+
+// ── Eval distribution ────────────────────────────────────────────────────────
+
+export type EvalDistributionBucket = { label: string; count: number }
+export type EvalDistributionResult = {
+  buckets: EvalDistributionBucket[]
+  totalResponses: number
+  boundaryLabels: string[]
+}
+
+function buildBuckets(
+  rawData: { weight: number; total_freq: number }[],
+  slug: EvalSlug,
+): EvalDistributionResult {
+  const isHours = slug === 'hours'
+  const step = isHours ? 5 : 1
+  const rangeMin = isHours ? 0 : 1
+  const rangeMax = isHours ? 35 : 5
+
+  const regularCount = Math.ceil((rangeMax - rangeMin) / step)
+  const bucketCount = regularCount + (isHours ? 1 : 0)
+  const counts = Array.from({ length: bucketCount }, () => 0)
+  const labels: string[] = []
+
+  for (let i = 0; i < bucketCount; i++) {
+    const lo = rangeMin + i * step
+    if (isHours && i === bucketCount - 1) {
+      labels.push(`${rangeMax}+`)
+    } else {
+      labels.push(`${lo}-${lo + step}`)
+    }
+  }
+
+  const boundaryLabels: string[] = []
+  for (let i = 0; i <= regularCount; i++) {
+    boundaryLabels.push(`${rangeMin + i * step}`)
+  }
+  if (isHours) {
+    boundaryLabels.push('')
+  }
+
+  for (const { weight, total_freq } of rawData) {
+    let idx: number
+    if (weight >= rangeMax && isHours) {
+      idx = bucketCount - 1
+    } else if (weight >= rangeMax) {
+      idx = bucketCount - 1
+    } else {
+      idx = Math.floor((weight - rangeMin) / step)
+    }
+    idx = Math.max(0, Math.min(idx, bucketCount - 1))
+    counts[idx] += total_freq
+  }
+
+  const totalResponses = counts.reduce((a, b) => a + b, 0)
+  return {
+    buckets: labels.map((label, i) => ({ label, count: counts[i]! })),
+    totalResponses,
+    boundaryLabels,
+  }
+}
+
+export const getEvalDistribution = createServerFn({ method: 'GET' })
+  .inputValidator(
+    z.object({
+      courseCodeSlug: z.string().min(1),
+      quarterYears: z.array(z.object({ quarter: z.string(), year: z.string() })).min(1),
+      instructorSunets: z.array(z.string()),
+      metric: z.string().min(1),
+    }),
+  )
+  .handler(async ({ data }): Promise<EvalDistributionResult | null> => {
+    const parsed = parseCourseCodeSlug(data.courseCodeSlug)
+    if (!parsed) return null
+
+    const { getServerDb } = await import('@/lib/server-db')
+    const db = getServerDb()
+
+    const evalQuestions = await getEvalQuestions()
+    const metricSlug = data.metric as EvalSlug
+    const questionId = evalQuestions.find((eq) => eq.slug === metricSlug)?.id
+    if (questionId == null) return null
+
+    let secQuery = db
+      .selectFrom('sections as sec')
+      .innerJoin('course_offerings as co', 'co.id', 'sec.course_offering_id')
+      .innerJoin('subjects as s', 's.id', 'co.subject_id')
+      .select('sec.id')
+      .where('s.code', '=', parsed.subjectCode)
+      .where('co.code_number', '=', parsed.codeNumber)
+      .where('sec.is_principal', '=', true)
+      .where('sec.cancelled', '=', false)
+      .where((eb) =>
+        eb.or(
+          data.quarterYears.map((qy) =>
+            eb.and([eb('sec.term_quarter', '=', qy.quarter), eb('co.year', '=', qy.year)]),
+          ),
+        ),
+      )
+
+    if (parsed.codeSuffix === null) {
+      secQuery = secQuery.where((eb) =>
+        eb.or([eb('co.code_suffix', 'is', null), eb('co.code_suffix', '=', '')]),
+      )
+    } else {
+      secQuery = secQuery.where('co.code_suffix', '=', parsed.codeSuffix)
+    }
+
+    if (data.instructorSunets.length > 0) {
+      secQuery = secQuery.where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('schedules as sch')
+            .innerJoin('schedule_instructors as si', 'si.schedule_id', 'sch.id')
+            .innerJoin('instructors as i', 'i.id', 'si.instructor_id')
+            .whereRef('sch.section_id', '=', 'sec.id')
+            .where('i.sunet', 'in', data.instructorSunets)
+            .select(eb.val(1).as('one')),
+        ),
+      )
+    }
+
+    const reportQuery = db
+      .selectFrom('evaluation_report_sections as ers')
+      .where('ers.section_id', 'in', secQuery)
+      .select('ers.report_id')
+
+    const rows = await db
+      .selectFrom('evaluation_numeric_responses as enr')
+      .where('enr.report_id', 'in', reportQuery)
+      .where('enr.question_id', '=', questionId)
+      .groupBy('enr.weight')
+      .select(['enr.weight', db.fn.sum<number>('enr.frequency').as('total_freq')])
+      .execute()
+
+    const rawData = rows.map((r) => ({
+      weight: Number(r.weight),
+      total_freq: Number(r.total_freq),
+    }))
+
+    return buildBuckets(rawData, metricSlug)
+  })
+
+export type InstructorCourseQuarter = { quarter: string; year: string }
+
+export const getInstructorCourseQuarters = createServerFn({ method: 'GET' })
+  .inputValidator(
+    z.object({
+      courseCodeSlug: z.string().min(1),
+      instructorSunets: z.array(z.string()),
+      years: z.array(z.string()).min(1).max(2),
+    }),
+  )
+  .handler(async ({ data }): Promise<InstructorCourseQuarter[]> => {
+    const parsed = parseCourseCodeSlug(data.courseCodeSlug)
+    if (!parsed) return []
+
+    const { getServerDb } = await import('@/lib/server-db')
+    const db = getServerDb()
+
+    let q = db
+      .selectFrom('sections as sec')
+      .innerJoin('course_offerings as co', 'co.id', 'sec.course_offering_id')
+      .innerJoin('subjects as s', 's.id', 'co.subject_id')
+      .select(['sec.term_quarter as quarter', 'co.year'])
+      .distinct()
+      .where('s.code', '=', parsed.subjectCode)
+      .where('co.code_number', '=', parsed.codeNumber)
+      .where('co.year', 'in', data.years)
+      .where('sec.is_principal', '=', true)
+      .where('sec.cancelled', '=', false)
+
+    if (parsed.codeSuffix === null) {
+      q = q.where((eb) => eb.or([eb('co.code_suffix', 'is', null), eb('co.code_suffix', '=', '')]))
+    } else {
+      q = q.where('co.code_suffix', '=', parsed.codeSuffix)
+    }
+
+    if (data.instructorSunets.length > 0) {
+      q = q.where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('schedules as sch')
+            .innerJoin('schedule_instructors as si', 'si.schedule_id', 'sch.id')
+            .innerJoin('instructors as i', 'i.id', 'si.instructor_id')
+            .whereRef('sch.section_id', '=', 'sec.id')
+            .where('i.sunet', 'in', data.instructorSunets)
+            .select(eb.val(1).as('one')),
+        ),
+      )
+    }
+
+    const rows = await q.execute()
+
+    const quarterOrder = ['Autumn', 'Winter', 'Spring', 'Summer']
+    return rows
+      .map((r) => ({ quarter: String(r.quarter), year: String(r.year) }))
+      .sort((a, b) => {
+        if (a.year !== b.year) return b.year.localeCompare(a.year)
+        return quarterOrder.indexOf(a.quarter) - quarterOrder.indexOf(b.quarter)
+      })
+  })
 
 export const searchCourses = createServerFn({ method: 'GET' })
   .inputValidator(searchParamsSchema)

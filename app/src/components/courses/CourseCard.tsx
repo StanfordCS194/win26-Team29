@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
+import { DescriptionClamp } from '@/components/courses/DescriptionClamp'
 import { getEvalMetricMeta, getEvalSlugFromQuestionText, getEvalValueColor } from '@/data/search/eval-metrics'
 import { FINAL_EXAM_LABELS } from './final-exam-labels'
 
@@ -327,122 +328,6 @@ function QuarterTower({
         />
       ))}
     </div>
-  )
-}
-
-const MIN_DESC_LINES = 3
-
-function DescriptionClamp({
-  text,
-  expanded,
-  onToggle,
-  maxHeight,
-}: {
-  text: string
-  expanded: boolean
-  onToggle: () => void
-  maxHeight: number | null
-}) {
-  const ref = useRef<HTMLParagraphElement>(null)
-  // -2 = not measured, -1 = fits entirely, >= 0 = char cutoff
-  const [cutoff, setCutoff] = useState(-2)
-
-  useLayoutEffect(() => {
-    // Always reset when inputs change so we re-measure
-    setCutoff(-2)
-  }, [text, maxHeight])
-
-  useLayoutEffect(() => {
-    if (expanded) return
-    if (maxHeight == null || maxHeight <= 0) return
-    const el = ref.current
-    if (!el) return
-
-    const w = el.clientWidth
-    if (w === 0) return
-
-    const tmp = document.createElement('p')
-    tmp.className = el.className
-    tmp.style.cssText = `position:fixed;visibility:hidden;top:-9999px;width:${w}px`
-    document.body.appendChild(tmp)
-
-    tmp.textContent = text
-    const lineH = parseFloat(getComputedStyle(tmp).lineHeight)
-    const minH = lineH * MIN_DESC_LINES
-    const effectiveMax = Math.max(maxHeight, minH)
-
-    if (tmp.scrollHeight <= effectiveMax + 1) {
-      document.body.removeChild(tmp)
-      setCutoff(-1)
-      return
-    }
-
-    // Binary search: largest word count where text + "… Show more" fits
-    const words = text.split(/\s+/)
-    let lo = 1
-    let hi = words.length
-    while (lo < hi) {
-      const mid = (lo + hi + 1) >> 1
-      tmp.textContent = words.slice(0, mid).join(' ') + '… Show more'
-      if (tmp.scrollHeight <= effectiveMax + 1) lo = mid
-      else hi = mid - 1
-    }
-
-    document.body.removeChild(tmp)
-    setCutoff(words.slice(0, lo).join(' ').length)
-  }, [text, expanded, maxHeight, cutoff])
-  //                                    ^^^^^^ re-run after reset
-
-  const toggleBtn = (label: string) => (
-    <button
-      type="button"
-      className="text-[13px] font-medium text-slate-400 transition-colors hover:text-slate-600"
-      onClick={(e) => {
-        e.preventDefault()
-        e.stopPropagation()
-        onToggle()
-      }}
-    >
-      {label}
-    </button>
-  )
-
-  if (expanded) {
-    return (
-      <p className="text-[15px] leading-relaxed text-slate-500">
-        {text} {toggleBtn('Show less')}
-      </p>
-    )
-  }
-
-  // Not yet measured — collapse to zero height so it doesn't affect
-  // the parent's height calculation, but keep the ref mounted.
-  if (cutoff === -2) {
-    return (
-      <p
-        ref={ref}
-        className="text-[15px] leading-relaxed text-slate-500"
-        style={{ height: 0, overflow: 'hidden' }}
-      >
-        {text}
-      </p>
-    )
-  }
-
-  // Fits entirely
-  if (cutoff === -1) {
-    return (
-      <p ref={ref} className="text-[15px] leading-relaxed text-slate-500">
-        {text}
-      </p>
-    )
-  }
-
-  // Truncated with "Show more"
-  return (
-    <p ref={ref} className="text-[15px] leading-relaxed text-slate-500">
-      {text.slice(0, cutoff).trimEnd()}… {toggleBtn('Show more')}
-    </p>
   )
 }
 
