@@ -7,8 +7,8 @@ import { DescriptionClamp } from '@/components/courses/DescriptionClamp'
 import { getEvalMetricMeta, getEvalValueColor } from '@/data/search/eval-metrics'
 import { SLUG_LABEL } from '@/data/search/eval-questions'
 import type { EvalSlug } from '@/data/search/eval-questions'
-import { DEFAULT_YEAR } from '@/data/search/search.params'
-import type { SearchCourseResult } from '@/data/search/search.params'
+import { DEFAULT_YEAR, SEARCH_DEFAULTS } from '@/data/search/search.params'
+import type { SearchCourseResult, SearchParams } from '@/data/search/search.params'
 import {
   courseByCodeQueryOptions,
   evalDistributionQueryOptions,
@@ -406,7 +406,11 @@ function ClassPage() {
     return (
       <div className="relative flex min-h-screen flex-col items-center justify-center bg-sky-50 font-['Satoshi']">
         <p className="text-lg text-[#4A4557]">Course not found.</p>
-        <Link to="/courses" className="mt-4 text-primary underline-offset-2 hover:underline">
+        <Link
+          to="/courses"
+          search={SEARCH_DEFAULTS as unknown as Required<SearchParams>}
+          className="mt-4 text-primary underline-offset-2 hover:underline"
+        >
           Back to search
         </Link>
       </div>

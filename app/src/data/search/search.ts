@@ -293,7 +293,7 @@ export const getCourseByCode = createServerFn({ method: 'GET' })
         .innerJoin('evaluation_smart_averages as esa', (join) =>
           join.onRef('esa.section_id', '=', 'sec.id').on('esa.question_id', '=', qualityId),
         )
-        .select(['i.sunet', db.fn.avg<number>('esa.smart_average').as('avg_quality')])
+        .select(['i.sunet', db.fn.avg<number>('esa.smart_average' as never).as('avg_quality')])
         .where('s.code', '=', parsed.subjectCode)
         .where('co.code_number', '=', parsed.codeNumber)
         .where('co.year', 'in', years)
@@ -416,7 +416,10 @@ export const getEvalDistribution = createServerFn({ method: 'GET' })
       .where((eb) =>
         eb.or(
           data.quarterYears.map((qy) =>
-            eb.and([eb('sec.term_quarter', '=', qy.quarter), eb('co.year', '=', qy.year)]),
+            eb.and([
+              eb('sec.term_quarter', '=', qy.quarter as 'Autumn' | 'Winter' | 'Spring' | 'Summer'),
+              eb('co.year', '=', qy.year),
+            ]),
           ),
         ),
       )
@@ -453,7 +456,7 @@ export const getEvalDistribution = createServerFn({ method: 'GET' })
       .where('enr.report_id', 'in', reportQuery)
       .where('enr.question_id', '=', questionId)
       .groupBy('enr.weight')
-      .select(['enr.weight', db.fn.sum<number>('enr.frequency').as('total_freq')])
+      .select(['enr.weight', db.fn.sum<number>('enr.frequency' as never).as('total_freq')])
       .execute()
 
     const rawData = rows.map((r) => ({
