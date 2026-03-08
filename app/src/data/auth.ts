@@ -14,22 +14,27 @@ export const getUser = createServerFn({ method: 'GET' }).handler(async () => {
 
 export const signInWithGoogle = createServerFn({ method: 'GET' }).handler(async () => {
   console.log({
-    VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL,
+    VERCEL_ENV: process.env.VERCEL_ENV,
     VERCEL_URL: process.env.VERCEL_URL,
+    VERCEL_BRANCH_URL: process.env.VERCEL_BRANCH_URL,
+    VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
     APP_URL: process.env.APP_URL,
   })
   const { getSupabaseServerClient } = await import('@/lib/supabase.server')
   const supabase = getSupabaseServerClient()
+  // VERCEL_ENV is 'production' | 'preview' | 'development' when deployed on Vercel, undefined locally.
+  // Preview deployments use VERCEL_BRANCH_URL (stable per branch — whitelist with a wildcard in Supabase).
+  // Production uses VERCEL_PROJECT_PRODUCTION_URL (the stable custom/vercel.app domain).
+  const baseUrl =
+    process.env.VERCEL_ENV === 'production'
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : process.env.VERCEL_ENV === 'preview'
+        ? `https://${process.env.VERCEL_BRANCH_URL}`
+        : (process.env.APP_URL ?? 'http://localhost:3000')
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${
-        process.env.VERCEL_BRANCH_URL != null
-          ? `https://${process.env.VERCEL_BRANCH_URL}`
-          : process.env.VERCEL_URL != null
-            ? `https://${process.env.VERCEL_URL}`
-            : (process.env.APP_URL ?? 'http://localhost:3000')
-      }/auth/callback`,
+      redirectTo: `${baseUrl}/auth/callback`,
       scopes: 'email profile',
       queryParams: {
         // Suggests stanford.edu accounts in the Google account picker.
