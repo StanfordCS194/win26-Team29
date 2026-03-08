@@ -11,10 +11,12 @@ import { expandGradingTokens } from '@/components/courses/grading-groups'
 import type { EvalSlug } from './eval-questions'
 import type { SearchParams, SearchCourseResult } from './search.params'
 import type { SearchQueryParams } from './search.query'
+import type { MvSection } from '@courses/db/db-postgres-js'
 import { QuarterEnum } from '@courses/scrape/shared/schemas'
 
 void preloadModel()
 
+const cachedSectionsByOfferingId = new Map<number, MvSection[]>()
 const cachedSubjectsByYear = new Map<string, { code: string; school: string | null }[]>()
 const cachedInstructorsByYear = new Map<string, { sunet: string; name: string }[]>()
 let cachedYears: string[] | null = null
@@ -496,11 +498,20 @@ export const searchCourses = createServerFn({ method: 'GET' })
     const embeddingMs = (performance.now() - t0).toFixed(1)
 
     const t1 = performance.now()
-    const { results, totalCount } = await searchCourseOfferings(db, {
+    const { results: rawResults, totalCount } = await searchCourseOfferings(db, {
       ...searchParams,
       embedding: embedding ?? undefined,
+      cachedOfferingIds: [...cachedSectionsByOfferingId.keys()],
     })
     const queryMs = (performance.now() - t1).toFixed(1)
+
+    const results: SearchCourseResult[] = rawResults.map((r) => {
+      if (r.sections != null) {
+        cachedSectionsByOfferingId.set(r.id, r.sections)
+        return r as SearchCourseResult
+      }
+      return { ...r, sections: cachedSectionsByOfferingId.get(r.id) ?? [] }
+    })
 
     console.log(
       `[search] total=${(performance.now() - start).toFixed(1)}ms embedding=${embeddingMs}ms query=${queryMs}ms (q="${rawQuery}", results=${results.length}, totalCount=${totalCount})`,

@@ -1,8 +1,8 @@
 import { Expression, sql, type SqlBool } from 'kysely'
 import { pg } from 'kysely-helpers'
 
-import type { Kysely, DB } from '@courses/db/db-postgres-js'
-import type { SearchCourseResult } from './search.params'
+import type { Kysely, DB, MvSection } from '@courses/db/db-postgres-js'
+import type { SearchQueryResult } from './search.params'
 import type { z } from 'zod'
 import { dbQuerySchema, EVAL_QUESTION_SLUGS } from './search.query-schema'
 
@@ -35,6 +35,8 @@ export interface SearchQueryParams extends SearchInput {
   evalQuestionIds: Record<EvalSlug, number>
   /** Pre-computed query embedding for hybrid search scoring. */
   embedding?: number[]
+  /** Offering IDs whose sections are already in the server-side cache; mv.sections will be NULL for these rows. */
+  cachedOfferingIds?: number[]
 }
 
 const quarterArray = (values: readonly string[]) =>
@@ -53,7 +55,7 @@ const varcharArray = (values: readonly string[]) =>
 export async function searchCourseOfferings(
   db: Kysely<DB>,
   params: SearchQueryParams,
-): Promise<{ results: SearchCourseResult[]; totalCount: number }> {
+): Promise<{ results: SearchQueryResult[]; totalCount: number }> {
   const {
     year,
     code,
@@ -90,6 +92,7 @@ export async function searchCourseOfferings(
     page,
     dedupeCrosslistings,
     embedding,
+    cachedOfferingIds,
   } = params
 
   const offset = (page - 1) * PAGE_SIZE
@@ -104,16 +107,19 @@ export async function searchCourseOfferings(
   const needsScheduleFilter = days != null || startTime != null || endTime != null || classDuration != null
 
   const needsSectionJoin =
-    componentTypeId != null ||
+    (componentTypeId?.include?.length ?? 0) > 0 ||
+    (componentTypeId?.exclude?.length ?? 0) > 0 ||
     numEnrolled != null ||
     maxEnrolled != null ||
-    enrollmentStatus != null ||
-    instructorSunets != null ||
+    (enrollmentStatus?.length ?? 0) > 0 ||
+    (instructorSunets?.include?.length ?? 0) > 0 ||
+    (instructorSunets?.exclude?.length ?? 0) > 0 ||
     numMeetingDays != null ||
     needsScheduleFilter ||
     sort.by === 'num_enrolled' ||
     isEvalSort ||
     evalFilters != null
+  console.log('needsSectionJoin', needsSectionJoin)
 
   const compiledQuery = db
 
@@ -129,13 +135,18 @@ export async function searchCourseOfferings(
       hasEmbedding
         ? cte
             .selectFrom('course_offerings as vo')
-            .select([
-              'vo.id as offering_id',
-              sql<number>`1 - (vo.embedding <=> ${embeddingVector!}::vector)`.as('vector_score'),
-            ])
+            .innerJoinLateral(
+              (eb) =>
+                eb
+                  .selectFrom(sql`(select 1)`.as('_'))
+                  .select(sql<number>`vo.embedding <=> ${embeddingVector!}::vector`.as('dist'))
+                  .as('d'),
+              (join) => join.onTrue(),
+            )
+            .select(['vo.id as offering_id', sql<number>`1 - d.dist`.as('vector_score')])
             .where('vo.embedding', 'is not', null)
             .where('vo.year', '=', year)
-            .orderBy(sql`vo.embedding <=> ${embeddingVector!}::vector`)
+            .orderBy(sql`d.dist`)
             .limit(VECTOR_TOP_K)
         : cte
             .selectFrom('course_offerings as vo')
@@ -157,13 +168,51 @@ export async function searchCourseOfferings(
             .selectFrom('course_content_search as cs')
             .select([
               'cs.offering_id',
-              sql<number>`ts_rank(cs.search_vector, plainto_tsquery('english', ${query}))`.as('score'),
+              sql<number>`ts_rank(cs.search_vector, websearch_to_tsquery('english', ${query}))`.as('score'),
             ])
-            // oxlint-disable-next-line typescript/no-explicit-any
-            .where('cs.search_vector', '@@', sql<any>`plainto_tsquery('english', ${query})`)
+            .where(sql<SqlBool>`cs.search_vector @@ websearch_to_tsquery('english', ${query})`)
+            .where('cs.year', '=', year)
         : cte
             .selectFrom('course_content_search as cs')
             .select(['cs.offering_id', sql<number>`null::float`.as('score')])
+            .where(sql<SqlBool>`false`),
+    )
+
+    // ═══════════════════════════════════════════════════════════
+    //  CTE 0.75: simple_candidates
+    //
+    //  Matches against the 'simple' tsvector (course codes,
+    //  crosslisting codes, instructor names). Uses websearch_to_tsquery
+    //  with the 'simple' config to avoid stemming on identifiers.
+    // ═══════════════════════════════════════════════════════════
+    .with('simple_candidates', (cte) =>
+      hasContentQuery
+        ? cte
+            .selectFrom('course_content_search as cs')
+            .select([
+              'cs.offering_id',
+              sql<number>`ts_rank(cs.search_vector_simple, websearch_to_tsquery('simple', ${query}))`.as(
+                'score',
+              ),
+            ])
+            .where(sql<SqlBool>`cs.search_vector_simple @@ websearch_to_tsquery('simple', ${query})`)
+            .where('cs.year', '=', year)
+        : cte
+            .selectFrom('course_content_search as cs')
+            .select(['cs.offering_id', sql<number>`null::float`.as('score')])
+            .where(sql<SqlBool>`false`),
+    )
+
+    .with('all_candidates', (cte) =>
+      hasContentQuery
+        ? cte
+            .selectFrom('vector_candidates')
+            .select('offering_id')
+            .union(cte.selectFrom('text_candidates').select('offering_id'))
+            .union(cte.selectFrom('simple_candidates').select('offering_id'))
+        : cte
+            .selectFrom('vector_candidates')
+            .select('offering_id')
             .where(sql<SqlBool>`false`),
     )
 
@@ -178,12 +227,16 @@ export async function searchCourseOfferings(
         .leftJoin('crosslistings_mv as cl', (join) =>
           join.onRef('cl.course_id', '=', 'co.course_id').onRef('cl.year', '=', 'co.year'),
         )
-        .leftJoin('vector_candidates as vc', 'vc.offering_id', 'co.id')
         .leftJoin('course_enrollment_trends_mv as cet', (join) =>
           join.onRef('cet.course_id', '=', 'co.course_id').onRef('cet.year', '=', 'co.year'),
         )
+        .leftJoin('all_candidates as ac', 'ac.offering_id', 'co.id')
+        .leftJoin('vector_candidates as vc', 'vc.offering_id', 'co.id')
         .leftJoin('text_candidates as tc', 'tc.offering_id', 'co.id')
+        .leftJoin('simple_candidates as sc', 'sc.offering_id', 'co.id')
         .where('co.year', '=', year)
+
+        .$if(hasContentQuery, (qb) => qb.where('ac.offering_id', 'is not', null))
 
         // -- Quarters filter ──────────────────────────────────
         .$if(
@@ -235,13 +288,6 @@ export async function searchCourseOfferings(
                 return eb.and(conditions)
               }),
             ),
-          ),
-        )
-
-        // ── Content query ──────────────────────────────────
-        .$if(hasContentQuery, (qb) =>
-          qb.where((eb) =>
-            eb.or([eb(eb.ref('tc.score'), 'is not', null), eb('vc.offering_id', 'is not', null)]),
           ),
         )
 
@@ -366,7 +412,10 @@ export async function searchCourseOfferings(
 
         // ── Select + relevance score ───────────────────────
         .select((eb) => {
-          const textScore = eb.ref('tc.score')
+          const textScore = sql<number>`greatest(
+            coalesce(${eb.ref('tc.score')}, 0),
+            coalesce(${eb.ref('sc.score')}, 0)  * 1.15
+          )`
 
           const rawRelevance = eb
             .case()
@@ -475,6 +524,7 @@ export async function searchCourseOfferings(
             .on('sec.is_principal', '=', true)
             .on('sec.cancelled', '=', false),
         )
+        .leftJoin('section_day_counts_mv as sdc_mv', 'sdc_mv.section_id', 'sec.id')
 
         // ── Quarters ───────────────────────────────────────
         .$if(quarters?.include != null && quarters.include.length > 0, (qb) =>
@@ -670,52 +720,15 @@ export async function searchCourseOfferings(
             ),
         )
 
-        // ── Meeting days count ─────────────────────────────
-        // Count distinct weekdays across all schedules of the section.
-        // LATERAL unnest has no Kysely builder equivalent, so the inner
-        // aggregate is expressed with sql<> and wrapped in a Kysely subquery.
+        // ── Meeting days count (via MV) ────────────────────
         .$if(numMeetingDays?.min != null, (qb) =>
           qb.where((eb) =>
-            eb(
-              eb.fn.coalesce(
-                eb
-                  .selectFrom(
-                    sql<{ n: number }>`(
-                      SELECT cardinality(array_agg(DISTINCT d)) AS n
-                      FROM schedules sch_d
-                      CROSS JOIN LATERAL unnest(sch_d.days) AS d
-                      WHERE sch_d.section_id = ${eb.ref('sec.id')}
-                        AND sch_d.days IS NOT NULL
-                    )`.as('_days'),
-                  )
-                  .select('_days.n'),
-                eb.val(0),
-              ),
-              '>=',
-              numMeetingDays!.min!,
-            ),
+            eb(eb.fn.coalesce(eb.ref('sdc_mv.num_days'), eb.val(0)), '>=', numMeetingDays!.min!),
           ),
         )
         .$if(numMeetingDays?.max != null, (qb) =>
           qb.where((eb) =>
-            eb(
-              eb.fn.coalesce(
-                eb
-                  .selectFrom(
-                    sql<{ n: number }>`(
-                      SELECT cardinality(array_agg(DISTINCT d)) AS n
-                      FROM schedules sch_d
-                      CROSS JOIN LATERAL unnest(sch_d.days) AS d
-                      WHERE sch_d.section_id = ${eb.ref('sec.id')}
-                        AND sch_d.days IS NOT NULL
-                    )`.as('_days'),
-                  )
-                  .select('_days.n'),
-                eb.val(0),
-              ),
-              '<=',
-              numMeetingDays!.max!,
-            ),
+            eb(eb.fn.coalesce(eb.ref('sdc_mv.num_days'), eb.val(0)), '<=', numMeetingDays!.max!),
           ),
         )
 
@@ -944,7 +957,11 @@ export async function searchCourseOfferings(
       'mv.units_min',
       'mv.units_max',
       'mv.gers',
-      'mv.sections',
+      sql<
+        MvSection[] | null
+      >`CASE WHEN mv.offering_id = ANY(${sql.raw(`ARRAY[${(cachedOfferingIds ?? []).join(',')}]::int[]`)}) THEN NULL ELSE mv.sections END`.as(
+        'sections',
+      ),
       'sp.relevance_score',
       sql<number>`(SELECT count FROM total_count)::int`.as('total_count'),
     ])
@@ -955,6 +972,6 @@ export async function searchCourseOfferings(
   const { rows } = await db.executeQuery(compiledQuery)
 
   const totalCount = rows.length > 0 ? Number((rows[0] as Record<string, unknown>).total_count) : 0
-  const results = rows as SearchCourseResult[]
+  const results = rows as SearchQueryResult[]
   return { results, totalCount }
 }

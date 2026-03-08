@@ -274,3 +274,5 @@ export type SearchCourseResult = {
 }
 
 export type SearchResultSections = SearchCourseResult['sections']
+
+export type SearchQueryResult = Omit<SearchCourseResult, 'sections'> & { sections: MvSection[] | null }
