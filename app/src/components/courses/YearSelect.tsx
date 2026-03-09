@@ -36,6 +36,8 @@ export function YearSelect() {
                   ...prev,
                   year: val,
                   page: 1,
+                  // Clear newThisYear when year < 2022-2023 (filter not available)
+                  ...(val < '2022-2023' && prev.newThisYear != null ? { newThisYear: undefined } : {}),
                 }) as Required<SearchParams>,
             })
         }}

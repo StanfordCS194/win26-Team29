@@ -116,9 +116,11 @@ function fetchReports(minYear: string) {
             .innerJoin('course_offerings as co', 'co.id', 'sec.course_offering_id')
             .leftJoin('schedules as sch', 'sch.section_id', 'sec.id')
             .leftJoin('schedule_instructors as si', 'si.schedule_id', 'sch.id')
+            .leftJoin('instructor_roles as ir', 'ir.id', 'si.instructor_role_id')
             .where('sec.cancelled', '=', false)
             .where('sec.is_principal', '=', true)
             .where('co.year', '>=', minYear)
+            .where((eb) => eb.or([eb('si.instructor_id', 'is', null), eb('ir.code', '!=', 'TA')]))
             .groupBy('ers.report_id')
             .select((eb) => [
               'ers.report_id',
@@ -180,12 +182,26 @@ function fetchSections(year: string, termQuarter: string) {
         .innerJoin('course_offerings as co', 'co.id', 'sec.course_offering_id')
         .leftJoin('schedules as sch', 'sch.section_id', 'sec.id')
         .leftJoin('schedule_instructors as si', 'si.schedule_id', 'sch.id')
+        .leftJoin('instructor_roles as ir', 'ir.id', 'si.instructor_role_id')
         .leftJoin('course_offerings as co_sibling', (join) =>
           join.onRef('co_sibling.course_id', '=', 'co.course_id').on('co_sibling.year', '=', year),
         )
         .where('sec.cancelled', '=', false)
+        .where((eb) => eb.or([eb('si.instructor_id', 'is', null), eb('ir.code', '!=', 'TA')]))
+        .where('sec.is_principal', '=', true)
         .where('co.year', '=', year)
         .where(sql`sec.term_quarter::text`, '=', termQuarter)
+        .where(({ exists, selectFrom }) =>
+          exists(
+            selectFrom('evaluation_report_sections as ers_eval')
+              .innerJoin('sections as sec_eval', 'sec_eval.id', 'ers_eval.section_id')
+              .innerJoin('course_offerings as co_eval', 'co_eval.id', 'sec_eval.course_offering_id')
+              .select('co_eval.course_id')
+              .whereRef('co_eval.course_id', '=', 'co.course_id')
+              .where('sec_eval.cancelled', '=', false)
+              .where('sec_eval.is_principal', '=', true),
+          ),
+        )
         .groupBy(['sec.id', 'co.course_id', 'co.year', 'sec.term_quarter'])
         .select((eb) => [
           'sec.id as section_id',
@@ -209,6 +225,33 @@ function fetchSections(year: string, termQuarter: string) {
     yield* Effect.log(`Fetched ${rows.length} sections for ${year}/${termQuarter}`)
     if (rows.length === 0) return pl.DataFrame()
     return castSectionsDf(pl.DataFrame(rows))
+  })
+}
+
+function clearObsoleteSmartAverages(year: string, termQuarter: string, computedSectionIds: number[]) {
+  return Effect.gen(function* () {
+    const result = yield* dbStep('clear_obsolete_smart_averages', (db) => {
+      const sectionsInRange = db
+        .selectFrom('sections as sec')
+        .innerJoin('course_offerings as co', 'co.id', 'sec.course_offering_id')
+        .where('sec.cancelled', '=', false)
+        .where('sec.is_principal', '=', true)
+        .where('co.year', '=', year)
+        .where(sql`sec.term_quarter::text`, '=', termQuarter)
+        .select('sec.id')
+
+      let deleteQuery = db.deleteFrom('evaluation_smart_averages').where('section_id', 'in', sectionsInRange)
+
+      if (computedSectionIds.length > 0) {
+        deleteQuery = deleteQuery.where('section_id', 'not in', computedSectionIds)
+      }
+
+      return deleteQuery.returning('id').execute()
+    })
+
+    const deleted = result.length
+    yield* Effect.log(`Cleared ${deleted} obsolete smart average rows for ${year}/${termQuarter}`)
+    return deleted
   })
 }
 
@@ -366,20 +409,23 @@ export function computeAndStoreMetrics(yearTerms: [string, string][], params: Me
       yield* Effect.log(`Processing ${year}/${termQuarter}`)
       const sectionsDf = yield* fetchSections(year, termQuarter)
 
+      let rowsWritten = 0
+      let computedSectionIds: number[] = []
+
       if (sectionsDf.height === 0) {
         yield* Effect.log(`No sections for ${year}/${termQuarter}, skipping`)
-        allStats.push({ year, termQuarter, sections: 0, rowsWritten: 0 })
-        continue
+      } else {
+        const results = computeMetrics(reportsDf, sectionsDf, questionScales, params)
+        yield* Effect.log(`Computed metrics for ${year}/${termQuarter}`)
+        rowsWritten = yield* writeResults(results)
+        computedSectionIds = [...new Set(sectionsDf.getColumn('section_id').toArray() as number[])]
+        yield* Effect.log(
+          `  ${year}/${termQuarter}: ${sectionsDf.height} sections, ${rowsWritten} rows written`,
+        )
       }
 
-      const results = computeMetrics(reportsDf, sectionsDf, questionScales, params)
-      yield* Effect.log(`Computed metrics for ${year}/${termQuarter}`)
-
-      const rowsWritten = yield* writeResults(results)
+      yield* clearObsoleteSmartAverages(year, termQuarter, computedSectionIds)
       allStats.push({ year, termQuarter, sections: sectionsDf.height, rowsWritten })
-      yield* Effect.log(
-        `  ${year}/${termQuarter}: ${sectionsDf.height} sections, ${rowsWritten} rows written`,
-      )
     }
 
     const db = yield* DbService

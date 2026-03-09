@@ -144,6 +144,23 @@ section_evals_agg AS (
   GROUP BY esa.section_id
 ),
 
+course_crosslistings AS (
+  SELECT
+    co.course_id,
+    co.year,
+    jsonb_agg(
+      jsonb_build_object(
+        'offeringId', co.id,
+        'subjectCode', s.code,
+        'codeNumber', co.code_number,
+        'codeSuffix', co.code_suffix
+      ) ORDER BY s.code, co.code_number, co.code_suffix NULLS FIRST
+    ) AS crosslistings
+  FROM course_offerings co
+  JOIN subjects s ON s.id = co.subject_id
+  GROUP BY co.course_id, co.year
+),
+
 offering_sections AS (
   SELECT
     sec.course_offering_id,
@@ -192,6 +209,7 @@ SELECT
   co.code_number,
   co.code_suffix,
   co.title,
+  COALESCE(co.title_clean, co.title) AS title_clean,
   co.description,
   co.repeatable,
   co.units_min,
@@ -209,7 +227,20 @@ SELECT
   COALESCE(ot.tags, '[]'::jsonb)                 AS tags,
   COALESCE(oa.attributes, '[]'::jsonb)           AS attributes,
   COALESCE(olo.learning_objectives, '[]'::jsonb) AS learning_objectives,
-  COALESCE(os.sections, '[]'::jsonb)             AS sections
+  COALESCE(os.sections, '[]'::jsonb)             AS sections,
+  COALESCE(cc.crosslistings, '[]'::jsonb)        AS crosslistings,
+  (
+    co.year >= '2022-2023'
+    AND NOT EXISTS (
+      SELECT 1 FROM course_offerings co_prev
+      WHERE co_prev.course_id = co.course_id
+      AND co_prev.year IN (
+        (split_part(co.year, '-', 1)::int - 1)::text || '-' || split_part(co.year, '-', 1),
+        (split_part(co.year, '-', 1)::int - 2)::text || '-' || (split_part(co.year, '-', 1)::int - 1),
+        (split_part(co.year, '-', 1)::int - 3)::text || '-' || (split_part(co.year, '-', 1)::int - 2)
+      )
+    )
+  ) AS new_this_year
 FROM course_offerings co
 JOIN subjects s                    ON s.id  = co.subject_id
 JOIN grading_options go2           ON go2.id = co.grading_option_id
@@ -221,7 +252,8 @@ LEFT JOIN offering_aggregates_mv oam ON oam.offering_id = co.id
 LEFT JOIN offering_tags ot         ON ot.course_offering_id  = co.id
 LEFT JOIN offering_attrs oa        ON oa.course_offering_id  = co.id
 LEFT JOIN offering_los olo         ON olo.course_offering_id = co.id
-LEFT JOIN offering_sections os     ON os.course_offering_id  = co.id;
+LEFT JOIN offering_sections os     ON os.course_offering_id  = co.id
+LEFT JOIN course_crosslistings cc  ON cc.course_id = co.course_id AND cc.year = co.year;
 
 CREATE UNIQUE INDEX idx_cofull_mv_pk
   ON course_offerings_full_mv (offering_id);

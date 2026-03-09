@@ -1,10 +1,14 @@
-import { Activity, BookOpenCheck, Clock3, Star, Target, UserCheck, Video } from 'lucide-react'
+import { Activity, BookOpenCheck, Clock3, Divide, Star, Target, UserCheck, Video } from 'lucide-react'
 
 import { EVAL_QUESTION_SLUGS, SLUG_LABEL, SLUG_TO_QUESTION_TEXT } from './eval-questions'
 
 import type { LucideIcon } from 'lucide-react'
 import type { EvalSlug } from './eval-questions'
 import type { SortOption } from './search.params'
+
+export const DERIVED_METRIC_SLUGS = ['hours_per_unit'] as const
+export type DerivedMetricSlug = (typeof DERIVED_METRIC_SLUGS)[number]
+export type AllMetricSlug = EvalSlug | DerivedMetricSlug
 
 export type EvalMetricDirection = 'higher_better' | 'lower_better' | 'neutral'
 
@@ -14,7 +18,7 @@ type EvalRange = {
 }
 
 type EvalMetricMeta = {
-  slug: EvalSlug
+  slug: AllMetricSlug
   label: string
   questionText: string
   icon: LucideIcon
@@ -53,9 +57,9 @@ const ZERO_TO_HUNDRED_RANGE: EvalRange = { min: 0, max: 100 }
 
 const ONE_TO_FIVE_VISUAL_RANGE: EvalRange = { min: 3, max: 5 }
 
-export const DEFAULT_ALWAYS_VISIBLE_EVAL_SLUGS: EvalSlug[] = ['quality', 'hours']
+export const DEFAULT_ALWAYS_VISIBLE_EVAL_SLUGS: AllMetricSlug[] = ['quality', 'hours']
 
-export const EVAL_METRIC_REGISTRY: Record<EvalSlug, EvalMetricMeta> = {
+export const EVAL_METRIC_REGISTRY: Record<AllMetricSlug, EvalMetricMeta> = {
   quality: {
     slug: 'quality',
     label: SLUG_LABEL.quality,
@@ -152,10 +156,32 @@ export const EVAL_METRIC_REGISTRY: Record<EvalSlug, EvalMetricMeta> = {
     sliderValidateInput: validateHoursInput,
     sliderInputClassName: 'w-10',
   },
+  hours_per_unit: {
+    slug: 'hours_per_unit',
+    label: 'Hours per unit',
+    questionText: '',
+    icon: Divide,
+    direction: 'lower_better',
+    range: { min: 0, max: 20 },
+    openLabel: '20+',
+    visualRange: { min: 1, max: 8 },
+    curveExponent: 1.2,
+    badgeClassName: 'border-yellow-200 bg-yellow-50',
+    iconClassName: 'text-yellow-700',
+    formatValue: formatHours,
+    sliderFormatInput: formatHours,
+    sliderParseInput: parseHours,
+    sliderValidateInput: validateHoursInput,
+    sliderInputClassName: 'w-10',
+  },
 }
 
-export function getEvalMetricMeta(slug: EvalSlug) {
+export function getEvalMetricMeta(slug: AllMetricSlug) {
   return EVAL_METRIC_REGISTRY[slug]
+}
+
+export function isHoursPerUnitSort(sort: SortOption): sort is DerivedMetricSlug {
+  return sort === 'hours_per_unit'
 }
 
 const QUESTION_TEXT_TO_SLUG = new Map(
@@ -170,11 +196,18 @@ export function isEvalSortOption(sort: SortOption): sort is EvalSlug {
   return EVAL_QUESTION_SLUGS.includes(sort as EvalSlug)
 }
 
+export function isAllMetricSlug(slug: string): slug is AllMetricSlug {
+  return (
+    (EVAL_QUESTION_SLUGS as readonly string[]).includes(slug) ||
+    (DERIVED_METRIC_SLUGS as readonly string[]).includes(slug)
+  )
+}
+
 function clamp01(value: number) {
   return Math.min(1, Math.max(0, value))
 }
 
-export function getEvalIntensity(value: number, slug: EvalSlug): number {
+export function getEvalIntensity(value: number, slug: AllMetricSlug): number {
   const { visualRange, curveExponent } = EVAL_METRIC_REGISTRY[slug]
   const normalized = clamp01((value - visualRange.min) / (visualRange.max - visualRange.min))
   return normalized ** curveExponent
@@ -203,7 +236,7 @@ function interpolateColor(fromHex: string, toHex: string, t: number) {
   return rgbToHex([fr + (tr - fr) * t, fg + (tg - fg) * t, fb + (tb - fb) * t])
 }
 
-export function getEvalValueColor(value: number, slug: EvalSlug) {
+export function getEvalValueColor(value: number, slug: AllMetricSlug) {
   const metric = EVAL_METRIC_REGISTRY[slug]
   const intensity = getEvalIntensity(value, slug)
 
@@ -215,7 +248,7 @@ export function getEvalValueColor(value: number, slug: EvalSlug) {
   return interpolateColor('#ef4444', '#22c55e', directionalIntensity)
 }
 
-export function getEvalValueGradient(value: number, slug: EvalSlug) {
+export function getEvalValueGradient(value: number, slug: AllMetricSlug) {
   const metric = EVAL_METRIC_REGISTRY[slug]
   const intensity = getEvalIntensity(value, slug)
 

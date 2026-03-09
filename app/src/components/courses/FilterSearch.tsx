@@ -64,6 +64,11 @@ const ALL_FILTER_SECTIONS: { id: string; label: string; keywords: string[] }[] =
   },
   { id: 'filter-finalExam', label: 'Final exam', keywords: ['final', 'final exam', 'exam'] },
   { id: 'filter-repeatable', label: 'Repeatable', keywords: ['repeatable', 'repeat'] },
+  {
+    id: 'filter-newThisYear',
+    label: 'Offering history',
+    keywords: ['new this year', 'new', 'first time', 'recently offered', 'offering history'],
+  },
 ]
 
 function scrollToSection(id: string) {

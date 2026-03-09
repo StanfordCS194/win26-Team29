@@ -1,10 +1,10 @@
-import { useQueryClient } from '@tanstack/react-query'
-import { Link, useRouteContext, useRouter, useSearch } from '@tanstack/react-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Link, useLocation, useRouter, useSearch } from '@tanstack/react-router'
 import { Loader2, LogOut, User } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { signInWithGoogle, signOut, userQueryOptions } from '@/data/auth'
-import { SEARCH_DEFAULTS, SearchParams } from '@/data/search/search.params'
+import { ALL_QUARTERS, SEARCH_DEFAULTS, SearchParams } from '@/data/search/search.params'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -14,8 +14,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 export default function Header() {
-  const { user } = useRouteContext({ from: '__root__' })
+  const { data: user } = useQuery(userQueryOptions)
   const router = useRouter()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -29,13 +30,16 @@ export default function Header() {
     setError(null)
     setLoading(true)
     try {
-      const url = await signInWithGoogle()
+      // Use window.location to get path+search as a string (location.search is a parsed object in TanStack Router)
+      const redirect =
+        typeof window !== 'undefined' ? window.location.pathname + window.location.search : location.pathname
+      const url = await signInWithGoogle({ data: { redirect: redirect === '/' ? undefined : redirect } })
       if (url) window.location.href = url
     } catch {
       setError('Sign-in failed. Please try again.')
       setLoading(false)
     }
-  }, [])
+  }, [location.pathname])
 
   const handleSignOut = useCallback(async () => {
     await signOut()
@@ -53,7 +57,7 @@ export default function Header() {
         <div className="ml-auto flex items-center gap-6">
           <Link
             to="/courses"
-            search={SEARCH_DEFAULTS as unknown as Required<SearchParams>}
+            search={{ ...SEARCH_DEFAULTS, quarters: ALL_QUARTERS } as unknown as Required<SearchParams>}
             className="text-base font-normal text-slate-700 transition hover:text-primary focus-visible:ring-2 focus-visible:ring-[#8C1515]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 focus-visible:outline-none"
           >
             Courses

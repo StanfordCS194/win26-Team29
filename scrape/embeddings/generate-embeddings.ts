@@ -15,6 +15,7 @@ const EMBEDDING_DIMENSIONS = 384
 interface CourseRow {
   id: number
   title: string
+  title_clean: string | null
   description: string
   subject_code: string
   subject_longname: string | null
@@ -36,10 +37,12 @@ interface GenerateResult {
 
 function prepareCourseText(course: {
   title: string
+  titleClean: string | null
   description: string
   subjectLongname: string | null
 }): string {
-  const parts = [course.subjectLongname, course.title, course.description].filter(Boolean)
+  const title = course.titleClean ?? course.title
+  const parts = [course.subjectLongname, title, course.description].filter(Boolean)
   return parts.join('\n\n')
 }
 
@@ -68,6 +71,7 @@ function fetchCourseBatch(
         .select([
           'co.id',
           'co.title',
+          'co.title_clean',
           'co.description',
           's.code as subject_code',
           's.longname as subject_longname',
@@ -94,6 +98,7 @@ function fetchCourseBatch(
       return rows.map((row) => ({
         id: row.id,
         title: row.title,
+        title_clean: row.title_clean,
         description: row.description,
         subject_code: row.subject_code,
         subject_longname: row.subject_longname,
@@ -227,6 +232,7 @@ export function generateEmbeddings(
       for (const course of courses) {
         const text = prepareCourseText({
           title: course.title,
+          titleClean: course.title_clean,
           description: course.description,
           subjectLongname: course.subject_longname,
         })
@@ -269,6 +275,14 @@ export function generateEmbeddings(
     yield* Console.log(`  Success: ${success.toLocaleString()}`)
     if (failed > 0) {
       yield* Console.log(`  Failed: ${failed.toLocaleString()}`)
+    }
+
+    if (success > 0) {
+      yield* Console.log('\nRefreshing subject embedding centroids materialized view...')
+      yield* Effect.promise(() =>
+        db.schema.refreshMaterializedView('subject_embedding_centroids_mv').concurrently().execute(),
+      )
+      yield* Console.log('Refreshed subject embedding centroids materialized view.')
     }
 
     return { total, success, failed }
