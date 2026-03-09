@@ -47,22 +47,28 @@ export type DescriptionSegment =
 
 const COURSE_CODE_REGEX = /\b([A-Z][A-Za-z]{1,7})\s?(\d{1,4}[A-Z]?)\b/g
 
-export function parseDescriptionCourseLinks(text: string): DescriptionSegment[] {
+export function parseDescriptionCourseLinks(text: string, validSubjects?: Set<string>): DescriptionSegment[] {
   const segments: DescriptionSegment[] = []
   let lastIndex = 0
 
   for (const match of text.matchAll(COURSE_CODE_REGEX)) {
     const matchIndex = match.index!
+    const subject = match[1]!
+    const subjectUpper = subject.toUpperCase()
+
+    if (validSubjects !== undefined && !validSubjects.has(subjectUpper)) {
+      continue
+    }
+
     if (matchIndex > lastIndex) {
       segments.push({ type: 'text', value: text.slice(lastIndex, matchIndex) })
     }
 
-    const subject = match[1]!
     const numberPart = match[2]!
     segments.push({
       type: 'link',
       display: match[0],
-      slug: `${subject.toLowerCase()}${numberPart.toLowerCase()}`,
+      slug: `${subjectUpper.toLowerCase()}${numberPart.toLowerCase()}`,
     })
 
     lastIndex = matchIndex + match[0].length

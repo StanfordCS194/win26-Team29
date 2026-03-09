@@ -14,6 +14,7 @@ import {
   evalDistributionQueryOptions,
   instructorCourseQuartersQueryOptions,
   courseTextReviewsQueryOptions,
+  availableSubjectsQueryOptions,
 } from '@/components/courses/courses-query-options'
 import { formatCourseCodeForDisplay, parseDescriptionCourseLinks } from '@/lib/course-code'
 import { getCurrentQuarter, getNextQuarter } from '@/lib/quarter-utils'
@@ -647,8 +648,8 @@ function TextReviewsSection({
   )
 }
 
-function renderDescriptionWithLinks(text: string) {
-  const segments = parseDescriptionCourseLinks(text)
+function renderDescriptionWithLinks(text: string, validSubjects?: Set<string>) {
+  const segments = parseDescriptionCourseLinks(text, validSubjects)
   if (segments.length === 1 && segments[0]!.type === 'text') return text
   return segments.map((seg, i) => {
     if (seg.type === 'text') return seg.value
@@ -671,6 +672,11 @@ function ClassPage() {
   const courseCode = formatCourseCodeForDisplay(courseCodeSlug)
   const [descriptionExpanded, setDescriptionExpanded] = useState(false)
   const { data: course, isPending } = useQuery(courseByCodeQueryOptions(DEFAULT_YEAR, courseCodeSlug))
+  const { data: subjects } = useQuery(availableSubjectsQueryOptions(DEFAULT_YEAR))
+  const validSubjects = useMemo(
+    () => (subjects ? new Set(subjects.map((s) => s.code.toUpperCase())) : undefined),
+    [subjects],
+  )
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -742,7 +748,7 @@ function ClassPage() {
                     onToggle={() => setDescriptionExpanded((prev) => !prev)}
                     maxHeight={192}
                     className="mt-2 text-base leading-relaxed text-[#4A4557]"
-                    renderText={renderDescriptionWithLinks}
+                    renderText={(t) => renderDescriptionWithLinks(t, validSubjects)}
                   />
                 ) : (
                   !isPending &&
