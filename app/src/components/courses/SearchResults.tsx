@@ -31,7 +31,7 @@ export function SearchResults({ visibleEvalSlugs, committedSearch, onCommit }: S
   const lastPrefetchedPageRef = useRef<number | null>(null)
 
   const { data, isPending, isError, error, isPlaceholderData } = useQuery({
-    ...searchQueryOptions(search),
+    ...searchQueryOptions(search, queryClient),
     placeholderData: keepPreviousData,
   })
 
@@ -96,7 +96,7 @@ export function SearchResults({ visibleEvalSlugs, committedSearch, onCommit }: S
         if (!entry?.isIntersecting) return
         if (lastPrefetchedPageRef.current === nextPage) return
         lastPrefetchedPageRef.current = nextPage
-        void queryClient.prefetchQuery(searchQueryOptions({ ...search, page: nextPage }))
+        void queryClient.prefetchQuery(searchQueryOptions({ ...search, page: nextPage }, queryClient))
       },
       { rootMargin: '240px 0px' },
     )

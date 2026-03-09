@@ -5,7 +5,7 @@ import type { User } from '@supabase/supabase-js'
 import Header from '../components/Header'
 import { NotFoundComponent } from '../components/errors/NotFoundComponent'
 import { RootErrorComponent } from '../components/errors/RootErrorComponent'
-import { getUser } from '../data/auth'
+import { userQueryOptions } from '../data/auth'
 import appCss from '../styles.css?url'
 
 export interface RouterContext {
@@ -14,8 +14,8 @@ export interface RouterContext {
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-  beforeLoad: async () => {
-    const user = await getUser()
+  beforeLoad: async ({ context }) => {
+    const user = await context.queryClient.ensureQueryData(userQueryOptions)
     return { user }
   },
   head: () => ({

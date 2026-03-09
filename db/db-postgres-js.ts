@@ -34,6 +34,7 @@ export interface SectionInstructorSunetsMv {
 
 export interface CourseContentSearch {
   offering_id: number
+  year: string
   search_vector: string
 }
 
@@ -53,6 +54,19 @@ export interface CourseEnrollmentTrendsMv {
   cumulative_num_enrolled: number
 }
 
+export interface SectionDayCountsMv {
+  section_id: number
+  num_days: number
+}
+
+export interface SubjectEmbeddingCentroidsMv {
+  subject_id: number
+  subject_code: string
+  centroid: string
+  ug_gr_enrollment_share: number
+  subject_multiplier: number
+}
+
 export type DB = GeneratedDB & {
   course_offerings_full_mv: CourseOfferingsFullMv
   course_content_search: CourseContentSearch
@@ -60,6 +74,8 @@ export type DB = GeneratedDB & {
   section_instructor_sunets_mv: SectionInstructorSunetsMv
   crosslistings_mv: CrosslistingsMv
   course_enrollment_trends_mv: CourseEnrollmentTrendsMv
+  section_day_counts_mv: SectionDayCountsMv
+  subject_embedding_centroids_mv: SubjectEmbeddingCentroidsMv
 }
 
 // --- Temporal serialization for postgres.js ---

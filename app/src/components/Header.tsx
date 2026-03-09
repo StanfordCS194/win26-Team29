@@ -1,8 +1,9 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useRouteContext, useRouter, useSearch } from '@tanstack/react-router'
 import { Loader2, LogOut, User } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
-import { signInWithGoogle, signOut } from '@/data/auth'
+import { signInWithGoogle, signOut, userQueryOptions } from '@/data/auth'
 import { SEARCH_DEFAULTS, SearchParams } from '@/data/search/search.params'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,6 +16,7 @@ import {
 export default function Header() {
   const { user } = useRouteContext({ from: '__root__' })
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -37,8 +39,9 @@ export default function Header() {
 
   const handleSignOut = useCallback(async () => {
     await signOut()
+    await queryClient.invalidateQueries({ queryKey: userQueryOptions.queryKey })
     await router.invalidate()
-  }, [router])
+  }, [queryClient, router])
 
   return (
     <header className="sticky top-0 z-50 bg-slate-50 text-slate-900 shadow-sm">

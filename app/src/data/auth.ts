@@ -12,6 +12,13 @@ export const getUser = createServerFn({ method: 'GET' }).handler(async () => {
   return user
 })
 
+/** Query options for cached user. Use in beforeLoad to avoid blocking on repeat navigations. */
+export const userQueryOptions = {
+  queryKey: ['auth', 'user'] as const,
+  queryFn: () => getUser(),
+  staleTime: 1000 * 60 * 5, // 5 min — session rarely changes; signOut invalidates explicitly
+}
+
 export const signInWithGoogle = createServerFn({ method: 'GET' }).handler(async () => {
   console.log({
     VERCEL_ENV: process.env.VERCEL_ENV,
