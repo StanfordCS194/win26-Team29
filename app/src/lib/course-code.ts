@@ -36,3 +36,41 @@ export function formatCourseCodeForDisplay(slug: string): string {
   const suffix = parsed.codeSuffix != null && parsed.codeSuffix !== '' ? String(parsed.codeSuffix) : ''
   return `${parsed.subjectCode} ${parsed.codeNumber}${suffix}`.trim()
 }
+
+/**
+ * Segments a course description into text and course-code-link parts.
+ * Matches title-case or all-caps subjects followed by digits: Math 51, CS106A, Physics 43, CME 100.
+ */
+export type DescriptionSegment =
+  | { type: 'text'; value: string }
+  | { type: 'link'; display: string; slug: string }
+
+const COURSE_CODE_REGEX = /\b([A-Z][A-Za-z]{1,7})\s?(\d{1,4}[A-Z]?)\b/g
+
+export function parseDescriptionCourseLinks(text: string): DescriptionSegment[] {
+  const segments: DescriptionSegment[] = []
+  let lastIndex = 0
+
+  for (const match of text.matchAll(COURSE_CODE_REGEX)) {
+    const matchIndex = match.index!
+    if (matchIndex > lastIndex) {
+      segments.push({ type: 'text', value: text.slice(lastIndex, matchIndex) })
+    }
+
+    const subject = match[1]!
+    const numberPart = match[2]!
+    segments.push({
+      type: 'link',
+      display: match[0],
+      slug: `${subject.toLowerCase()}${numberPart.toLowerCase()}`,
+    })
+
+    lastIndex = matchIndex + match[0].length
+  }
+
+  if (lastIndex < text.length) {
+    segments.push({ type: 'text', value: text.slice(lastIndex) })
+  }
+
+  return segments
+}

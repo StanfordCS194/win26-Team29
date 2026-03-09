@@ -1,9 +1,14 @@
 import { Link } from '@tanstack/react-router'
 import { Route } from '@/routes/courses'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
-import { searchQueryOptions } from './courses-query-options'
+import {
+  courseByCodeQueryOptions,
+  instructorCourseQuartersQueryOptions,
+  searchQueryOptions,
+} from './courses-query-options'
+import { DEFAULT_YEAR } from '@/data/search/search.params'
 import { CourseCard } from './CourseCard'
 import { PaginationControls } from './PaginationControls'
 import { PAGE_SIZE } from '@/data/search/search.query'
@@ -40,6 +45,38 @@ export function SearchResults({ visibleEvalSlugs, committedSearch, onCommit }: S
   const totalCount = data?.totalCount ?? 0
   const hasMore = totalCount > search.page * PAGE_SIZE
   const nextPage = search.page + 1
+
+  useEffect(() => {
+    if (!results) return
+    for (const course of results) {
+      const slug = `${course.subject_code}${course.code_number}${course.code_suffix ?? ''}`
+      const key = courseByCodeQueryOptions(course.year, slug).queryKey
+      if (queryClient.getQueryData(key) == null) {
+        queryClient.setQueryData(key, course, { updatedAt: 0 })
+      }
+    }
+  }, [results, queryClient])
+
+  const startYear = parseInt(DEFAULT_YEAR.split('-')[0]!, 10)
+  const prefetchYears = useRef([
+    `${startYear - 1}-${startYear}`,
+    `${startYear - 2}-${startYear - 1}`,
+    `${startYear - 3}-${startYear - 2}`,
+  ])
+
+  const handleCardHover = useCallback(
+    (courseCodeSlug: string, year: string) => {
+      void queryClient.prefetchQuery(courseByCodeQueryOptions(year, courseCodeSlug))
+      void queryClient.prefetchQuery(
+        instructorCourseQuartersQueryOptions({
+          courseCodeSlug,
+          instructorSunets: [],
+          years: prefetchYears.current,
+        }),
+      )
+    },
+    [queryClient],
+  )
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -118,6 +155,7 @@ export function SearchResults({ visibleEvalSlugs, committedSearch, onCommit }: S
               to="/course/$courseId"
               params={{ courseId: courseCodeSlug }}
               className="block"
+              onMouseEnter={() => handleCardHover(courseCodeSlug, course.year)}
             >
               <CourseCard
                 course={course}

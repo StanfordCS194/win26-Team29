@@ -474,7 +474,7 @@ export const getInstructorCourseQuarters = createServerFn({ method: 'GET' })
     z.object({
       courseCodeSlug: z.string().min(1),
       instructorSunets: z.array(z.string()),
-      years: z.array(z.string()).min(1).max(2),
+      years: z.array(z.string()).min(1).max(3),
     }),
   )
   .handler(async ({ data }): Promise<InstructorCourseQuarter[]> => {
@@ -525,6 +525,225 @@ export const getInstructorCourseQuarters = createServerFn({ method: 'GET' })
         if (a.year !== b.year) return b.year.localeCompare(a.year)
         return quarterOrder.indexOf(a.quarter) - quarterOrder.indexOf(b.quarter)
       })
+  })
+
+// ── Instructor profile ───────────────────────────────────────────────────────
+
+export type InstructorCourseEntry = {
+  courseCodeSlug: string
+  displayCode: string
+  title: string
+  quarter: string
+  year: string
+  avgQuality: number | null
+}
+
+export type InstructorProfile = {
+  sunet: string
+  name: string
+  entries: InstructorCourseEntry[]
+}
+
+export const getInstructorProfile = createServerFn({ method: 'GET' })
+  .inputValidator(
+    z.object({
+      sunet: z.string().min(1),
+      years: z.array(z.string()).min(1).max(4),
+    }),
+  )
+  .handler(async ({ data }): Promise<InstructorProfile | null> => {
+    const { getServerDb } = await import('@/lib/server-db')
+    const db = getServerDb()
+
+    const instructor = await db
+      .selectFrom('instructors')
+      .select(['sunet', 'first_and_last_name'])
+      .where('sunet', '=', data.sunet)
+      .limit(1)
+      .executeTakeFirst()
+
+    if (!instructor) return null
+
+    const evalQuestions = await getEvalQuestions()
+    const qualityId = evalQuestions.find((eq) => eq.slug === 'quality')?.id
+
+    const excludedComponentTypes = db
+      .selectFrom('component_types')
+      .select('id')
+      .where('code', 'in', ['INS', 'T/D'])
+
+    const rows = await db
+      .selectFrom('sections as sec')
+      .innerJoin('course_offerings as co', 'co.id', 'sec.course_offering_id')
+      .innerJoin('subjects as s', 's.id', 'co.subject_id')
+      .innerJoin('schedules as sch', 'sch.section_id', 'sec.id')
+      .innerJoin('schedule_instructors as si', 'si.schedule_id', 'sch.id')
+      .innerJoin('instructors as i', 'i.id', 'si.instructor_id')
+      .leftJoin('evaluation_smart_averages as esa', (join) => {
+        let j = join.onRef('esa.section_id', '=', 'sec.id')
+        if (qualityId != null) {
+          j = j.on('esa.question_id', '=', qualityId)
+        }
+        return j
+      })
+      .select([
+        's.code as subject_code',
+        'co.code_number',
+        'co.code_suffix',
+        'co.title',
+        'sec.term_quarter as quarter',
+        'co.year',
+        db.fn.avg<number>('esa.smart_average' as never).as('avg_quality'),
+      ])
+      .where('i.sunet', '=', data.sunet)
+      .where('co.year', 'in', data.years)
+      .where('sec.is_principal', '=', true)
+      .where('sec.cancelled', '=', false)
+      .where('sec.component_type_id', 'not in', excludedComponentTypes)
+      .groupBy(['s.code', 'co.code_number', 'co.code_suffix', 'co.title', 'sec.term_quarter', 'co.year'])
+      .orderBy('co.year', 'desc')
+      .execute()
+
+    const quarterOrder = ['Autumn', 'Winter', 'Spring', 'Summer']
+
+    const entries: InstructorCourseEntry[] = rows
+      .map((r) => {
+        const suffix = r.code_suffix != null && String(r.code_suffix) !== '' ? String(r.code_suffix) : ''
+        const subjectCode = String(r.subject_code)
+        const codeNumber = Number(r.code_number)
+        return {
+          courseCodeSlug: `${subjectCode.toLowerCase()}${codeNumber}${suffix.toLowerCase()}`,
+          displayCode: `${subjectCode} ${codeNumber}${suffix}`,
+          title: String(r.title ?? ''),
+          quarter: String(r.quarter),
+          year: String(r.year),
+          avgQuality: r.avg_quality != null ? Number(r.avg_quality) : null,
+        }
+      })
+      .sort((a, b) => {
+        if (a.year !== b.year) return b.year.localeCompare(a.year)
+        return quarterOrder.indexOf(a.quarter) - quarterOrder.indexOf(b.quarter)
+      })
+
+    return {
+      sunet: data.sunet,
+      name: instructor.first_and_last_name ?? data.sunet,
+      entries,
+    }
+  })
+
+// ── Text reviews ─────────────────────────────────────────────────────────────
+
+export type CourseTextReview = {
+  responseText: string
+  quarter: string
+  year: string
+  instructorName: string | null
+}
+
+const TEXT_QUESTION_IDS = [1, 373]
+
+export const getCourseTextReviews = createServerFn({ method: 'GET' })
+  .inputValidator(
+    z.object({
+      courseCodeSlug: z.string().min(1),
+      quarterYears: z.array(z.object({ quarter: z.string(), year: z.string() })).min(1),
+      instructorSunets: z.array(z.string()),
+    }),
+  )
+  .handler(async ({ data }): Promise<CourseTextReview[]> => {
+    const parsed = parseCourseCodeSlug(data.courseCodeSlug)
+    if (!parsed) return []
+
+    const { getServerDb } = await import('@/lib/server-db')
+    const db = getServerDb()
+
+    let secQuery = db
+      .selectFrom('sections as sec')
+      .innerJoin('course_offerings as co', 'co.id', 'sec.course_offering_id')
+      .innerJoin('subjects as s', 's.id', 'co.subject_id')
+      .select('sec.id')
+      .where('s.code', '=', parsed.subjectCode)
+      .where('co.code_number', '=', parsed.codeNumber)
+      .where('sec.is_principal', '=', true)
+      .where('sec.cancelled', '=', false)
+      .where((eb) =>
+        eb.or(
+          data.quarterYears.map((qy) =>
+            eb.and([
+              eb('sec.term_quarter', '=', qy.quarter as 'Autumn' | 'Winter' | 'Spring' | 'Summer'),
+              eb('co.year', '=', qy.year),
+            ]),
+          ),
+        ),
+      )
+
+    if (parsed.codeSuffix === null) {
+      secQuery = secQuery.where((eb) =>
+        eb.or([eb('co.code_suffix', 'is', null), eb('co.code_suffix', '=', '')]),
+      )
+    } else {
+      secQuery = secQuery.where('co.code_suffix', '=', parsed.codeSuffix)
+    }
+
+    if (data.instructorSunets.length > 0) {
+      secQuery = secQuery.where((eb) =>
+        eb.exists(
+          eb
+            .selectFrom('schedules as sch')
+            .innerJoin('schedule_instructors as si', 'si.schedule_id', 'sch.id')
+            .innerJoin('instructors as i', 'i.id', 'si.instructor_id')
+            .whereRef('sch.section_id', '=', 'sec.id')
+            .where('i.sunet', 'in', data.instructorSunets)
+            .select(eb.val(1).as('one')),
+        ),
+      )
+    }
+
+    const rows = await db
+      .selectFrom('evaluation_text_responses as etr')
+      .innerJoin('evaluation_report_sections as ers', 'ers.report_id', 'etr.report_id')
+      .innerJoin('sections as sec2', 'sec2.id', 'ers.section_id')
+      .innerJoin('course_offerings as co2', 'co2.id', 'sec2.course_offering_id')
+      .leftJoin('schedules as sch2', 'sch2.section_id', 'sec2.id')
+      .leftJoin('schedule_instructors as si2', 'si2.schedule_id', 'sch2.id')
+      .leftJoin('instructors as i2', 'i2.id', 'si2.instructor_id')
+      .select([
+        'etr.id as review_id',
+        'etr.response_text',
+        'sec2.term_quarter as quarter',
+        'co2.year',
+        'i2.first_and_last_name as instructor_name',
+      ])
+      .where('ers.section_id', 'in', secQuery)
+      .where('etr.question_id', 'in', TEXT_QUESTION_IDS)
+      .orderBy('co2.year', 'desc')
+      .execute()
+
+    const seen = new Set<number>()
+    const quarterOrder = ['Autumn', 'Winter', 'Spring', 'Summer']
+    const reviews: CourseTextReview[] = []
+
+    for (const r of rows) {
+      const id = Number(r.review_id)
+      if (seen.has(id)) continue
+      seen.add(id)
+      const text = String(r.response_text ?? '').trim()
+      if (text.length === 0) continue
+      reviews.push({
+        responseText: text,
+        quarter: String(r.quarter),
+        year: String(r.year),
+        instructorName: r.instructor_name != null ? String(r.instructor_name) : null,
+      })
+    }
+
+    reviews.sort((a, b) => {
+      if (a.year !== b.year) return b.year.localeCompare(a.year)
+      return quarterOrder.indexOf(b.quarter) - quarterOrder.indexOf(a.quarter)
+    })
+
+    return reviews
   })
 
 export const searchCourses = createServerFn({ method: 'GET' })

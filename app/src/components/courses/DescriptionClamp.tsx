@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 
 const MIN_DESC_LINES = 6
 
@@ -8,12 +9,14 @@ export function DescriptionClamp({
   onToggle,
   maxHeight,
   className,
+  renderText,
 }: {
   text: string
   expanded: boolean
   onToggle: () => void
   maxHeight: number | null
   className?: string
+  renderText?: (text: string) => ReactNode
 }) {
   const ref = useRef<HTMLParagraphElement>(null)
   // -2 = not measured, -1 = fits entirely, >= 0 = char cutoff
@@ -79,7 +82,7 @@ export function DescriptionClamp({
   if (expanded) {
     return (
       <p className={className ?? 'text-[15px] leading-relaxed text-slate-500'}>
-        {text} {toggleBtn('Show less')}
+        {renderText ? renderText(text) : text} {toggleBtn('Show less')}
       </p>
     )
   }
@@ -99,14 +102,15 @@ export function DescriptionClamp({
   if (cutoff === -1) {
     return (
       <p ref={ref} className={className ?? 'text-[15px] leading-relaxed text-slate-500'}>
-        {text}
+        {renderText ? renderText(text) : text}
       </p>
     )
   }
 
+  const truncated = text.slice(0, cutoff).trimEnd()
   return (
     <p ref={ref} className={className ?? 'text-[15px] leading-relaxed text-slate-500'}>
-      {text.slice(0, cutoff).trimEnd()}… {toggleBtn('Show more')}
+      {renderText ? renderText(truncated) : truncated}… {toggleBtn('Show more')}
     </p>
   )
 }

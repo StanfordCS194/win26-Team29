@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { ChevronDown, Star, ThumbsDown, ThumbsUp } from 'lucide-react'
+import { ChevronDown, Search, ThumbsDown, ThumbsUp } from 'lucide-react'
 import { DescriptionClamp } from '@/components/courses/DescriptionClamp'
 import { getEvalMetricMeta, getEvalValueColor } from '@/data/search/eval-metrics'
 import { SLUG_LABEL } from '@/data/search/eval-questions'
@@ -13,13 +13,40 @@ import {
   courseByCodeQueryOptions,
   evalDistributionQueryOptions,
   instructorCourseQuartersQueryOptions,
+  courseTextReviewsQueryOptions,
 } from '@/components/courses/courses-query-options'
-import { formatCourseCodeForDisplay } from '@/lib/course-code'
+import { formatCourseCodeForDisplay, parseDescriptionCourseLinks } from '@/lib/course-code'
 import { getCurrentQuarter, getNextQuarter } from '@/lib/quarter-utils'
 
+const PREFETCH_START_YEAR = parseInt(DEFAULT_YEAR.split('-')[0]!, 10)
+const PREFETCH_YEARS = [
+  `${PREFETCH_START_YEAR - 1}-${PREFETCH_START_YEAR}`,
+  `${PREFETCH_START_YEAR - 2}-${PREFETCH_START_YEAR - 1}`,
+  `${PREFETCH_START_YEAR - 3}-${PREFETCH_START_YEAR - 2}`,
+]
+
 export const Route = createFileRoute('/course/$courseId')({
+  loader: ({ params, context }) => {
+    void context.queryClient.prefetchQuery(courseByCodeQueryOptions(DEFAULT_YEAR, params.courseId))
+    void context.queryClient.prefetchQuery(
+      instructorCourseQuartersQueryOptions({
+        courseCodeSlug: params.courseId,
+        instructorSunets: [],
+        years: PREFETCH_YEARS,
+      }),
+    )
+  },
   component: ClassPage,
 })
+
+const EXCLUDED_COMPONENT_TYPES = new Set(['INS', 'T/D'])
+
+function isIndividualInstructionCourse(sections: SearchCourseResult['sections']) {
+  const principal = (sections ?? []).filter(
+    (sec) => (sec.unitsMin != null || sec.unitsMax != null) && !sec.cancelled,
+  )
+  return principal.length > 0 && principal.every((sec) => EXCLUDED_COMPONENT_TYPES.has(sec.componentType))
+}
 
 interface InstructorInfo {
   name: string
@@ -62,9 +89,22 @@ function InstructorRow({
   const qualityMeta = getEvalMetricMeta('quality')
   const color = typeof rating === 'number' ? getEvalValueColor(rating, 'quality') : undefined
 
+  const nameContent =
+    instructor.sunet !== '' ? (
+      <Link
+        to="/instructor/$sunet"
+        params={{ sunet: instructor.sunet }}
+        className="min-w-0 truncate hover:text-primary hover:underline"
+      >
+        {instructor.name}
+      </Link>
+    ) : (
+      <span className="min-w-0 truncate">{instructor.name}</span>
+    )
+
   return (
     <div className="flex items-center justify-between">
-      <span className="min-w-0 truncate">{instructor.name}</span>
+      {nameContent}
       <span className="ml-2 w-10 shrink-0">
         {typeof rating === 'number' && color !== undefined && color !== '' && (
           <span
@@ -257,19 +297,30 @@ function MultiSelect({
 function EvalDistributionSection({
   course,
   courseCodeSlug,
+  hideInstructorSelector,
 }: {
   course: SearchCourseResult
   courseCodeSlug: string
+  hideInstructorSelector?: boolean
 }) {
   const { allInstructors, defaultSunets } = useDistributionDefaults(course)
 
-  const [selectedSunets, setSelectedSunets] = useState<string[]>(defaultSunets)
+  const [selectedSunets, setSelectedSunets] = useState<string[]>(
+    hideInstructorSelector === true ? [] : defaultSunets,
+  )
   const [selectedQuarterKeys, setSelectedQuarterKeys] = useState<string[]>([])
   const [metric, setMetric] = useState<EvalSlug>('hours')
 
   const startYear = parseInt(DEFAULT_YEAR.split('-')[0]!, 10)
-  const prevYear = `${startYear - 1}-${startYear}`
-  const years = useMemo(() => [DEFAULT_YEAR, prevYear], [prevYear])
+  // Past 3 whole academic years only (exclude current year and future)
+  const years = useMemo(
+    () => [
+      `${startYear - 1}-${startYear}`,
+      `${startYear - 2}-${startYear - 1}`,
+      `${startYear - 3}-${startYear - 2}`,
+    ],
+    [startYear],
+  )
 
   const { data: availableQuarters } = useQuery(
     instructorCourseQuartersQueryOptions({
@@ -306,7 +357,11 @@ function EvalDistributionSection({
     [selectedQuarterKeys],
   )
 
-  const { data: distribution, isPending } = useQuery(
+  const {
+    data: distribution,
+    isPending,
+    fetchStatus,
+  } = useQuery(
     evalDistributionQueryOptions({
       courseCodeSlug,
       quarterYears: selectedQuarterYears,
@@ -314,6 +369,7 @@ function EvalDistributionSection({
       metric,
     }),
   )
+  const isDistributionLoading = isPending && fetchStatus === 'fetching'
 
   const quarterOptions = useMemo(
     () =>
@@ -351,7 +407,7 @@ function EvalDistributionSection({
           ))}
         </select>
 
-        {instructorOptions.length > 0 && (
+        {hideInstructorSelector !== true && instructorOptions.length > 0 && (
           <MultiSelect
             label="instructors"
             options={instructorOptions}
@@ -370,7 +426,7 @@ function EvalDistributionSection({
         )}
       </div>
 
-      {isPending ? (
+      {isDistributionLoading ? (
         <div className="flex h-[200px] items-center justify-center">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
         </div>
@@ -390,6 +446,224 @@ function EvalDistributionSection({
       )}
     </div>
   )
+}
+
+function highlightSearchMatch(text: string, query: string) {
+  if (query.length === 0) return text
+  const lower = text.toLowerCase()
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let idx = lower.indexOf(query)
+  let key = 0
+  while (idx !== -1) {
+    if (idx > lastIndex) {
+      parts.push(text.slice(lastIndex, idx))
+    }
+    parts.push(
+      <mark key={key++} className="rounded bg-primary/15 px-0.5 text-inherit">
+        {text.slice(idx, idx + query.length)}
+      </mark>,
+    )
+    lastIndex = idx + query.length
+    idx = lower.indexOf(query, lastIndex)
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+  return parts
+}
+
+function TextReviewsSection({
+  course,
+  courseCodeSlug,
+  hideInstructorSelector,
+}: {
+  course: SearchCourseResult
+  courseCodeSlug: string
+  hideInstructorSelector?: boolean
+}) {
+  const { allInstructors, defaultSunets } = useDistributionDefaults(course)
+
+  const [selectedSunets, setSelectedSunets] = useState<string[]>(
+    hideInstructorSelector === true ? [] : defaultSunets,
+  )
+  const [selectedQuarterKeys, setSelectedQuarterKeys] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const startYear = parseInt(DEFAULT_YEAR.split('-')[0]!, 10)
+  const years = useMemo(
+    () => [
+      `${startYear - 1}-${startYear}`,
+      `${startYear - 2}-${startYear - 1}`,
+      `${startYear - 3}-${startYear - 2}`,
+    ],
+    [startYear],
+  )
+
+  const { data: availableQuarters } = useQuery(
+    instructorCourseQuartersQueryOptions({
+      courseCodeSlug,
+      instructorSunets: selectedSunets,
+      years,
+    }),
+  )
+
+  const prevSunetsRef = useRef(selectedSunets)
+  useEffect(() => {
+    if (prevSunetsRef.current !== selectedSunets) {
+      prevSunetsRef.current = selectedSunets
+      if (availableQuarters && availableQuarters.length > 0) {
+        setSelectedQuarterKeys(availableQuarters.map((qy) => `${qy.quarter}|${qy.year}`))
+      } else {
+        setSelectedQuarterKeys([])
+      }
+    }
+  }, [selectedSunets, availableQuarters])
+
+  useEffect(() => {
+    if (selectedQuarterKeys.length === 0 && availableQuarters && availableQuarters.length > 0) {
+      setSelectedQuarterKeys(availableQuarters.map((qy) => `${qy.quarter}|${qy.year}`))
+    }
+  }, [availableQuarters, selectedQuarterKeys.length])
+
+  const selectedQuarterYears = useMemo(
+    () =>
+      selectedQuarterKeys.map((key) => {
+        const [quarter, year] = key.split('|')
+        return { quarter: quarter!, year: year! }
+      }),
+    [selectedQuarterKeys],
+  )
+
+  const {
+    data: reviews,
+    isPending: isReviewsPending,
+    fetchStatus: reviewsFetchStatus,
+  } = useQuery(
+    courseTextReviewsQueryOptions({
+      courseCodeSlug,
+      quarterYears: selectedQuarterYears,
+      instructorSunets: selectedSunets,
+    }),
+  )
+  const isReviewsLoading = isReviewsPending && reviewsFetchStatus === 'fetching'
+
+  const quarterOptions = useMemo(
+    () =>
+      (availableQuarters ?? []).map((qy) => ({
+        value: `${qy.quarter}|${qy.year}`,
+        label: `${qy.quarter} ${qy.year}`,
+      })),
+    [availableQuarters],
+  )
+
+  const instructorOptions = allInstructors.map((i) => ({
+    value: i.sunet || i.name,
+    label: i.name,
+  }))
+
+  const normalizedSearch = searchQuery.toLowerCase().trim()
+  const filteredReviews = useMemo(() => {
+    if (!reviews) return []
+    if (normalizedSearch.length === 0) return reviews
+    return reviews.filter((r) => r.responseText.toLowerCase().includes(normalizedSearch))
+  }, [reviews, normalizedSearch])
+
+  return (
+    <div className="mt-8">
+      <div className="mb-6 flex items-center gap-2.5">
+        <div className="h-6 w-1 rounded-full bg-primary" />
+        <h3 className="font-['Clash_Display'] text-2xl font-semibold text-[#150F21]">Student Reviews</h3>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {hideInstructorSelector !== true && instructorOptions.length > 0 && (
+          <MultiSelect
+            label="instructors"
+            options={instructorOptions}
+            selected={selectedSunets}
+            onChange={setSelectedSunets}
+          />
+        )}
+        {quarterOptions.length > 0 && (
+          <MultiSelect
+            label="quarters"
+            options={quarterOptions}
+            selected={selectedQuarterKeys}
+            onChange={setSelectedQuarterKeys}
+          />
+        )}
+        <div className="relative">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-[#4A4557]/50" />
+          <input
+            type="search"
+            placeholder="Search reviews..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="rounded-lg border border-white/60 bg-white/60 py-1.5 pr-3 pl-8 text-sm text-[#150F21] shadow-sm backdrop-blur-xl transition-colors placeholder:text-[#4A4557]/40 hover:bg-white/80 focus:bg-white/80 focus:outline-none"
+          />
+        </div>
+      </div>
+
+      {isReviewsLoading ? (
+        <div className="flex h-[200px] items-center justify-center">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+        </div>
+      ) : filteredReviews.length > 0 ? (
+        <div className="max-h-[500px] space-y-3 overflow-y-auto pr-1">
+          {filteredReviews.map((review, i) => (
+            <div
+              key={i}
+              className="rounded-2xl border border-white/60 bg-white/50 p-5 backdrop-blur-md transition-all hover:shadow-md"
+            >
+              <div className="mb-2 text-xs text-[#4A4557]/60">
+                <span className="font-medium text-[#150F21]/70">
+                  {review.quarter} {review.year}
+                </span>
+              </div>
+              <p className="text-sm leading-relaxed text-[#4A4557]">
+                {normalizedSearch.length > 0
+                  ? highlightSearchMatch(review.responseText, normalizedSearch)
+                  : review.responseText}
+              </p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="py-8 text-center text-sm text-[#4A4557]/60">
+          {reviews != null && reviews.length > 0 && normalizedSearch.length > 0
+            ? 'No reviews match your search.'
+            : 'No reviews available for this selection.'}
+        </p>
+      )}
+
+      {!isReviewsLoading && filteredReviews.length > 0 && (
+        <p className="mt-3 text-xs text-[#4A4557]/60">
+          {filteredReviews.length} review{filteredReviews.length !== 1 ? 's' : ''}
+          {normalizedSearch.length > 0 && reviews != null ? ` (${reviews.length} total)` : ''}
+        </p>
+      )}
+    </div>
+  )
+}
+
+function renderDescriptionWithLinks(text: string) {
+  const segments = parseDescriptionCourseLinks(text)
+  if (segments.length === 1 && segments[0]!.type === 'text') return text
+  return segments.map((seg, i) => {
+    if (seg.type === 'text') return seg.value
+    return (
+      <Link
+        key={i}
+        to="/course/$courseId"
+        params={{ courseId: seg.slug }}
+        search={SEARCH_DEFAULTS as unknown as Required<SearchParams>}
+        className="text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
+      >
+        {seg.display}
+      </Link>
+    )
+  })
 }
 
 function ClassPage() {
@@ -468,6 +742,7 @@ function ClassPage() {
                     onToggle={() => setDescriptionExpanded((prev) => !prev)}
                     maxHeight={192}
                     className="mt-2 text-base leading-relaxed text-[#4A4557]"
+                    renderText={renderDescriptionWithLinks}
                   />
                 ) : (
                   !isPending &&
@@ -494,93 +769,28 @@ function ClassPage() {
                     <ThumbsDown className="h-3.5 w-3.5" />
                   </button>
                 </div>
-                {course && <CourseDetailsCard key={courseCodeSlug} course={course} />}
+                {course && !isIndividualInstructionCourse(course.sections) && (
+                  <CourseDetailsCard key={courseCodeSlug} course={course} />
+                )}
               </div>
             </div>
           </div>
 
           {!isPending && course && (
-            <EvalDistributionSection course={course} courseCodeSlug={courseCodeSlug} />
+            <EvalDistributionSection
+              course={course}
+              courseCodeSlug={courseCodeSlug}
+              hideInstructorSelector={isIndividualInstructionCourse(course.sections)}
+            />
           )}
 
-          <div className="mt-8">
-            <div className="mb-6 flex items-center gap-2.5">
-              <div className="h-6 w-1 rounded-full bg-primary" />
-              <h3 className="font-['Clash_Display'] text-2xl font-semibold text-[#150F21]">
-                Student Reviews
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-white/60 bg-white/50 p-6 backdrop-blur-md transition-all hover:shadow-md">
-                <div className="mb-4 flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#150F21] text-xs font-bold text-white">
-                      JD
-                    </div>
-                    <span className="text-sm font-bold text-[#150F21]">John D.</span>
-                  </div>
-                  <div className="flex items-center gap-1 rounded-lg bg-white/60 px-2 py-1">
-                    <Star className="h-3 w-3 fill-primary text-primary" />
-                    <span className="text-xs font-bold text-[#150F21]">4.8</span>
-                  </div>
-                </div>
-                <p className="mb-4 text-sm leading-relaxed text-[#4A4557]">
-                  "Conrad is an absolute legend. The workload is heavy but fair. Make sure you actually read
-                  the textbook before lecture."
-                </p>
-                <div className="flex gap-2">
-                  <span className="rounded bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-                    Heavy Workload
-                  </span>
-                  <span className="rounded bg-white/60 px-2 py-1 text-xs text-[#4A4557]">Great Lectures</span>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/60 bg-white/50 p-6 backdrop-blur-md transition-all hover:shadow-md">
-                <div className="mb-4 flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                      AS
-                    </div>
-                    <span className="text-sm font-bold text-[#150F21]">Alice S.</span>
-                  </div>
-                  <div className="flex items-center gap-1 rounded-lg bg-white/60 px-2 py-1">
-                    <Star className="h-3 w-3 fill-primary text-primary" />
-                    <span className="text-xs font-bold text-[#150F21]">4.2</span>
-                  </div>
-                </div>
-                <p className="mb-4 text-sm leading-relaxed text-[#4A4557]">
-                  "Definitely a weeder class, but you learn a ton. The p-sets take about 10 hours a week, so
-                  plan accordingly."
-                </p>
-                <div className="flex gap-2">
-                  <span className="rounded bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-                    Challenging
-                  </span>
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-white/60 bg-white/50 p-6 backdrop-blur-md transition-all hover:shadow-md">
-                <div className="mb-4 flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-900 text-xs font-bold text-white">
-                      MK
-                    </div>
-                    <span className="text-sm font-bold text-[#150F21]">Mike K.</span>
-                  </div>
-                  <div className="flex items-center gap-1 rounded-lg bg-white/60 px-2 py-1">
-                    <Star className="h-3 w-3 fill-primary text-primary" />
-                    <span className="text-xs font-bold text-[#150F21]">5.0</span>
-                  </div>
-                </div>
-                <p className="text-sm leading-relaxed text-[#4A4557]">
-                  "One of the best math classes I've taken. It connects concepts really well. Don't skip
-                  office hours!"
-                </p>
-              </div>
-            </div>
-          </div>
+          {!isPending && course && (
+            <TextReviewsSection
+              course={course}
+              courseCodeSlug={courseCodeSlug}
+              hideInstructorSelector={isIndividualInstructionCourse(course.sections)}
+            />
+          )}
         </div>
       </main>
     </div>

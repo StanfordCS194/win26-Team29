@@ -11,6 +11,8 @@ import {
   getCourseByCode,
   getEvalDistribution,
   getInstructorCourseQuarters,
+  getCourseTextReviews,
+  getInstructorProfile,
 } from '@/data/search/search'
 
 import type { SearchParams } from '@/data/search/search.params'
@@ -151,6 +153,34 @@ export function instructorCourseQuartersQueryOptions(params: {
     refetchOnReconnect: false,
     retry: false,
     enabled: params.courseCodeSlug.length > 0,
+  }
+}
+
+export function courseTextReviewsQueryOptions(params: {
+  courseCodeSlug: string
+  quarterYears: { quarter: string; year: string }[]
+  instructorSunets: string[]
+}) {
+  return {
+    queryKey: ['course-text-reviews', params] as const,
+    queryFn: () => getCourseTextReviews({ data: params }),
+    staleTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+    enabled: params.courseCodeSlug.length > 0 && params.quarterYears.length > 0,
+  }
+}
+
+export function instructorProfileQueryOptions(sunet: string, years: string[]) {
+  return {
+    queryKey: ['instructor-profile', sunet, years] as const,
+    queryFn: () => getInstructorProfile({ data: { sunet, years } }),
+    staleTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+    enabled: sunet.length > 0,
   }
 }
 
