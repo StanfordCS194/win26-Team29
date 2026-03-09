@@ -28,7 +28,7 @@ const VECTOR_MIN_SIMILARITY = 0.32 // cosine similarity threshold; below this is
 
 // Offerings whose final relevance_score falls below this are dropped.
 // Prevents noise results when a content/code/embedding query is active.
-const MIN_RELEVANCE_THRESHOLD = 0.35
+const MIN_RELEVANCE_THRESHOLD = 0.38
 
 // ── Logsumexp sharpness ────────────────────────────────────────────────────
 // Higher k → winner-takes-more; lower k → scores blend more evenly.
@@ -38,7 +38,7 @@ const LOGSUMEXP_K = 5
 // Phrase match carries the most weight; OR is a weak fallback signal.
 const SCALE_PHRASE = 1.25
 const SCALE_AND = 0.765
-const SCALE_OR = 0.35
+const SCALE_OR = 0.315
 // Course-code match is a high-signal, structured filter: exact hits (1.0)
 // should dominate; title (0.8) and description (0.5) fuzzy hits still surface
 // the result but rank below genuine text/vector matches.
