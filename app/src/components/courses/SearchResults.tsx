@@ -1,9 +1,9 @@
-import { Link } from '@tanstack/react-router'
 import { Route } from '@/routes/courses'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import {
+  availableSubjectsQueryOptions,
   courseByCodeQueryOptions,
   instructorCourseQuartersQueryOptions,
   searchQueryOptions,
@@ -13,13 +13,13 @@ import { CourseCard } from './CourseCard'
 import { PaginationControls } from './PaginationControls'
 import { PAGE_SIZE } from '@/data/search/search.query'
 
-import type { EvalSlug } from '@/data/search/eval-questions'
 import type { SearchParams } from '@/data/search/search.params'
+import type { AllMetricSlug } from '@/data/search/eval-metrics'
 import { AppliedFilterBadges } from './AppliedFilterBadges'
 import { hasActiveFilters } from './use-clear-all-filters'
 
 type SearchResultsProps = {
-  visibleEvalSlugs: EvalSlug[]
+  visibleEvalSlugs: AllMetricSlug[]
   committedSearch: SearchParams
   onCommit: (s: SearchParams) => void
 }
@@ -29,6 +29,12 @@ export function SearchResults({ visibleEvalSlugs, committedSearch, onCommit }: S
   const queryClient = useQueryClient()
   const bottomPrefetchRef = useRef<HTMLDivElement | null>(null)
   const lastPrefetchedPageRef = useRef<number | null>(null)
+
+  const { data: subjects } = useQuery(availableSubjectsQueryOptions(committedSearch.year))
+  const validSubjects = useMemo(
+    () => (subjects ? new Set(subjects.map((s) => s.code.toUpperCase())) : undefined),
+    [subjects],
+  )
 
   const { data, isPending, isError, error, isPlaceholderData } = useQuery({
     ...searchQueryOptions(search, queryClient),
@@ -147,24 +153,25 @@ export function SearchResults({ visibleEvalSlugs, committedSearch, onCommit }: S
   return (
     <TooltipProvider>
       <div className={`transition-opacity duration-150 ${isPlaceholderData ? 'opacity-60' : 'opacity-100'}`}>
-        {results.map((course) => {
-          const courseCodeSlug = `${course.subject_code}${course.code_number}${course.code_suffix ?? ''}`
-          return (
-            <Link
-              key={course.id}
-              to="/course/$courseId"
-              params={{ courseId: courseCodeSlug }}
-              className="block"
-              onMouseEnter={() => handleCardHover(courseCodeSlug, course.year)}
-            >
-              <CourseCard
-                course={course}
-                selectedQuarters={search.quarters}
-                visibleEvalSlugs={visibleEvalSlugs}
-              />
-            </Link>
-          )
-        })}
+        {results.map((course) => (
+          <div
+            key={course.id}
+            onMouseEnter={() =>
+              handleCardHover(
+                `${course.subject_code}${course.code_number}${course.code_suffix ?? ''}`,
+                course.year,
+              )
+            }
+          >
+            <CourseCard
+              course={course}
+              selectedQuarters={search.quarters}
+              visibleEvalSlugs={visibleEvalSlugs}
+              validSubjects={validSubjects}
+              year={committedSearch.year}
+            />
+          </div>
+        ))}
         <PaginationControls page={search.page} totalCount={totalCount} />
         <div ref={bottomPrefetchRef} aria-hidden className="h-12 w-full" />
       </div>

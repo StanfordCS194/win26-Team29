@@ -251,11 +251,13 @@ export const getCourseByCode = createServerFn({ method: 'GET' })
       .selectFrom('course_offerings_full_mv')
       .select([
         'offering_id as id',
+        'course_id',
         'year',
         'subject_code',
         'code_number',
         'code_suffix',
         'title',
+        'title_clean',
         'description',
         'academic_group',
         'academic_career',
@@ -266,6 +268,7 @@ export const getCourseByCode = createServerFn({ method: 'GET' })
         'units_max',
         'gers',
         'sections',
+        'crosslistings',
       ])
       .where('year', '=', year)
       .where('subject_code', '=', parsed.subjectCode)
@@ -872,9 +875,18 @@ export const searchCourses = createServerFn({ method: 'GET' })
         }
       }
 
+      // Parsed quarters override the filter's include list unless includeMode is 'and',
+      // in which case both sets are merged (all must match).
+      const mergedQuartersInclude = (
+        parsed.quarters.length > 0 && data.quartersIncludeMode !== 'and'
+          ? parsed.quarters
+          : [...new Set([...data.quarters, ...parsed.quarters])]
+      ) as QuarterEnum[]
+
       // Set filter helpers
-      const hasQuarters = data.quarters.length > 0 || data.quartersExclude.length > 0
-      const hasGers = (data.gers?.length ?? 0) > 0 || (data.gersExclude?.length ?? 0) > 0
+      const hasQuarters = mergedQuartersInclude.length > 0 || data.quartersExclude.length > 0
+      const mergedGersInclude = [...new Set([...(data.gers ?? []), ...parsed.wayGers])]
+      const hasGers = mergedGersInclude.length > 0 || (data.gersExclude?.length ?? 0) > 0
       const hasDays = (data.days?.length ?? 0) > 0 || (data.daysExclude?.length ?? 0) > 0
       const hasInstructors = data.instructorSunets.length > 0 || data.instructorSunetsExclude.length > 0
 
@@ -902,7 +914,7 @@ export const searchCourses = createServerFn({ method: 'GET' })
 
         quarters: hasQuarters
           ? {
-              include: data.quarters as QuarterEnum[],
+              include: mergedQuartersInclude,
               exclude: data.quartersExclude as QuarterEnum[],
               includeMode: data.quartersIncludeMode,
             }
@@ -910,7 +922,7 @@ export const searchCourses = createServerFn({ method: 'GET' })
 
         gers: hasGers
           ? {
-              include: data.gers ?? [],
+              include: mergedGersInclude,
               exclude: data.gersExclude ?? [],
               includeMode: data.gersIncludeMode,
             }
@@ -927,6 +939,7 @@ export const searchCourses = createServerFn({ method: 'GET' })
             : undefined,
 
         repeatable: data.repeatable,
+        hasAccompanyingSections: data.hasAccompanyingSections,
         gradingOptionId: resolveGradingIds(expandGradingTokens(data.gradingOptions)),
         gradingOptionIdExclude: resolveGradingIds(expandGradingTokens(data.gradingOptionsExclude)),
         academicCareerId: resolveCareerIds(data.careers),
@@ -1007,6 +1020,12 @@ export const searchCourses = createServerFn({ method: 'GET' })
           Object.keys(evalFiltersMap).length > 0
             ? (evalFiltersMap as SearchQueryParams['evalFilters'])
             : undefined,
+
+        hoursPerUnitFilter:
+          data.min_eval_hours_per_unit != null || data.max_eval_hours_per_unit != null
+            ? { min: data.min_eval_hours_per_unit, max: data.max_eval_hours_per_unit }
+            : undefined,
+
         sort: { by: data.sort, direction: data.order },
         page: data.page,
         dedupeCrosslistings: data.dedupeCrosslistings ?? true,

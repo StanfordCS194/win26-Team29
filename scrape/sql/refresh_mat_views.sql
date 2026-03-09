@@ -41,5 +41,9 @@ REFRESH MATERIALIZED VIEW CONCURRENTLY public.crosslistings_mv;
 
 REFRESH MATERIALIZED VIEW CONCURRENTLY public.course_enrollment_trends_mv;
 
+REFRESH MATERIALIZED VIEW CONCURRENTLY public.section_day_counts_mv;
+
+REFRESH MATERIALIZED VIEW CONCURRENTLY public.subject_embedding_centroids_mv;
+
 -- Depends on offering_aggregates_mv
 REFRESH MATERIALIZED VIEW CONCURRENTLY public.course_offerings_full_mv;

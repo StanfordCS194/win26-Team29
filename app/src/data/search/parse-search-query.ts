@@ -5,6 +5,8 @@
  * Requires a list of known subject codes to match against.
  */
 
+import { parseCodeFromGroups } from '@/lib/course-code'
+
 export interface CourseCode {
   subject: string | undefined
   codeNumber: number
@@ -14,14 +16,75 @@ export interface CourseCode {
 export interface ParsedSearchQuery {
   codes: CourseCode[]
   subjectsOnly: string[]
+  quarters: string[]
+  wayGers: string[]
   remainingQuery: string
+}
+
+const QUARTER_KEYWORD_MAP: Record<string, string> = {
+  fall: 'Autumn',
+  autumn: 'Autumn',
+  winter: 'Winter',
+  spring: 'Spring',
+  summer: 'Summer',
+}
+
+// Keys sorted longest-first so longer aliases (e.g. "a-ii", "edp") match before shorter ones.
+const WAY_GER_MAP: Record<string, string> = {
+  'a-ii': 'WAY-A-II',
+  aii: 'WAY-A-II',
+  aqr: 'WAY-AQR',
+  ce: 'WAY-CE',
+  edp: 'WAY-EDP',
+  er: 'WAY-ER',
+  fr: 'WAY-FR',
+  si: 'WAY-SI',
+  sma: 'WAY-SMA',
 }
 
 export function parseSearchQuery(raw: string, knownSubjects: string[]): ParsedSearchQuery {
   const codes: CourseCode[] = []
   const subjectsOnly: string[] = []
+  const quarters: string[] = []
+  const wayGers: string[] = []
 
   let working = raw.trim()
+
+  // Extract WAY- GER tokens before subject/code matching so short aliases like
+  // "er" or "si" are not confused with subject code suffixes.
+  const waySuffixes = Object.keys(WAY_GER_MAP).sort((a, b) => b.length - a.length)
+  const wayGerRegex = new RegExp(
+    `(?:^|\\s)((?:way-)?(?:${waySuffixes.map((s) => escapeRegex(s)).join('|')}))(?=\\s|$)`,
+    'gi',
+  )
+  const wayGerMatches: { start: number; end: number }[] = []
+  let wm: RegExpExecArray | null
+  while ((wm = wayGerRegex.exec(working)) !== null) {
+    const token = wm[1]!.toLowerCase().replace(/^way-/, '')
+    const canonical = WAY_GER_MAP[token]!
+    if (!wayGers.includes(canonical)) wayGers.push(canonical)
+    wayGerMatches.push({ start: wm.index, end: wm.index + wm[0].length })
+  }
+  const toRemoveW = [...wayGerMatches].sort((a, b) => b.start - a.start)
+  for (const { start, end } of toRemoveW) {
+    working = working.slice(0, start) + ' ' + working.slice(end)
+  }
+  working = working.replace(/\s+/g, ' ').trim()
+
+  // Extract quarter keywords before subject/code matching
+  const quarterRegex = new RegExp(`(?:^|\\s)(${Object.keys(QUARTER_KEYWORD_MAP).join('|')})(?=\\s|$)`, 'gi')
+  const quarterMatches: { start: number; end: number }[] = []
+  let qm: RegExpExecArray | null
+  while ((qm = quarterRegex.exec(working)) !== null) {
+    const canonical = QUARTER_KEYWORD_MAP[qm[1]!.toLowerCase()]!
+    if (!quarters.includes(canonical)) quarters.push(canonical)
+    quarterMatches.push({ start: qm.index, end: qm.index + qm[0].length })
+  }
+  const toRemoveQ = [...quarterMatches].sort((a, b) => b.start - a.start)
+  for (const { start, end } of toRemoveQ) {
+    working = working.slice(0, start) + ' ' + working.slice(end)
+  }
+  working = working.replace(/\s+/g, ' ').trim()
 
   // Sort longest-first so "CSE" matches before "CS"
   const sorted = [...knownSubjects].sort((a, b) => b.length - a.length)
@@ -40,11 +103,12 @@ export function parseSearchQuery(raw: string, knownSubjects: string[]): ParsedSe
   let m: RegExpExecArray | null
   while ((m = codeRegex.exec(working)) !== null) {
     const fullMatch = m[0]
-    const subject = m[1].toUpperCase()
-    const codeNumber = parseInt(m[2], 10)
-    const codeSuffix = m[3]?.toUpperCase() ?? undefined
-
-    codes.push({ subject, codeNumber, codeSuffix })
+    const parsed = parseCodeFromGroups(m[1]!, m[2]!, m[3])
+    codes.push({
+      subject: parsed.subjectCode,
+      codeNumber: parsed.codeNumber,
+      codeSuffix: parsed.codeSuffix ?? undefined,
+    })
     codeMatches.push({
       match: fullMatch,
       start: m.index,
@@ -91,7 +155,7 @@ export function parseSearchQuery(raw: string, knownSubjects: string[]): ParsedSe
     remainingQuery = ''
   }
 
-  return { codes, subjectsOnly, remainingQuery }
+  return { codes, subjectsOnly, quarters, wayGers, remainingQuery }
 }
 
 function escapeRegex(s: string): string {

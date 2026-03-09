@@ -30,6 +30,9 @@ const VECTOR_MIN_SIMILARITY = 0.349 // cosine similarity threshold; below this i
 // Prevents noise results when a content/code/embedding query is active.
 const MIN_RELEVANCE_THRESHOLD = 0.38
 
+// Relevance score rounding step (e.g. 0.02 → 0.38, 0.40, 0.42, …)
+const RELEVANCE_SCORE_ROUNDING = 0.0075
+
 // ── Logsumexp sharpness ────────────────────────────────────────────────────
 // Higher k → winner-takes-more; lower k → scores blend more evenly.
 const LOGSUMEXP_K = 5
@@ -38,7 +41,7 @@ const LOGSUMEXP_K = 5
 // Phrase match carries the most weight; OR is a weak fallback signal.
 const SCALE_PHRASE = 1.25
 const SCALE_AND = 0.765
-const SCALE_OR = 0.315
+const SCALE_OR = 0.31475
 // Course-code match is a high-signal, structured filter: exact hits (1.0)
 // should dominate; title (0.8) and description (0.5) fuzzy hits still surface
 // the result but rank below genuine text/vector matches.
@@ -49,14 +52,14 @@ const SCALE_CODE = 1.5
 // OR is aggressively suppressed. When AND is also strong, OR gets
 // an additional multiplicative penalty.
 const DAMPEN_AND_BY_PHRASE = 8.0 // steepness of AND suppression via phrase score
-const DAMPEN_OR_BY_PHRASE = 10.0 // steepness of OR suppression via phrase score
-const DAMPEN_OR_BY_AND = 8.0 // steepness of OR suppression via AND score
+const DAMPEN_OR_BY_PHRASE = 10.25 // steepness of OR suppression via phrase score
+const DAMPEN_OR_BY_AND = 8.25 // steepness of OR suppression via AND score
 
 // ── Enrollment popularity boost ───────────────────────────────────────────
 // Softly scales relevance upward for courses with higher historical enrolment.
 // Formula: 1 + (ENROLL_BOOST_WEIGHT * N) / (N + ENROLL_BOOST_MIDPOINT)
 // At midpoint enrolment the boost is exactly 1 + ENROLL_BOOST_WEIGHT / 2.
-const ENROLL_BOOST_WEIGHT = 0.177
+const ENROLL_BOOST_WEIGHT = 0.175
 const ENROLL_BOOST_MIDPOINT = 200.0
 
 // ── Vector score scaling ───────────────────────────────────────────────────
@@ -86,6 +89,7 @@ export interface SearchQueryParams extends SearchInput {
   embedding?: number[]
   /** Offering IDs whose sections are already in the server-side cache; mv.sections will be NULL for these rows. */
   cachedOfferingIds?: number[]
+  hoursPerUnitFilter?: { min?: number; max?: number }
 }
 
 const quarterArray = (values: readonly string[]) =>
@@ -116,6 +120,7 @@ export async function searchCourseOfferings(
     numMeetingDays,
     codeNumberRange,
     repeatable,
+    hasAccompanyingSections,
     gradingOptionId,
     gradingOptionIdExclude,
     units,
@@ -137,6 +142,7 @@ export async function searchCourseOfferings(
     classDuration,
     evalFilters,
     evalQuestionIds,
+    hoursPerUnitFilter,
     sort,
     page,
     dedupeCrosslistings,
@@ -165,6 +171,7 @@ export async function searchCourseOfferings(
   const hasCandidateFilter = hasContentQuery || hasCodeFilter || hasEmbedding
 
   const isEvalSort = (EVAL_QUESTION_SLUGS as readonly string[]).includes(sort.by)
+  const isHoursPerUnitSort = sort.by === 'hours_per_unit'
 
   const needsScheduleFilter = days != null || startTime != null || endTime != null || classDuration != null
 
@@ -180,7 +187,9 @@ export async function searchCourseOfferings(
     needsScheduleFilter ||
     sort.by === 'num_enrolled' ||
     isEvalSort ||
-    evalFilters != null
+    isHoursPerUnitSort ||
+    evalFilters != null ||
+    hoursPerUnitFilter != null
   console.log('needsSectionJoin', needsSectionJoin)
 
   const compiledQuery = db
@@ -514,6 +523,40 @@ export async function searchCourseOfferings(
         // ── Repeatable ─────────────────────────────────────
         .$if(repeatable != null, (qb) => qb.where('co.repeatable', '=', repeatable!))
 
+        // ── Has accompanying sections ───────────────────────
+        .$if(hasAccompanyingSections === true, (qb) =>
+          qb.where((eb) =>
+            eb.exists(
+              eb
+                .selectFrom('sections as acc_sec')
+                .whereRef('acc_sec.course_offering_id', '=', 'co.id')
+                .where('acc_sec.is_principal', '=', false)
+                .where('acc_sec.cancelled', '=', false)
+                .$if(quarters?.include != null && quarters.include.length > 0, (q) =>
+                  q.where('acc_sec.term_quarter', 'in', quarters!.include!),
+                )
+                .select(eb.val(1).as('one')),
+            ),
+          ),
+        )
+        .$if(hasAccompanyingSections === false, (qb) =>
+          qb.where((eb) =>
+            eb.not(
+              eb.exists(
+                eb
+                  .selectFrom('sections as acc_sec')
+                  .whereRef('acc_sec.course_offering_id', '=', 'co.id')
+                  .where('acc_sec.is_principal', '=', false)
+                  .where('acc_sec.cancelled', '=', false)
+                  .$if(quarters?.include != null && quarters.include.length > 0, (q) =>
+                    q.where('acc_sec.term_quarter', 'in', quarters!.include!),
+                  )
+                  .select(eb.val(1).as('one')),
+              ),
+            ),
+          ),
+        )
+
         // ── Grading option ─────────────────────────────────
         .$if(gradingOptionId != null, (qb) => qb.where('co.grading_option_id', 'in', gradingOptionId!))
         .$if(gradingOptionIdExclude != null, (qb) =>
@@ -649,10 +692,13 @@ export async function searchCourseOfferings(
             'co.code_suffix',
             'co.units_min',
             'co.units_max',
-            sql<number>`coalesce(${relevanceScore}, 0) * (
-              1.0 + (${enrollWeight} * coalesce(${eb.ref('cet.cumulative_num_enrolled')}, 0))
-                  / (coalesce(${eb.ref('cet.cumulative_num_enrolled')}, 0) + ${enrollMidpoint})
-            ) * ${codeNumberMultiplier}`.as('relevance_score'),
+            sql<number>`round(
+              (coalesce(${relevanceScore}, 0) * (
+                1.0 + (${enrollWeight} * coalesce(${eb.ref('cet.cumulative_num_enrolled')}, 0))
+                    / (coalesce(${eb.ref('cet.cumulative_num_enrolled')}, 0) + ${enrollMidpoint})
+              ) * ${codeNumberMultiplier}) / ${sql.lit(RELEVANCE_SCORE_ROUNDING)}
+            ) * ${sql.lit(RELEVANCE_SCORE_ROUNDING)}`.as('relevance_score'),
+            'cet.cumulative_num_enrolled',
           ]
         }),
     )
@@ -693,6 +739,7 @@ export async function searchCourseOfferings(
             'fo.units_max',
             eb.val(null).as('eval_sort_score'),
             eb.val(null).as('num_enrolled'),
+            'fo.cumulative_num_enrolled',
           ])
 
         if (dedupeCrosslistings) {
@@ -721,6 +768,11 @@ export async function searchCourseOfferings(
                 .orderBy('fo.code_suffix', (ob) =>
                   sort.direction === 'asc' ? ob.asc().nullsFirst() : ob.desc().nullsLast(),
                 ),
+            )
+            .$if(sort.by === 'popularity', (qb) =>
+              qb.orderBy('fo.cumulative_num_enrolled', (ob) =>
+                sort.direction === 'asc' ? ob.asc().nullsLast() : ob.desc().nullsLast(),
+              ),
             )
         }
 
@@ -1064,9 +1116,36 @@ export async function searchCourseOfferings(
             sort.direction === 'asc' ? ob.asc().nullsLast() : ob.desc().nullsLast(),
           ),
         )
+        .$if(isHoursPerUnitSort, (qb) =>
+          qb.orderBy(
+            sql`esa_hours.smart_average / NULLIF(CEIL((COALESCE(sec.units_min, fo.units_min) + COALESCE(sec.units_max, fo.units_max)) / 2.0), 0)`,
+            (ob) => (sort.direction === 'asc' ? ob.asc().nullsLast() : ob.desc().nullsLast()),
+          ),
+        )
         .$if(sort.by === 'num_enrolled', (qb) =>
           qb.orderBy('sec.num_enrolled', (ob) =>
             sort.direction === 'asc' ? ob.asc().nullsLast() : ob.desc().nullsLast(),
+          ),
+        )
+        .$if(sort.by === 'popularity', (qb) =>
+          qb.orderBy('fo.cumulative_num_enrolled', (ob) =>
+            sort.direction === 'asc' ? ob.asc().nullsLast() : ob.desc().nullsLast(),
+          ),
+        )
+
+        // ── Hours per unit filter ─────────────────────────
+        .$if(hoursPerUnitFilter?.min != null, (qb) =>
+          qb.where(
+            sql`esa_hours.smart_average / NULLIF(CEIL((COALESCE(sec.units_min, fo.units_min) + COALESCE(sec.units_max, fo.units_max)) / 2.0), 0)`,
+            '>=',
+            hoursPerUnitFilter!.min!,
+          ),
+        )
+        .$if(hoursPerUnitFilter?.max != null, (qb) =>
+          qb.where(
+            sql`esa_hours.smart_average / NULLIF(CEIL((COALESCE(sec.units_min, fo.units_min) + COALESCE(sec.units_max, fo.units_max)) / 2.0), 0)`,
+            '<=',
+            hoursPerUnitFilter!.max!,
           ),
         )
 
@@ -1079,10 +1158,15 @@ export async function searchCourseOfferings(
           'fo.code_suffix',
           'fo.units_min',
           'fo.units_max',
-          sql<number | null>`${isEvalSort ? sql.ref(`esa_${sort.by}.smart_average`) : eb.val(null)}`.as(
-            'eval_sort_score',
-          ),
+          sql<number | null>`${
+            isHoursPerUnitSort
+              ? sql`esa_hours.smart_average / NULLIF(CEIL((COALESCE(sec.units_min, fo.units_min) + COALESCE(sec.units_max, fo.units_max)) / 2.0), 0)`
+              : isEvalSort
+                ? sql.ref(`esa_${sort.by}.smart_average`)
+                : eb.val(null)
+          }`.as('eval_sort_score'),
           'sec.num_enrolled',
+          'fo.cumulative_num_enrolled',
         ])
 
       return q
@@ -1111,9 +1195,11 @@ export async function searchCourseOfferings(
             ? sql.ref(sort.direction === 'desc' ? 'sf.units_max' : 'sf.units_min')
             : sort.by === 'num_enrolled'
               ? sql.ref('sf.num_enrolled')
-              : isEvalSort
-                ? sql.ref('sf.eval_sort_score')
-                : null // 'code' — handled by composite below
+              : sort.by === 'popularity'
+                ? sql.ref('sf.cumulative_num_enrolled')
+                : isEvalSort || isHoursPerUnitSort
+                  ? sql.ref('sf.eval_sort_score')
+                  : null // 'code' — handled by composite below
 
       let q = qb.selectFrom('section_filtered as sf').select(['sf.offering_id', 'sf.relevance_score'])
 
@@ -1154,11 +1240,13 @@ export async function searchCourseOfferings(
     .innerJoin('course_offerings_full_mv as mv', 'mv.offering_id', 'sp.offering_id')
     .select([
       'mv.offering_id as id',
+      'mv.course_id',
       'mv.year',
       'mv.subject_code',
       'mv.code_number',
       'mv.code_suffix',
       'mv.title',
+      'mv.title_clean',
       'mv.description',
       'mv.academic_group',
       'mv.academic_career',
@@ -1173,6 +1261,7 @@ export async function searchCourseOfferings(
       >`CASE WHEN mv.offering_id = ANY(${sql.raw(`ARRAY[${(cachedOfferingIds ?? []).join(',')}]::int[]`)}) THEN NULL ELSE mv.sections END`.as(
         'sections',
       ),
+      'mv.crosslistings',
       'sp.relevance_score',
       sql<number>`(SELECT count FROM total_count)::int`.as('total_count'),
     ])

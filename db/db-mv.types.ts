@@ -82,6 +82,13 @@ export interface MvLearningObjective {
   description: string
 }
 
+export interface MvCrosslisting {
+  offeringId: number
+  subjectCode: string
+  codeNumber: number
+  codeSuffix: string | null
+}
+
 export interface CourseOfferingsFullMv {
   offering_id: number
   course_id: number
@@ -92,6 +99,7 @@ export interface CourseOfferingsFullMv {
   code_number: number
   code_suffix: string | null
   title: string
+  title_clean: string
   description: string
   repeatable: boolean
   units_min: number
@@ -109,4 +117,5 @@ export interface CourseOfferingsFullMv {
   attributes: MvOfferingAttribute[]
   learning_objectives: MvLearningObjective[]
   sections: MvSection[]
+  crosslistings: MvCrosslisting[]
 }

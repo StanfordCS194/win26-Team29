@@ -146,7 +146,15 @@ const evalFiltersSchema = z.preprocess((val) => {
   return entries.length === 0 ? undefined : Object.fromEntries(entries)
 }, z.record(EvalQuestionSlugEnum, pointNumberRangeFilter).optional())
 
-export const SORT_OPTIONS = ['relevance', 'code', 'units', 'num_enrolled', ...EVAL_QUESTION_SLUGS] as const
+export const SORT_OPTIONS = [
+  'relevance',
+  'code',
+  'units',
+  'num_enrolled',
+  'popularity',
+  ...EVAL_QUESTION_SLUGS,
+  'hours_per_unit',
+] as const
 
 const sortSchema = z.object({
   by: z.enum(SORT_OPTIONS),
@@ -226,6 +234,7 @@ export const dbQuerySchema = z.object({
   numMeetingDays: pointIntRangeFilter.optional(),
   codeNumberRange: pointIntRangeFilter.optional(),
   repeatable: z.boolean().optional(),
+  hasAccompanyingSections: z.boolean().optional(),
   gradingOptionId: optionalIntArray,
   gradingOptionIdExclude: optionalIntArray,
   units: intRangeFilter.optional(),
@@ -250,6 +259,8 @@ export const dbQuerySchema = z.object({
   classDuration: pointNumberRangeFilter.optional(),
 
   evalFilters: evalFiltersSchema,
+
+  hoursPerUnitFilter: pointNumberRangeFilter.optional(),
 
   sort: sortSchema.default(defaultSort),
   page: z.int().min(1).default(1),
