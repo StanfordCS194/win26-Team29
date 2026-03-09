@@ -6,6 +6,7 @@
     "scrape:evals": "bun course-evals/cli.ts",
     "scrape:courses": "bun explore-courses/cli.ts",
     "smart-averages": "bun smart-averages/cli.ts",
+    "embed": "bun embeddings/cli.ts",
     "generate-embeddings": "bun embeddings/cli.ts",
     "lint": "oxlint --type-aware --import-plugin .",
     "lint:fix": "oxlint --type-aware --fix --import-plugin .",
