@@ -24,7 +24,7 @@ export function inlineParams(sql: string, params: readonly unknown[]): string {
 
 // Maximum number of vector-similarity candidates fetched before filtering.
 const VECTOR_TOP_K = 100
-const VECTOR_MIN_SIMILARITY = 0.32 // cosine similarity threshold; below this is not considered a match
+const VECTOR_MIN_SIMILARITY = 0.349 // cosine similarity threshold; below this is not considered a match
 
 // Offerings whose final relevance_score falls below this are dropped.
 // Prevents noise results when a content/code/embedding query is active.
