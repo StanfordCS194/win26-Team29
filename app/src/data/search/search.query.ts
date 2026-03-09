@@ -22,10 +22,59 @@ export function inlineParams(sql: string, params: readonly unknown[]): string {
   })
 }
 
-const HYBRID_TEXT_WEIGHT = 0.45
+// Maximum number of vector-similarity candidates fetched before filtering.
 const VECTOR_TOP_K = 100
-const SINGLE_SOURCE_DISCOUNT = 0.8
-const MIN_RELEVANCE_THRESHOLD = 0.25
+const VECTOR_MIN_SIMILARITY = 0.32 // cosine similarity threshold; below this is not considered a match
+
+// Offerings whose final relevance_score falls below this are dropped.
+// Prevents noise results when a content/code/embedding query is active.
+const MIN_RELEVANCE_THRESHOLD = 0.35
+
+// ── Logsumexp sharpness ────────────────────────────────────────────────────
+// Higher k → winner-takes-more; lower k → scores blend more evenly.
+const LOGSUMEXP_K = 5
+
+// ── Text-tier blend weights (must sum to 1.0) ─────────────────────────────
+// Phrase match carries the most weight; OR is a weak fallback signal.
+const SCALE_PHRASE = 1.25
+const SCALE_AND = 0.765
+const SCALE_OR = 0.35
+// Course-code match is a high-signal, structured filter: exact hits (1.0)
+// should dominate; title (0.8) and description (0.5) fuzzy hits still surface
+// the result but rank below genuine text/vector matches.
+const SCALE_CODE = 1.5
+
+// ── AND/OR dampening steepness ────────────────────────────────────────────
+// When a strong phrase signal exists, AND is mildly suppressed;
+// OR is aggressively suppressed. When AND is also strong, OR gets
+// an additional multiplicative penalty.
+const DAMPEN_AND_BY_PHRASE = 8.0 // steepness of AND suppression via phrase score
+const DAMPEN_OR_BY_PHRASE = 10.0 // steepness of OR suppression via phrase score
+const DAMPEN_OR_BY_AND = 8.0 // steepness of OR suppression via AND score
+
+// ── Enrollment popularity boost ───────────────────────────────────────────
+// Softly scales relevance upward for courses with higher historical enrolment.
+// Formula: 1 + (ENROLL_BOOST_WEIGHT * N) / (N + ENROLL_BOOST_MIDPOINT)
+// At midpoint enrolment the boost is exactly 1 + ENROLL_BOOST_WEIGHT / 2.
+const ENROLL_BOOST_WEIGHT = 0.177
+const ENROLL_BOOST_MIDPOINT = 200.0
+
+// ── Vector score scaling ───────────────────────────────────────────────────
+// Cosine similarity [0,1] is shifted and cubed so that near-duplicate
+// embeddings score much higher than loose semantic matches.
+const VECTOR_SHIFT = 0.2725 // added to score before squaring
+const VECTOR_FLOOR = -0.3 // coalesce fallback when no vector match
+const SCALE_VECTOR = 1.02 // overall multiplier on the cubed term
+const SUBJECT_BOOST_FALLBACK = 0.85 // subject_boost when centroid is absent
+
+// ── Code-number tier multipliers ──────────────────────────────────────────
+// Slightly penalises very low-numbered (freshman) and graduate-level courses
+// to keep the mid-level undergraduate sweet spot at full weight.
+const CODE_MULT_BELOW_100 = 0.98
+const CODE_MULT_100 = 1.0
+const CODE_MULT_200 = 0.99
+const CODE_MULT_300 = 0.95
+const CODE_MULT_400_PLUS = 0.9
 
 export type EvalSlug = (typeof EVAL_QUESTION_SLUGS)[number]
 
@@ -101,6 +150,19 @@ export async function searchCourseOfferings(
   const hasContentQuery = query != null && query.length > 0
   const hasEmbedding = embedding != null && embedding.length > 0
   const embeddingVector = hasEmbedding ? `[${embedding!.join(',')}]` : null
+  const orQueryStr = hasContentQuery ? query.split(/\s+/).join(' | ') : null
+
+  const phraseTs = sql`(phraseto_tsquery('english', ${query}) || phraseto_tsquery('simple', ${query}))`
+  const andTs = sql`(plainto_tsquery('english', ${query}) || plainto_tsquery('simple', ${query}))`
+  const orTs = sql`(to_tsquery('english', ${orQueryStr}) || to_tsquery('simple', ${orQueryStr}))`
+
+  const codeStrings = (code ?? []).flatMap((c) => {
+    if (c.subject == null) return []
+    const num = `${c.code_number}${c.code_suffix ?? ''}`
+    return [`${c.subject}${num}`, `${c.subject} ${num}`]
+  })
+  const hasCodeStrings = codeStrings.length > 0
+  const hasCandidateFilter = hasContentQuery || hasCodeFilter || hasEmbedding
 
   const isEvalSort = (EVAL_QUESTION_SLUGS as readonly string[]).includes(sort.by)
 
@@ -146,6 +208,7 @@ export async function searchCourseOfferings(
             .select(['vo.id as offering_id', sql<number>`1 - d.dist`.as('vector_score')])
             .where('vo.embedding', 'is not', null)
             .where('vo.year', '=', year)
+            .where(sql<SqlBool>`1 - d.dist >= ${VECTOR_MIN_SIMILARITY}`)
             .orderBy(sql`d.dist`)
             .limit(VECTOR_TOP_K)
         : cte
@@ -155,22 +218,48 @@ export async function searchCourseOfferings(
     )
 
     // ═══════════════════════════════════════════════════════════
-    //  CTE 0.5: text_candidates
+    //  CTEs 0.5–0.7: phrase / AND / OR candidates
     //
-    //  All offerings with a full-text match, scored by ts_rank.
-    //  Produces zero rows (WHERE false) when no content query is
-    //  active so the LEFT JOIN in filtered_offerings is always
-    //  structurally valid.
+    //  Three tiers of full-text matching on the merged search_vector
+    //  (english + simple lexemes). Each tsquery ORs both dictionaries
+    //  so stemmed and unstemmed forms are matched in one pass:
+    //   • phrase_candidates  – exact phrase order (phraseto_tsquery)
+    //   • and_candidates     – all terms present, any order (plainto_tsquery)
+    //   • or_candidates      – any term present (to_tsquery with |)
+    //  Each produces zero rows when no content query is active.
     // ═══════════════════════════════════════════════════════════
-    .with('text_candidates', (cte) =>
+    .with('phrase_candidates', (cte) =>
       hasContentQuery
         ? cte
             .selectFrom('course_content_search as cs')
-            .select([
-              'cs.offering_id',
-              sql<number>`ts_rank(cs.search_vector, websearch_to_tsquery('english', ${query}))`.as('score'),
-            ])
-            .where(sql<SqlBool>`cs.search_vector @@ websearch_to_tsquery('english', ${query})`)
+            .select(['cs.offering_id', sql<number>`ts_rank(cs.search_vector, ${phraseTs})`.as('score')])
+            .where(sql<SqlBool>`cs.search_vector @@ ${phraseTs}`)
+            .where('cs.year', '=', year)
+        : cte
+            .selectFrom('course_content_search as cs')
+            .select(['cs.offering_id', sql<number>`null::float`.as('score')])
+            .where(sql<SqlBool>`false`),
+    )
+
+    .with('and_candidates', (cte) =>
+      hasContentQuery
+        ? cte
+            .selectFrom('course_content_search as cs')
+            .select(['cs.offering_id', sql<number>`ts_rank(cs.search_vector, ${andTs})`.as('score')])
+            .where(sql<SqlBool>`cs.search_vector @@ ${andTs}`)
+            .where('cs.year', '=', year)
+        : cte
+            .selectFrom('course_content_search as cs')
+            .select(['cs.offering_id', sql<number>`null::float`.as('score')])
+            .where(sql<SqlBool>`false`),
+    )
+
+    .with('or_candidates', (cte) =>
+      hasContentQuery
+        ? cte
+            .selectFrom('course_content_search as cs')
+            .select(['cs.offering_id', sql<number>`ts_rank(cs.search_vector, ${orTs})`.as('score')])
+            .where(sql<SqlBool>`cs.search_vector @@ ${orTs}`)
             .where('cs.year', '=', year)
         : cte
             .selectFrom('course_content_search as cs')
@@ -179,40 +268,132 @@ export async function searchCourseOfferings(
     )
 
     // ═══════════════════════════════════════════════════════════
-    //  CTE 0.75: simple_candidates
+    //  CTE 0.95: phrase_signal
     //
-    //  Matches against the 'simple' tsvector (course codes,
-    //  crosslisting codes, instructor names). Uses websearch_to_tsquery
-    //  with the 'simple' config to avoid stemming on identifiers.
+    //  Global best phrase score across all phrase_candidates rows.
+    //  Used to dampen AND/OR contributions when a strong phrase
+    //  match exists. Always produces exactly one row.
     // ═══════════════════════════════════════════════════════════
-    .with('simple_candidates', (cte) =>
+    .with('phrase_signal', (cte) =>
       hasContentQuery
         ? cte
-            .selectFrom('course_content_search as cs')
-            .select([
-              'cs.offering_id',
-              sql<number>`ts_rank(cs.search_vector_simple, websearch_to_tsquery('simple', ${query}))`.as(
-                'score',
-              ),
-            ])
-            .where(sql<SqlBool>`cs.search_vector_simple @@ websearch_to_tsquery('simple', ${query})`)
-            .where('cs.year', '=', year)
+            .selectFrom('phrase_candidates as pc')
+            .select(sql<number>`coalesce(max(pc.score), 0)`.as('best_phrase'))
         : cte
-            .selectFrom('course_content_search as cs')
-            .select(['cs.offering_id', sql<number>`null::float`.as('score')])
+            .selectFrom('phrase_candidates as pc')
+            .select(sql<number>`coalesce(max(0::float), 0)`.as('best_phrase')),
+    )
+
+    .with('and_signal', (cte) =>
+      hasContentQuery
+        ? cte
+            .selectFrom('and_candidates as ac')
+            .select(sql<number>`coalesce(max(ac.score), 0)`.as('best_and'))
+        : cte
+            .selectFrom('and_candidates as ac')
+            .select(sql<number>`coalesce(max(0::float), 0)`.as('best_and')),
+    )
+
+    .with('code_candidates', (cte) =>
+      hasCodeFilter
+        ? (() => {
+            const exact = cte
+              .selectFrom('course_offerings as co')
+              .innerJoin('subjects as s', 's.id', 'co.subject_id')
+              .select(['co.id as offering_id', sql<number>`1.0`.as('code_score')])
+              .where('co.year', '=', year)
+              .where((eb) =>
+                eb.or(
+                  code!.map((c) => {
+                    const conditions: Expression<SqlBool>[] = []
+                    if (c.subject != null) conditions.push(eb('s.code', '=', c.subject))
+                    conditions.push(eb('co.code_number', '=', c.code_number))
+                    if (c.code_suffix != null)
+                      conditions.push(
+                        eb(eb.fn('upper', ['co.code_suffix']), '=', c.code_suffix.toUpperCase()),
+                      )
+                    return eb.and(conditions)
+                  }),
+                ),
+              )
+
+            let query = exact
+
+            console.log('codeStrings', codeStrings)
+
+            if (hasCodeStrings) {
+              const titleTier = cte
+                .selectFrom('course_offerings as co')
+                .select(['co.id as offering_id', sql<number>`0.8`.as('code_score')])
+                .where('co.year', '=', year)
+                .where((eb) => eb.or(codeStrings.map((s) => sql<SqlBool>`co.title ILIKE ${`%${s}%`}`)))
+
+              const descTier = cte
+                .selectFrom('course_offerings as co')
+                .select(['co.id as offering_id', sql<number>`0.5`.as('code_score')])
+                .where('co.year', '=', year)
+                .where((eb) => eb.or(codeStrings.map((s) => sql<SqlBool>`co.description ILIKE ${`%${s}%`}`)))
+
+              query = query.union(titleTier).union(descTier)
+            }
+
+            return cte
+              .selectFrom(query.as('raw_cc'))
+              .select(['raw_cc.offering_id', sql<number>`max(raw_cc.code_score)`.as('code_score')])
+              .groupBy('raw_cc.offering_id')
+          })()
+        : cte
+            .selectFrom('course_offerings as co')
+            .select(['co.id as offering_id', sql<number>`null::float`.as('code_score')])
             .where(sql<SqlBool>`false`),
     )
 
     .with('all_candidates', (cte) =>
-      hasContentQuery
-        ? cte
-            .selectFrom('vector_candidates')
-            .select('offering_id')
-            .union(cte.selectFrom('text_candidates').select('offering_id'))
-            .union(cte.selectFrom('simple_candidates').select('offering_id'))
+      hasCandidateFilter
+        ? (() => {
+            let q = hasCodeFilter
+              ? cte.selectFrom('code_candidates').select('offering_id')
+              : cte
+                  .selectFrom('vector_candidates')
+                  .select('offering_id')
+                  .where(sql<SqlBool>`false`)
+
+            if (hasContentQuery) {
+              q = q
+                .union(cte.selectFrom('phrase_candidates').select('offering_id'))
+                .union(cte.selectFrom('and_candidates').select('offering_id'))
+                .union(cte.selectFrom('or_candidates').select('offering_id'))
+            }
+            if (hasEmbedding) {
+              q = q.union(cte.selectFrom('vector_candidates').select('offering_id'))
+            }
+            return q
+          })()
         : cte
-            .selectFrom('vector_candidates')
-            .select('offering_id')
+            .selectFrom('course_offerings as co')
+            .select(['co.id as offering_id'])
+            .where(sql<SqlBool>`false`),
+    )
+    .with('subject_scores', (cte) =>
+      hasEmbedding
+        ? cte.selectFrom('subject_embedding_centroids_mv as sec').select([
+            'sec.subject_id',
+            sql<number>`
+                round(
+                  greatest(
+                    1.0 / (1.0 + exp(-20.0 * (
+                      (1.0 - (sec.centroid <=> ${embeddingVector!}::vector))
+                      * sec.subject_multiplier * 2.0
+                      - 0.38
+                    ))),
+                    0.8
+                  ) / 0.05
+                ) * 0.05
+              `.as('subject_boost'),
+          ])
+        : cte
+            .selectFrom('subject_embedding_centroids_mv as sec')
+            .select(['sec.subject_id', sql<number>`null::float`.as('subject_boost')])
             .where(sql<SqlBool>`false`),
     )
 
@@ -232,11 +413,16 @@ export async function searchCourseOfferings(
         )
         .leftJoin('all_candidates as ac', 'ac.offering_id', 'co.id')
         .leftJoin('vector_candidates as vc', 'vc.offering_id', 'co.id')
-        .leftJoin('text_candidates as tc', 'tc.offering_id', 'co.id')
-        .leftJoin('simple_candidates as sc', 'sc.offering_id', 'co.id')
+        .leftJoin('phrase_candidates as pc', 'pc.offering_id', 'co.id')
+        .leftJoin('and_candidates as andc', 'andc.offering_id', 'co.id')
+        .leftJoin('or_candidates as orc', 'orc.offering_id', 'co.id')
+        .leftJoin('phrase_signal as ps', (join) => join.onTrue())
+        .leftJoin('and_signal as ans', (join) => join.onTrue())
+        .leftJoin('code_candidates as cc', 'cc.offering_id', 'co.id')
+        .leftJoin('subject_scores as ss', 'ss.subject_id', 'co.subject_id')
         .where('co.year', '=', year)
 
-        .$if(hasContentQuery, (qb) => qb.where('ac.offering_id', 'is not', null))
+        .$if(hasCandidateFilter, (qb) => qb.where('ac.offering_id', 'is not', null))
 
         // -- Quarters filter ──────────────────────────────────
         .$if(
@@ -272,22 +458,6 @@ export async function searchCourseOfferings(
                   ${quarterArray(quarters!.exclude!)}
                 )
               `,
-          ),
-        )
-
-        // ── Code filter ────────────────────────────────────
-        .$if(hasCodeFilter, (qb) =>
-          qb.where((eb) =>
-            eb.or(
-              code!.map((c) => {
-                const conditions: Expression<SqlBool>[] = []
-                if (c.subject != null) conditions.push(eb('s.code', '=', c.subject))
-                conditions.push(eb('co.code_number', '=', c.code_number))
-                if (c.code_suffix != null)
-                  conditions.push(eb(eb.fn('upper', ['co.code_suffix']), '=', c.code_suffix.toUpperCase()))
-                return eb.and(conditions)
-              }),
-            ),
           ),
         )
 
@@ -412,23 +582,64 @@ export async function searchCourseOfferings(
 
         // ── Select + relevance score ───────────────────────
         .select((eb) => {
-          const textScore = sql<number>`greatest(
-            coalesce(${eb.ref('tc.score')}, 0),
-            coalesce(${eb.ref('sc.score')}, 0)  * 1.15
-          )`
+          const k = sql.lit(LOGSUMEXP_K)
+          const scale = {
+            phrase: sql.lit(SCALE_PHRASE),
+            and: sql.lit(SCALE_AND),
+            or: sql.lit(SCALE_OR),
+            vector: sql.lit(SCALE_VECTOR),
+            code: sql.lit(SCALE_CODE),
+          }
+          const dAndByPhrase = sql.lit(DAMPEN_AND_BY_PHRASE)
+          const dOrByPhrase = sql.lit(DAMPEN_OR_BY_PHRASE)
+          const dOrByAnd = sql.lit(DAMPEN_OR_BY_AND)
+          const vFloor = sql.lit(VECTOR_FLOOR)
+          const vShift = sql.lit(VECTOR_SHIFT)
+          const subjectFallback = sql.lit(SUBJECT_BOOST_FALLBACK)
+          const enrollWeight = sql.lit(ENROLL_BOOST_WEIGHT)
+          const enrollMidpoint = sql.lit(ENROLL_BOOST_MIDPOINT)
 
-          const rawRelevance = eb
-            .case()
-            .when(eb.and([eb(textScore, 'is not', null), eb('vc.vector_score', 'is not', null)]))
-            .then(
-              sql<number>`${HYBRID_TEXT_WEIGHT} * ${textScore} + ${1 - HYBRID_TEXT_WEIGHT} * ${eb.ref('vc.vector_score')}`,
-            )
-            .when(eb(textScore, 'is not', null))
-            .then(sql<number>`${SINGLE_SOURCE_DISCOUNT} * ${textScore}`)
-            .when(eb('vc.vector_score', 'is not', null))
-            .then(sql<number>`${SINGLE_SOURCE_DISCOUNT} * ${eb.ref('vc.vector_score')}`)
-            .else(sql.lit(0))
-            .end()
+          const relevanceScore = hasCandidateFilter
+            ? sql<number>`(
+                ln(
+                  exp(${k} * ${scale.code} * coalesce(${eb.ref('cc.code_score')}, 0))
+                  +
+                  exp(${k} * ${scale.phrase} * coalesce(${eb.ref('pc.score')}, 0))
+                  +
+                  exp(
+                    ${k} * ${scale.and} * (
+                      coalesce(${eb.ref('andc.score')}, 0)
+                      * (1.0 / (1.0 + ${dAndByPhrase} * ${eb.ref('ps.best_phrase')}))
+                    )
+                  )
+                  +
+                  exp(
+                    ${k} * ${scale.or} * (
+                      coalesce(${eb.ref('orc.score')}, 0)
+                      * (1.0 / (1.0 + ${dOrByPhrase} * coalesce(${eb.ref('ps.best_phrase')}, 0)))
+                      * (1.0 / (1.0 + ${dOrByAnd} * coalesce(${eb.ref('ps.best_phrase')}, 0)))
+                    )
+                  )
+                  +
+                  exp(
+                    ${k} * (
+                      ${scale.vector} * pow(coalesce(${eb.ref('vc.vector_score')}, ${vFloor}) + ${vShift}, 2)
+                      * coalesce(${eb.ref('ss.subject_boost')}, ${subjectFallback})
+                    )
+                  )
+                ) / ${k}
+              )`
+            : eb.cast(eb.val(null), 'float8')
+
+          const codeNumberMultiplier = sql`
+            CASE
+              WHEN ${eb.ref('co.code_number')} < 100 THEN ${sql.lit(CODE_MULT_BELOW_100)}
+              WHEN ${eb.ref('co.code_number')} < 200 THEN ${sql.lit(CODE_MULT_100)}
+              WHEN ${eb.ref('co.code_number')} < 300 THEN ${sql.lit(CODE_MULT_200)}
+              WHEN ${eb.ref('co.code_number')} < 400 THEN ${sql.lit(CODE_MULT_300)}
+              ELSE ${sql.lit(CODE_MULT_400_PLUS)}
+            END
+          `
 
           return [
             'co.id as offering_id',
@@ -438,10 +649,10 @@ export async function searchCourseOfferings(
             'co.code_suffix',
             'co.units_min',
             'co.units_max',
-            sql<number>`(${rawRelevance}) * (
-              1.0 + (0.25 * coalesce(${eb.ref('cet.cumulative_num_enrolled')}, 0))
-                  / (coalesce(${eb.ref('cet.cumulative_num_enrolled')}, 0) + 300.0)
-            )`.as('relevance_score'),
+            sql<number>`coalesce(${relevanceScore}, 0) * (
+              1.0 + (${enrollWeight} * coalesce(${eb.ref('cet.cumulative_num_enrolled')}, 0))
+                  / (coalesce(${eb.ref('cet.cumulative_num_enrolled')}, 0) + ${enrollMidpoint})
+            ) * ${codeNumberMultiplier}`.as('relevance_score'),
           ]
         }),
     )
@@ -457,7 +668,7 @@ export async function searchCourseOfferings(
       qb
         .selectFrom('filtered_offerings as fo')
         .selectAll()
-        .$if(hasContentQuery, (qb) => qb.where('fo.relevance_score', '>=', MIN_RELEVANCE_THRESHOLD)),
+        .$if(hasCandidateFilter, (qb) => qb.where('fo.relevance_score', '>=', MIN_RELEVANCE_THRESHOLD)),
     )
 
     // ═══════════════════════════════════════════════════════════
@@ -967,7 +1178,7 @@ export async function searchCourseOfferings(
     ])
     .compile()
 
-  // console.log(inlineParams(compiledQuery.sql, compiledQuery.parameters))
+  console.log(inlineParams(compiledQuery.sql, compiledQuery.parameters))
 
   const { rows } = await db.executeQuery(compiledQuery)
 

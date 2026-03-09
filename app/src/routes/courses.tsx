@@ -25,7 +25,7 @@ export const Route = createFileRoute('/courses')({
     void context.queryClient.prefetchQuery(availableGersQueryOptions)
     void context.queryClient.prefetchQuery(availableSubjectsQueryOptions(deps.year))
     void context.queryClient.prefetchQuery(availableInstructorsQueryOptions(deps.year))
-    void context.queryClient.prefetchQuery(searchQueryOptions(deps))
+    void context.queryClient.prefetchQuery(searchQueryOptions(deps, context.queryClient))
   },
   component: CoursesPage,
 })

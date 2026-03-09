@@ -275,4 +275,13 @@ export type SearchCourseResult = {
 
 export type SearchResultSections = SearchCourseResult['sections']
 
+export type SearchCourseResultStub = {
+  id: number
+  year: string
+  subject_code: string
+  code_number: number
+  code_suffix: string | null
+  _stub: true
+}
+
 export type SearchQueryResult = Omit<SearchCourseResult, 'sections'> & { sections: MvSection[] | null }
