@@ -8,6 +8,11 @@ import {
   getAvailableInstructors,
   getAvailableComponentTypes,
   searchCourses,
+  getCourseByCode,
+  getEvalDistribution,
+  getInstructorCourseQuarters,
+  getCourseTextReviews,
+  getInstructorProfile,
 } from '@/data/search/search'
 
 import type { SearchParams } from '@/data/search/search.params'
@@ -104,6 +109,78 @@ export function searchQueryOptions(search: SearchParams) {
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     retry: false,
+  }
+}
+
+export function courseByCodeQueryOptions(year: string, courseCodeSlug: string) {
+  return {
+    queryKey: ['course', year, courseCodeSlug] as const,
+    queryFn: () => getCourseByCode({ data: { year, courseCodeSlug } }),
+    staleTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+  }
+}
+
+export function evalDistributionQueryOptions(params: {
+  courseCodeSlug: string
+  quarterYears: { quarter: string; year: string }[]
+  instructorSunets: string[]
+  metric: string
+}) {
+  return {
+    queryKey: ['eval-distribution', params] as const,
+    queryFn: () => getEvalDistribution({ data: params }),
+    staleTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+    enabled: params.courseCodeSlug.length > 0 && params.quarterYears.length > 0,
+  }
+}
+
+export function instructorCourseQuartersQueryOptions(params: {
+  courseCodeSlug: string
+  instructorSunets: string[]
+  years: string[]
+}) {
+  return {
+    queryKey: ['instructor-course-quarters', params] as const,
+    queryFn: () => getInstructorCourseQuarters({ data: params }),
+    staleTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+    enabled: params.courseCodeSlug.length > 0,
+  }
+}
+
+export function courseTextReviewsQueryOptions(params: {
+  courseCodeSlug: string
+  quarterYears: { quarter: string; year: string }[]
+  instructorSunets: string[]
+}) {
+  return {
+    queryKey: ['course-text-reviews', params] as const,
+    queryFn: () => getCourseTextReviews({ data: params }),
+    staleTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+    enabled: params.courseCodeSlug.length > 0 && params.quarterYears.length > 0,
+  }
+}
+
+export function instructorProfileQueryOptions(sunet: string, years: string[]) {
+  return {
+    queryKey: ['instructor-profile', sunet, years] as const,
+    queryFn: () => getInstructorProfile({ data: { sunet, years } }),
+    staleTime: 1000 * 60 * 60,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    retry: false,
+    enabled: sunet.length > 0,
   }
 }
 

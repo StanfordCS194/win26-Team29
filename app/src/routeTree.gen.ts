@@ -13,6 +13,7 @@ import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as InstructorSunetRouteImport } from './routes/instructor.$sunet'
 import { Route as CourseCourseIdRouteImport } from './routes/course.$courseId'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 
@@ -36,6 +37,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const InstructorSunetRoute = InstructorSunetRouteImport.update({
+  id: '/instructor/$sunet',
+  path: '/instructor/$sunet',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CourseCourseIdRoute = CourseCourseIdRouteImport.update({
   id: '/course/$courseId',
   path: '/course/$courseId',
@@ -54,6 +60,7 @@ export interface FileRoutesByFullPath {
   '/schedule': typeof ScheduleRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/course/$courseId': typeof CourseCourseIdRoute
+  '/instructor/$sunet': typeof InstructorSunetRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -62,6 +69,7 @@ export interface FileRoutesByTo {
   '/schedule': typeof ScheduleRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/course/$courseId': typeof CourseCourseIdRoute
+  '/instructor/$sunet': typeof InstructorSunetRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -71,6 +79,7 @@ export interface FileRoutesById {
   '/schedule': typeof ScheduleRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/course/$courseId': typeof CourseCourseIdRoute
+  '/instructor/$sunet': typeof InstructorSunetRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -81,6 +90,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/auth/callback'
     | '/course/$courseId'
+    | '/instructor/$sunet'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -89,6 +99,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/auth/callback'
     | '/course/$courseId'
+    | '/instructor/$sunet'
   id:
     | '__root__'
     | '/'
@@ -97,6 +108,7 @@ export interface FileRouteTypes {
     | '/schedule'
     | '/auth/callback'
     | '/course/$courseId'
+    | '/instructor/$sunet'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -106,6 +118,7 @@ export interface RootRouteChildren {
   ScheduleRoute: typeof ScheduleRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   CourseCourseIdRoute: typeof CourseCourseIdRoute
+  InstructorSunetRoute: typeof InstructorSunetRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -138,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/instructor/$sunet': {
+      id: '/instructor/$sunet'
+      path: '/instructor/$sunet'
+      fullPath: '/instructor/$sunet'
+      preLoaderRoute: typeof InstructorSunetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/course/$courseId': {
       id: '/course/$courseId'
       path: '/course/$courseId'
@@ -162,6 +182,7 @@ const rootRouteChildren: RootRouteChildren = {
   ScheduleRoute: ScheduleRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   CourseCourseIdRoute: CourseCourseIdRoute,
+  InstructorSunetRoute: InstructorSunetRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
