@@ -267,6 +267,7 @@ export const getCourseByCode = createServerFn({ method: 'GET' })
         'units_min',
         'units_max',
         'gers',
+        'new_this_year',
         'sections',
         'crosslistings',
       ])
@@ -940,6 +941,7 @@ export const searchCourses = createServerFn({ method: 'GET' })
 
         repeatable: data.repeatable,
         hasAccompanyingSections: data.hasAccompanyingSections,
+        newThisYear: data.year >= '2022-2023' ? data.newThisYear : undefined,
         gradingOptionId: resolveGradingIds(expandGradingTokens(data.gradingOptions)),
         gradingOptionIdExclude: resolveGradingIds(expandGradingTokens(data.gradingOptionsExclude)),
         academicCareerId: resolveCareerIds(data.careers),

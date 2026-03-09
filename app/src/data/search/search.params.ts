@@ -170,6 +170,7 @@ export const searchParamsSchema = z.object({
   // Course metadata filters
   repeatable: z.preprocess(coerceBoolString, z.boolean().optional()).catch(undefined),
   hasAccompanyingSections: z.preprocess(coerceBoolString, z.boolean().optional()).catch(undefined),
+  newThisYear: z.preprocess(coerceBoolString, z.boolean().optional()).catch(undefined),
 
   // GER count range (single integer — no mode)
   numGersMin: z.coerce.number().int().optional().catch(undefined),
@@ -273,6 +274,7 @@ export const SEARCH_DEFAULTS = {
   page: 1,
   unitsMode: 'overlaps_with',
   hasAccompanyingSections: undefined,
+  newThisYear: undefined,
 } as const
 
 // --- Output types ---
@@ -302,6 +304,7 @@ export type SearchCourseResult = {
   units_min: number
   units_max: number
   gers: string[]
+  new_this_year: boolean
   sections: MvSection[]
   crosslistings?: SearchCourseCrosslisting[]
   instructorQualityBySunet?: Record<string, number>

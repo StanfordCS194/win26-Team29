@@ -121,6 +121,7 @@ export async function searchCourseOfferings(
     codeNumberRange,
     repeatable,
     hasAccompanyingSections,
+    newThisYear,
     gradingOptionId,
     gradingOptionIdExclude,
     units,
@@ -555,6 +556,18 @@ export async function searchCourseOfferings(
               ),
             ),
           ),
+        )
+
+        // ── New this year / Has been recently offered ───────
+        .$if(newThisYear === true, (qb) =>
+          qb
+            .innerJoin('course_offerings_full_mv as mv_nt', 'mv_nt.offering_id', 'co.id')
+            .where('mv_nt.new_this_year', '=', true),
+        )
+        .$if(newThisYear === false, (qb) =>
+          qb
+            .innerJoin('course_offerings_full_mv as mv_nt', 'mv_nt.offering_id', 'co.id')
+            .where('mv_nt.new_this_year', '=', false),
         )
 
         // ── Grading option ─────────────────────────────────
@@ -1256,6 +1269,7 @@ export async function searchCourseOfferings(
       'mv.units_min',
       'mv.units_max',
       'mv.gers',
+      'mv.new_this_year',
       sql<
         MvSection[] | null
       >`CASE WHEN mv.offering_id = ANY(${sql.raw(`ARRAY[${(cachedOfferingIds ?? []).join(',')}]::int[]`)}) THEN NULL ELSE mv.sections END`.as(

@@ -74,6 +74,7 @@ const BADGE_SECTION: Record<string, string> = {
   componentTypes: 'filter-components',
   componentTypesExclude: 'filter-components',
   hasAccompanyingSections: 'filter-components',
+  newThisYear: 'filter-newThisYear',
   gradingOptions: 'filter-gradingOptions',
   gradingOptionsExclude: 'filter-gradingOptions',
   finalExamFlags: 'filter-finalExam',
@@ -516,6 +517,15 @@ export function AppliedFilterBadges({
         label: 'Accompanying sections',
         summary: search.hasAccompanyingSections ? 'Has' : 'None',
         onClear: () => nav({ hasAccompanyingSections: undefined }),
+      })
+    }
+
+    if (search.newThisYear != null && search.year >= '2022-2023') {
+      result.push({
+        id: 'newThisYear',
+        label: 'Offering history',
+        summary: search.newThisYear ? 'New this year' : 'Has been recently offered',
+        onClear: () => nav({ newThisYear: undefined }),
       })
     }
 

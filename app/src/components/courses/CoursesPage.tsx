@@ -36,6 +36,7 @@ import { EvalFilters } from './EvalFilters'
 import { EnrolledFilter, MaxClassSizeFilter, EnrollmentStatusFilter } from './EnrollmentFilters'
 import { RepeatableFilter } from './RepeatableFilter'
 import { HasAccompanyingSectionsFilter } from './HasAccompanyingSectionsFilter'
+import { NewThisYearFilter } from './NewThisYearFilter'
 import { DeduplicateCrosslistings } from './DeduplicateCrosslistings'
 import { CodeNumberFilter } from './CodeNumberFilter'
 import { SubjectCountFilter } from './SubjectCountFilter'
@@ -331,8 +332,11 @@ export function CoursesPage() {
                 <div id="filter-finalExam" className="py-1.25">
                   <FinalExamFilter />
                 </div>
-                <div id="filter-repeatable" className="py-1.25 pb-1">
+                <div id="filter-repeatable" className="py-1.25">
                   <RepeatableFilter />
+                </div>
+                <div id="filter-newThisYear" className="py-1.25 pb-1">
+                  <NewThisYearFilter />
                 </div>
               </div>
               <div className="sticky bottom-0 border-t border-slate-200 bg-sky-50" />

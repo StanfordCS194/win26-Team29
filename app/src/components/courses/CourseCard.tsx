@@ -553,7 +553,7 @@ export function CourseCard({
   return (
     <div
       className={`mb-3 block rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm transition-opacity select-text ${
-        isFetchingOther ? 'opacity-60' : 'opacity-100'
+        isFetchingOther && selectedOfferingId !== course.id ? 'opacity-60' : 'opacity-100'
       }`}
     >
       <article className="flex items-start gap-2">
@@ -614,13 +614,24 @@ export function CourseCard({
                 </span>
               )}{' '}
               <span className="font-normal text-slate-700">{course.title_clean ?? course.title}</span>
+              {'new_this_year' in activeCourse && activeCourse.new_this_year && (
+                <>
+                  {' '}
+                  <Badge
+                    variant="secondary"
+                    className="border-emerald-200 bg-emerald-50/80 px-1.5 align-middle text-[10px] leading-none font-medium text-emerald-700"
+                  >
+                    New this year
+                  </Badge>
+                </>
+              )}{' '}
               <Link
                 to="/course/$courseId"
                 params={{ courseId: selectedCodeSlug }}
-                className="ml-1 inline-flex shrink-0 align-middle text-slate-400 transition-colors hover:text-primary"
+                className="inline-flex shrink-0 align-middle text-slate-400 transition-colors hover:text-primary"
                 aria-label={`View ${formatCourseCodeFromParts(selectedCode)}`}
               >
-                <ExternalLink className="mb-0.5 size-4" />
+                <ExternalLink className="mb-0.5 size-4 align-middle" />
               </Link>
             </h2>
 

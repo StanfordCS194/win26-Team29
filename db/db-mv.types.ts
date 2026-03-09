@@ -113,6 +113,7 @@ export interface CourseOfferingsFullMv {
   academic_career: string
   academic_organization: string
   gers: string[]
+  new_this_year: boolean
   tags: MvOfferingTag[]
   attributes: MvOfferingAttribute[]
   learning_objectives: MvLearningObjective[]

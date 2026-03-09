@@ -235,6 +235,7 @@ export const dbQuerySchema = z.object({
   codeNumberRange: pointIntRangeFilter.optional(),
   repeatable: z.boolean().optional(),
   hasAccompanyingSections: z.boolean().optional(),
+  newThisYear: z.boolean().optional(),
   gradingOptionId: optionalIntArray,
   gradingOptionIdExclude: optionalIntArray,
   units: intRangeFilter.optional(),

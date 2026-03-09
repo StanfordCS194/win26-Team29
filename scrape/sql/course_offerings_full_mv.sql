@@ -228,7 +228,19 @@ SELECT
   COALESCE(oa.attributes, '[]'::jsonb)           AS attributes,
   COALESCE(olo.learning_objectives, '[]'::jsonb) AS learning_objectives,
   COALESCE(os.sections, '[]'::jsonb)             AS sections,
-  COALESCE(cc.crosslistings, '[]'::jsonb)        AS crosslistings
+  COALESCE(cc.crosslistings, '[]'::jsonb)        AS crosslistings,
+  (
+    co.year >= '2022-2023'
+    AND NOT EXISTS (
+      SELECT 1 FROM course_offerings co_prev
+      WHERE co_prev.course_id = co.course_id
+      AND co_prev.year IN (
+        (split_part(co.year, '-', 1)::int - 1)::text || '-' || split_part(co.year, '-', 1),
+        (split_part(co.year, '-', 1)::int - 2)::text || '-' || (split_part(co.year, '-', 1)::int - 1),
+        (split_part(co.year, '-', 1)::int - 3)::text || '-' || (split_part(co.year, '-', 1)::int - 2)
+      )
+    )
+  ) AS new_this_year
 FROM course_offerings co
 JOIN subjects s                    ON s.id  = co.subject_id
 JOIN grading_options go2           ON go2.id = co.grading_option_id
