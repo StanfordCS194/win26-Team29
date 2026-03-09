@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider, QueryCache } from '@tanstack/react-query'
 
-import { courseQueryKey } from '@/components/courses/courses-query-options'
+import { courseByCodeQueryOptions } from '@/components/courses/courses-query-options'
 import type { SearchCourseResult, SearchCourseResultStub } from '@/data/search/search.params'
 
 export function getContext() {
@@ -10,12 +10,10 @@ export function getContext() {
         if (query.queryKey[0] !== 'search') return
         const results = (data as { results: (SearchCourseResult | SearchCourseResultStub)[] }).results
         for (const r of results) {
-          if ((r as SearchCourseResultStub)._stub) continue
+          if (r == null || (r as SearchCourseResultStub)._stub) continue
           const full = r as SearchCourseResult
-          queryClient.setQueryData(
-            courseQueryKey(full.year, full.subject_code, full.code_number, full.code_suffix),
-            full,
-          )
+          const slug = `${full.subject_code}${full.code_number}${full.code_suffix ?? ''}`
+          queryClient.setQueryData(courseByCodeQueryOptions(full.year, slug).queryKey, full)
         }
       },
     }),

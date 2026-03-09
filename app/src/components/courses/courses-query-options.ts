@@ -129,15 +129,20 @@ export function searchQueryOptions(search: SearchParams, queryClient?: QueryClie
         data: { ...search, clientCachedOfferingIds } as Required<SearchParams>,
       })
 
-      const results: SearchCourseResult[] = rawResults.map((r) => {
-        if ((r as SearchCourseResultStub)._stub) {
-          const stub = r as SearchCourseResultStub
-          return queryClient.getQueryData<SearchCourseResult>(
-            courseQueryKey(stub.year, stub.subject_code, stub.code_number, stub.code_suffix),
-          )!
-        }
-        return r as SearchCourseResult
-      })
+      const results: SearchCourseResult[] = rawResults
+        .map((r) => {
+          if ((r as SearchCourseResultStub)._stub) {
+            const stub = r as SearchCourseResultStub
+            const slug = `${stub.subject_code}${stub.code_number}${stub.code_suffix ?? ''}`
+            return (
+              queryClient.getQueryData<SearchCourseResult>(
+                courseByCodeQueryOptions(stub.year, slug).queryKey,
+              ) ?? null
+            )
+          }
+          return r as SearchCourseResult
+        })
+        .filter((r): r is SearchCourseResult => r != null)
 
       return { results, totalCount }
     },
