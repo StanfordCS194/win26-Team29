@@ -1,7 +1,8 @@
 import { Effect, Console } from 'effect'
 import { pipeline } from '@xenova/transformers'
-import { sql } from 'kysely'
+import { sql, type SqlBool } from 'kysely'
 
+import { values } from '@courses/db/helpers'
 import { DbService } from '@scrape/shared/db-layer.ts'
 import { ModelLoadError, EmbeddingGenerationError, DatabaseUpdateError } from './errors.ts'
 
@@ -19,6 +20,7 @@ interface CourseRow {
   description: string
   subject_code: string
   subject_longname: string | null
+  search_tags_text: string | null
 }
 
 interface GenerateOptions {
@@ -40,9 +42,10 @@ function prepareCourseText(course: {
   titleClean: string | null
   description: string
   subjectLongname: string | null
+  searchTagsText: string | null
 }): string {
   const title = course.titleClean ?? course.title
-  const parts = [course.subjectLongname, title, course.description].filter(Boolean)
+  const parts = [course.subjectLongname, title, course.description, course.searchTagsText].filter(Boolean)
   return parts.join('\n\n')
 }
 
@@ -75,6 +78,14 @@ function fetchCourseBatch(
           'co.description',
           's.code as subject_code',
           's.longname as subject_longname',
+          sql<string | null>`(
+            SELECT string_agg(
+              trim(ost.term || ' ' || coalesce(array_to_string(ost.variants, ' '), '')),
+              ' '
+            )
+            FROM offering_search_tags ost
+            WHERE ost.course_offering_id = co.id
+          )`.as('search_tags_text'),
         ])
         .orderBy('co.id', 'asc')
         .limit(options.batchSize)
@@ -83,6 +94,10 @@ function fetchCourseBatch(
       if (!options.force) {
         query = query.where('co.embedding', 'is', null)
       }
+
+      query = query.where(
+        sql<SqlBool>`array_length(regexp_split_to_array(trim(coalesce(co.description, '')), E'\\s+'), 1) > 12`,
+      )
 
       if (options.year != null && options.year !== '') {
         query = query.where('co.year', '=', options.year)
@@ -102,6 +117,7 @@ function fetchCourseBatch(
         description: row.description,
         subject_code: row.subject_code,
         subject_longname: row.subject_longname,
+        search_tags_text: row.search_tags_text,
       }))
     },
     catch: (error) =>
@@ -124,6 +140,10 @@ function countCourses(db: Kysely<DB>, options: GenerateOptions): Effect.Effect<n
       if (!options.force) {
         query = query.where('co.embedding', 'is', null)
       }
+
+      query = query.where(
+        sql<SqlBool>`array_length(regexp_split_to_array(trim(coalesce(co.description, '')), E'\\s+'), 1) > 12`,
+      )
 
       if (options.year != null && options.year !== '') {
         query = query.where('co.year', '=', options.year)
@@ -171,24 +191,28 @@ function generateEmbedding(
   })
 }
 
-function updateEmbedding(
+function bulkUpdateEmbeddings(
   db: Kysely<DB>,
-  courseId: number,
-  embedding: number[],
+  updates: Array<{ id: number; embedding: number[] }>,
 ): Effect.Effect<void, DatabaseUpdateError> {
+  if (updates.length === 0) return Effect.succeed(undefined)
+
   return Effect.tryPromise({
     try: async () => {
-      const vectorStr = `[${embedding.join(',')}]`
+      const records = updates.map(({ id, embedding }) => ({
+        id,
+        embedding: `[${embedding.join(',')}]`,
+      }))
       await db
-        .updateTable('course_offerings')
-        .set({ embedding: sql`${vectorStr}::vector` as never })
-        .where('id', '=', courseId)
+        .updateTable('course_offerings as co')
+        .innerJoin(values(records, 'v', { embedding: 'vector' }), 'co.id', 'v.id')
+        .set({ embedding: sql.ref('v.embedding') as never })
         .execute()
     },
     catch: (error) =>
       new DatabaseUpdateError({
-        message: `Failed to update embedding for course ${courseId}`,
-        courseIds: [courseId],
+        message: `Failed to bulk update embeddings for ${updates.length} courses`,
+        courseIds: updates.map((u) => u.id),
         cause: error,
       }),
   })
@@ -228,13 +252,16 @@ export function generateEmbeddings(
       const courses = yield* fetchCourseBatch(db, offset, options)
       if (courses.length === 0) break
 
-      // Process each course in the batch
+      const batchUpdates: Array<{ id: number; embedding: number[] }> = []
+
+      // Process each course in the batch (generate embeddings)
       for (const course of courses) {
         const text = prepareCourseText({
           title: course.title,
           titleClean: course.title_clean,
           description: course.description,
           subjectLongname: course.subject_longname,
+          searchTagsText: course.search_tags_text,
         })
 
         const embeddingResult = yield* Effect.either(
@@ -247,20 +274,23 @@ export function generateEmbeddings(
             `  Failed to generate embedding for course ${course.id} (${course.subject_code}): ${embeddingResult.left.message}`,
           )
         } else {
-          const updateResult = yield* Effect.either(updateEmbedding(db, course.id, embeddingResult.right))
-
-          if (updateResult._tag === 'Left') {
-            failed++
-            yield* Console.error(
-              `  Failed to update embedding for course ${course.id}: ${updateResult.left.message}`,
-            )
-          } else {
-            success++
-          }
+          batchUpdates.push({ id: course.id, embedding: embeddingResult.right })
         }
 
         if (progressBar) {
-          progressBar.update(success + failed)
+          progressBar.update(success + failed + batchUpdates.length)
+        }
+      }
+
+      // Bulk upsert embeddings for the batch
+      if (batchUpdates.length > 0) {
+        const updateResult = yield* Effect.either(bulkUpdateEmbeddings(db, batchUpdates))
+
+        if (updateResult._tag === 'Left') {
+          failed += batchUpdates.length
+          yield* Console.error(`  Failed to bulk update embeddings: ${updateResult.left.message}`)
+        } else {
+          success += batchUpdates.length
         }
       }
 

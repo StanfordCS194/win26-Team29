@@ -7,7 +7,7 @@ Generate vector embeddings for course offerings using the open-source all-MiniLM
 Generate embeddings for all courses:
 
 ```bash
-pnpm generate-embeddings
+bun generate-embeddings
 ```
 
 ## Options
@@ -23,19 +23,19 @@ pnpm generate-embeddings
 Generate for specific year:
 
 ```bash
-pnpm generate-embeddings -- --year "2023-2024"
+bun generate-embeddings -- --year "2023-2024"
 ```
 
 Generate for CS courses only:
 
 ```bash
-pnpm generate-embeddings -- --subject CS
+bun generate-embeddings -- --subject CS
 ```
 
 Force regenerate all:
 
 ```bash
-pnpm generate-embeddings:force
+bun generate-embeddings:force
 ```
 
 ## Model Information

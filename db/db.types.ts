@@ -631,6 +631,13 @@ export interface LearningObjectives {
   requirement_code: string
 }
 
+export interface OfferingSearchTags {
+  course_offering_id: number
+  id: Generated<number>
+  term: string
+  variants: string[]
+}
+
 export interface PlanLikes {
   created_at: Generated<Temporal.Instant>
   id: Generated<string>
@@ -1003,6 +1010,7 @@ export interface DB {
   instructor_roles: InstructorRoles
   instructors: Instructors
   learning_objectives: LearningObjectives
+  offering_search_tags: OfferingSearchTags
   plan_likes: PlanLikes
   plan_quarter_commitment_times: PlanQuarterCommitmentTimes
   plan_quarter_commitments: PlanQuarterCommitments

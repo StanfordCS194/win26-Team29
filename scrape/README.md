@@ -7,7 +7,7 @@ Scripts for scraping course data and evaluations from Stanford's course systems.
 Install dependencies:
 
 ```bash
-pnpm install
+bun install
 ```
 
 ## Available Scripts
@@ -17,7 +17,7 @@ pnpm install
 Fetch and parse course listings from explore-courses. Optionally write XML/JSON to disk and upsert to the database.
 
 ```bash
-pnpm scrape:courses --academicYear <YEAR> [options]
+bun scrape:courses --academicYear <YEAR> [options]
 ```
 
 **Required:**
@@ -45,13 +45,13 @@ pnpm scrape:courses --academicYear <YEAR> [options]
 
 ```bash
 # Fetch and parse only (no file output, no DB)
-pnpm scrape:courses --academicYear 20232024
+bun scrape:courses --academicYear 20232024
 
 # Fetch, write XML and JSON, then upsert to database
-pnpm scrape:courses --academicYear 20232024 --write-xml --write-json --upsert-to-database
+bun scrape:courses --academicYear 20232024 --write-xml --write-json --upsert-to-database
 
 # Use cached XML and upsert to database
-pnpm scrape:courses --academicYear 20232024 --use-cache --upsert-to-database --dataDir data/courses-2023
+bun scrape:courses --academicYear 20232024 --use-cache --upsert-to-database --dataDir data/courses-2023
 ```
 
 ### Fetch Course Evaluations
@@ -59,7 +59,7 @@ pnpm scrape:courses --academicYear 20232024 --use-cache --upsert-to-database --d
 Fetch course evaluation reports:
 
 ```bash
-pnpm scrape:evals --year <YEAR> --quarters <QUARTERS> --subjects <SUBJECTS> [options]
+bun scrape:evals --year <YEAR> --quarters <QUARTERS> --subjects <SUBJECTS> [options]
 ```
 
 **Required:**
@@ -79,7 +79,7 @@ pnpm scrape:evals --year <YEAR> --quarters <QUARTERS> --subjects <SUBJECTS> [opt
 **Example:**
 
 ```bash
-pnpm scrape:evals --year 2024 --quarters Winter,Spring --subjects CS,MATH
+bun scrape:evals --year 2024 --quarters Winter,Spring --subjects CS,MATH
 ```
 
 ## Output
