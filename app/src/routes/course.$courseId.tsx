@@ -16,7 +16,8 @@ import {
   courseTextReviewsQueryOptions,
   availableSubjectsQueryOptions,
 } from '@/components/courses/courses-query-options'
-import { formatCourseCodeForDisplay, parseDescriptionCourseLinks } from '@/lib/course-code'
+import { formatCourseCodeForDisplay } from '@/lib/course-code'
+import { renderDescriptionWithLinks } from '@/components/courses/render-description-links'
 import { getCurrentQuarter, getNextQuarter } from '@/lib/quarter-utils'
 
 const PREFETCH_START_YEAR = parseInt(DEFAULT_YEAR.split('-')[0]!, 10)
@@ -648,25 +649,6 @@ function TextReviewsSection({
   )
 }
 
-function renderDescriptionWithLinks(text: string, validSubjects?: Set<string>) {
-  const segments = parseDescriptionCourseLinks(text, validSubjects)
-  if (segments.length === 1 && segments[0]!.type === 'text') return text
-  return segments.map((seg, i) => {
-    if (seg.type === 'text') return seg.value
-    return (
-      <Link
-        key={i}
-        to="/course/$courseId"
-        params={{ courseId: seg.slug }}
-        search={SEARCH_DEFAULTS as unknown as Required<SearchParams>}
-        className="text-primary underline decoration-primary/40 underline-offset-2 hover:decoration-primary"
-      >
-        {seg.display}
-      </Link>
-    )
-  })
-}
-
 function ClassPage() {
   const { courseId: courseCodeSlug } = Route.useParams()
   const courseCode = formatCourseCodeForDisplay(courseCodeSlug)
@@ -748,7 +730,7 @@ function ClassPage() {
                     onToggle={() => setDescriptionExpanded((prev) => !prev)}
                     maxHeight={192}
                     className="mt-2 text-base leading-relaxed text-[#4A4557]"
-                    renderText={(t) => renderDescriptionWithLinks(t, validSubjects)}
+                    renderText={(t) => renderDescriptionWithLinks(t, validSubjects, DEFAULT_YEAR)}
                   />
                 ) : (
                   !isPending &&

@@ -1028,6 +1028,13 @@ export function computeMetrics(
           .filter(pl.col('smart_average').isNotNull())
       }
 
+      // Round smart_average: 0.05 if range ≤ 5, else 0.1
+      const rangeSize = q.wMax - q.wMin
+      const roundTo = rangeSize <= 5 ? 0.05 : 0.1
+      assembled = assembled.withColumns(
+        pl.col('smart_average').div(roundTo).round(0).cast(pl.Float64).mul(roundTo).alias('smart_average'),
+      )
+
       if (assembled.height === 0) {
         console.error(`      skip question_id=${q.questionId} — no emitted rows after null filtering`)
         continue

@@ -1,22 +1,22 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Eraser } from 'lucide-react'
 
-import { getEvalMetricMeta } from '@/data/search/eval-metrics'
+import { DERIVED_METRIC_SLUGS, getEvalMetricMeta } from '@/data/search/eval-metrics'
 import { EVAL_QUESTION_SLUGS } from '@/data/search/eval-questions'
 import { Route } from '@/routes/courses'
 import { RangeSlider } from '@/components/courses/RangeSlider'
 
-import type { EvalSlug } from '@/data/search/eval-questions'
+import type { AllMetricSlug } from '@/data/search/eval-metrics'
 import { SearchParams } from '@/data/search/search.params'
 
-type EvalMinKey = `min_eval_${EvalSlug}`
-type EvalMaxKey = `max_eval_${EvalSlug}`
+type EvalMinKey = `min_eval_${AllMetricSlug}`
+type EvalMaxKey = `max_eval_${AllMetricSlug}`
 
-function minKey(slug: EvalSlug): EvalMinKey {
+function minKey(slug: AllMetricSlug): EvalMinKey {
   return `min_eval_${slug}`
 }
 
-function maxKey(slug: EvalSlug): EvalMaxKey {
+function maxKey(slug: AllMetricSlug): EvalMaxKey {
   return `max_eval_${slug}`
 }
 
@@ -28,7 +28,7 @@ function getStep(rangeMin: number, rangeMax: number) {
   return rangeMax - rangeMin <= 8 ? 0.1 : 1
 }
 
-function EvalFilterRow({ slug }: { slug: EvalSlug }) {
+function EvalFilterRow({ slug }: { slug: AllMetricSlug }) {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const metric = getEvalMetricMeta(slug)
@@ -128,6 +128,9 @@ export function EvalFilters() {
           {showMore && (
             <div className="flex flex-col gap-1">
               {collapsibleSlugs.map((slug) => (
+                <EvalFilterRow key={slug} slug={slug} />
+              ))}
+              {DERIVED_METRIC_SLUGS.map((slug) => (
                 <EvalFilterRow key={slug} slug={slug} />
               ))}
             </div>

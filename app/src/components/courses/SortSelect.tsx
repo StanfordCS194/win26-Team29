@@ -22,8 +22,8 @@ import type { SearchParams, SortOption } from '@/data/search/search.params'
 const SORT_USED_KEY = 'courses.sortUsed'
 
 const EVAL_SORT_OPTIONS = SORT_OPTIONS.filter(
-  (o): o is Exclude<SortOption, 'relevance' | 'code' | 'units' | 'num_enrolled'> =>
-    o !== 'relevance' && o !== 'code' && o !== 'units' && o !== 'num_enrolled',
+  (o): o is Exclude<SortOption, 'relevance' | 'code' | 'units' | 'num_enrolled' | 'popularity'> =>
+    o !== 'relevance' && o !== 'code' && o !== 'units' && o !== 'num_enrolled' && o !== 'popularity',
 )
 
 function SortOptionItem({
@@ -120,6 +120,7 @@ export function SortSelect() {
               <SortOptionItem value="code" label={SORT_LABELS.code} search={search} />
               <SortOptionItem value="units" label={SORT_LABELS.units} search={search} />
               <SortOptionItem value="num_enrolled" label={SORT_LABELS.num_enrolled} search={search} />
+              <SortOptionItem value="popularity" label={SORT_LABELS.popularity} search={search} />
             </SelectGroup>
             <SelectSeparator />
             <SelectGroup>

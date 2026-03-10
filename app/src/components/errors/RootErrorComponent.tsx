@@ -1,11 +1,25 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useRouter } from '@tanstack/react-router'
 import type { ErrorComponentProps } from '@tanstack/react-router'
+import { useState } from 'react'
 
 import Header from '@/components/Header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function RootErrorComponent({ error, reset }: ErrorComponentProps) {
+  const router = useRouter()
+  const [retrying, setRetrying] = useState(false)
+
+  const handleTryAgain = async () => {
+    setRetrying(true)
+    try {
+      reset()
+      await router.invalidate()
+    } finally {
+      setRetrying(false)
+    }
+  }
+
   return (
     <>
       <Header />
@@ -23,8 +37,14 @@ export function RootErrorComponent({ error, reset }: ErrorComponentProps) {
             </pre>
           </CardContent>
           <CardFooter className="flex gap-3">
-            <Button onClick={() => reset()} variant="default">
-              Try again
+            <Button
+              onClick={() => {
+                void handleTryAgain()
+              }}
+              variant="default"
+              disabled={retrying}
+            >
+              {retrying ? 'Retrying…' : 'Try again'}
             </Button>
             <Button render={<Link to="/" />} variant="outline">
               Go home

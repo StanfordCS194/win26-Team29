@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useDebouncer } from '@tanstack/react-pacer'
 import { Search, CheckSquare } from 'lucide-react'
 import { DEFAULT_YEAR, SearchParams, MAX_QUERY_LENGTH, ALL_QUARTERS } from '@/data/search/search.params'
 import { generateCandidate, getPrevalidatedSuggestions, type Suggestion } from '@/lib/suggestions'
@@ -67,6 +68,8 @@ const SCROLL_DURATION_MS = 400
 const MAX_VALIDATION_ATTEMPTS = 8
 const PREFETCH_AHEAD = 3
 
+const normalizeQuery = (v: string) => v.trim().replace(/\./g, '')
+
 function App() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -86,6 +89,32 @@ function App() {
     return () => clearInterval(id)
   }, [])
 
+  const prefetchDebouncer = useDebouncer(
+    (normalized: string) => {
+      void queryClient.prefetchQuery(
+        searchQueryOptions({
+          query: normalized,
+          quarters: ALL_QUARTERS,
+          year: DEFAULT_YEAR,
+          page: 1,
+        } as SearchParams),
+      )
+    },
+    { wait: 325 },
+  )
+
+  // Prefetch empty search on mount; then debounce as user types
+  useEffect(() => {
+    void queryClient.prefetchQuery(
+      searchQueryOptions({
+        query: '',
+        quarters: ALL_QUARTERS,
+        year: DEFAULT_YEAR,
+        page: 1,
+      } as SearchParams),
+    )
+  }, [queryClient])
+
   const prevalidated = useRef<Suggestion[]>(null)
   if (prevalidated.current === null) {
     const list = getPrevalidatedSuggestions()
@@ -95,9 +124,11 @@ function App() {
     }
     prevalidated.current = list
   }
+
   // Queue of pre-validated suggestions ready to display
   const queueRef = useRef<Suggestion[]>(prevalidated.current.slice(1))
   const fetchingRef = useRef(false)
+  const abortedRef = useRef(false)
 
   // Current and next suggestion for the scroll animation
   const [current, setCurrent] = useState<Suggestion | null>(prevalidated.current[0] ?? null)
@@ -107,6 +138,7 @@ function App() {
 
   const validateOne = useRef(async (): Promise<Suggestion | null> => {
     for (let i = 0; i < MAX_VALIDATION_ATTEMPTS; i++) {
+      if (abortedRef.current) return null
       const candidate = generateCandidate()
       const params: SearchParams = { ...candidate.searchParams, year: DEFAULT_YEAR, page: 1 }
       try {
@@ -114,6 +146,7 @@ function App() {
           ...searchQueryOptions(params),
           staleTime: 1000 * 60 * 60,
         })
+        if (abortedRef.current) return null
         if (result.totalCount > 0) return candidate
       } catch {
         // treat as 0 results
@@ -126,8 +159,9 @@ function App() {
   const fillQueue = useRef(async () => {
     if (fetchingRef.current) return
     fetchingRef.current = true
-    while (queueRef.current.length < PREFETCH_AHEAD) {
+    while (queueRef.current.length < PREFETCH_AHEAD && !abortedRef.current) {
       const s = await validateOne.current()
+      if (abortedRef.current) break
       if (s) queueRef.current.push(s)
     }
     fetchingRef.current = false
@@ -141,7 +175,15 @@ function App() {
 
   // Start filling the queue with generated suggestions in the background
   useEffect(() => {
-    void fillQueue.current()
+    abortedRef.current = false
+    void validateOne.current().then((s) => {
+      if (abortedRef.current) return
+      if (s) setCurrent(s)
+      void fillQueue.current()
+    })
+    return () => {
+      abortedRef.current = true
+    }
   }, [])
 
   // When next is mounted in 'ready', kick off the animation on next frame
@@ -170,6 +212,7 @@ function App() {
   const hasRotatedOnce = useRef(false)
   useEffect(() => {
     const rotate = () => {
+      if (abortedRef.current) return
       const incoming = dequeue.current()
       if (!incoming || phase !== 'idle') return
       setNext(incoming)
@@ -186,15 +229,22 @@ function App() {
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault()
-    if (query.trim()) {
-      void navigate({
-        to: '/courses',
-        search: { query: query.trim(), quarters: ALL_QUARTERS, page: 1 } as Required<SearchParams>,
-      })
-    }
+    abortedRef.current = true
+    prefetchDebouncer.cancel()
+    void queryClient.cancelQueries({ queryKey: ['search'] })
+    void navigate({
+      to: '/courses',
+      search: {
+        query: normalizeQuery(query),
+        quarters: ALL_QUARTERS,
+        page: 1,
+      } as Required<SearchParams>,
+    })
   }
 
   const handleSuggestionClick = (suggestion: Suggestion) => {
+    abortedRef.current = true
+    void queryClient.cancelQueries({ queryKey: ['search'] })
     void navigate({
       to: '/courses',
       search: { ...suggestion.searchParams, page: 1 } as Required<SearchParams>,
@@ -211,7 +261,6 @@ function App() {
         opacity: phase === 'scrolling' ? 0 : 1,
       }
     }
-    // 'ready': mount at start position without transition; 'scrolling': animate up
     return {
       transition: phase === 'scrolling' ? anim : 'none',
       transform: phase === 'scrolling' ? 'translateY(0)' : 'translateY(28px)',
@@ -248,7 +297,12 @@ function App() {
                 type="text"
                 value={query}
                 maxLength={MAX_QUERY_LENGTH}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setQuery(v)
+                  const normalized = normalizeQuery(v)
+                  prefetchDebouncer.maybeExecute(normalized)
+                }}
                 placeholder=""
                 className="w-full rounded-full border border-slate-300 bg-white py-5 pr-28 pl-6 text-lg text-slate-900 shadow-[0_14px_28px_color-mix(in_srgb,var(--primary)_25%,transparent)] focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               />
@@ -267,7 +321,6 @@ function App() {
               <button
                 type="submit"
                 aria-label="Search"
-                disabled={!query.trim()}
                 className="absolute top-1/2 right-2 flex h-12 -translate-y-1/2 items-center justify-center rounded-full bg-primary px-5 text-base font-normal text-primary-foreground transition hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none"
               >
                 Search

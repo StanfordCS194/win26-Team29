@@ -7,6 +7,7 @@ import { EVAL_QUESTION_SLUGS } from '@/data/search/eval-questions'
 import { EVAL_METRIC_REGISTRY } from '@/data/search/eval-metrics'
 import type { SearchParams } from '@/data/search/search.params'
 import type { EvalSlug } from '@/data/search/eval-questions'
+import type { DerivedMetricSlug } from '@/data/search/eval-metrics'
 import { availableInstructorsQueryOptions } from './courses-query-options'
 import { useClearAllFilters } from './use-clear-all-filters'
 import { labelGradingTokens } from './grading-groups'
@@ -72,6 +73,8 @@ const BADGE_SECTION: Record<string, string> = {
   careersExclude: 'filter-careers',
   componentTypes: 'filter-components',
   componentTypesExclude: 'filter-components',
+  hasAccompanyingSections: 'filter-components',
+  newThisYear: 'filter-newThisYear',
   gradingOptions: 'filter-gradingOptions',
   gradingOptionsExclude: 'filter-gradingOptions',
   finalExamFlags: 'filter-finalExam',
@@ -96,6 +99,10 @@ const EVAL_BADGE_LABEL: Record<EvalSlug, string> = {
   attend_in_person: 'In-person att.',
   attend_online: 'Online att.',
   hours: 'Hrs/wk',
+}
+
+const DERIVED_BADGE_LABEL: Record<DerivedMetricSlug, string> = {
+  hours_per_unit: 'Hrs/unit',
 }
 
 export function AppliedFilterBadges({
@@ -458,6 +465,16 @@ export function AppliedFilterBadges({
       }
     }
 
+    if (search.min_eval_hours_per_unit !== undefined || search.max_eval_hours_per_unit !== undefined) {
+      const { formatValue } = EVAL_METRIC_REGISTRY.hours_per_unit
+      result.push({
+        id: 'eval_hours_per_unit',
+        label: DERIVED_BADGE_LABEL.hours_per_unit,
+        summary: formatRange(search.min_eval_hours_per_unit, search.max_eval_hours_per_unit, formatValue),
+        onClear: () => nav({ min_eval_hours_per_unit: undefined, max_eval_hours_per_unit: undefined }),
+      })
+    }
+
     if (search.numEnrolledMin !== undefined || search.numEnrolledMax !== undefined) {
       result.push({
         id: 'numEnrolled',
@@ -491,6 +508,24 @@ export function AppliedFilterBadges({
         label: 'Repeatable',
         summary: search.repeatable ? 'Yes' : 'No',
         onClear: () => nav({ repeatable: undefined }),
+      })
+    }
+
+    if (search.hasAccompanyingSections !== undefined) {
+      result.push({
+        id: 'hasAccompanyingSections',
+        label: 'Accompanying sections',
+        summary: search.hasAccompanyingSections ? 'Has' : 'None',
+        onClear: () => nav({ hasAccompanyingSections: undefined }),
+      })
+    }
+
+    if (search.newThisYear != null && search.year >= '2022-2023') {
+      result.push({
+        id: 'newThisYear',
+        label: 'Offering history',
+        summary: search.newThisYear ? 'New this year' : 'Has been recently offered',
+        onClear: () => nav({ newThisYear: undefined }),
       })
     }
 
@@ -535,8 +570,8 @@ export function AppliedFilterBadges({
   const iconClass = large === true ? 'h-3.5 w-3.5' : 'h-3 w-3'
   const clearAllClass =
     large === true
-      ? 'inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-bold text-slate-600 transition animate-pulse hover:animate-none hover:border-slate-300 hover:bg-red-50 hover:text-red-500 focus-visible:text-red-500 focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none'
-      : 'inline-flex items-center gap-0.5 rounded-full border border-slate-200 bg-white px-1.5 py-0.5 text-xs font-medium text-slate-500 transition hover:border-slate-300 hover:bg-red-50 hover:text-red-500 focus-visible:text-red-500 focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none'
+      ? 'inline-flex items-center gap-1 rounded-full border border-slate-400 bg-white px-3 py-1 text-sm font-bold text-slate-600 transition animate-pulse hover:animate-none hover:border-red-400 hover:bg-red-50 hover:text-red-500 focus-visible:text-red-500 focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none'
+      : 'inline-flex items-center gap-0.5 rounded-full border border-slate-400 bg-white px-1.5 py-0.5 text-xs font-medium text-slate-500 transition hover:border-red-400 hover:bg-red-50 hover:text-red-500 focus-visible:text-red-500 focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:outline-none'
 
   return (
     <div>

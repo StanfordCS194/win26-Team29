@@ -34,7 +34,6 @@ function CourseEntryCard({ entry }: { entry: InstructorCourseEntry }) {
     <Link
       to="/course/$courseId"
       params={{ courseId: entry.courseCodeSlug }}
-      search={SEARCH_DEFAULTS as unknown as Required<SearchParams>}
       className="block rounded-xl border border-white/60 bg-white/50 p-3 backdrop-blur-md transition-all hover:bg-white/70 hover:shadow-md"
     >
       <div className="text-sm font-semibold text-[#150F21]">{entry.displayCode}</div>

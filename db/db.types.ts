@@ -412,7 +412,7 @@ export interface CourseOfferings {
   course_id: number
   created_at: Generated<Temporal.Instant | null>
   description: string
-  embedding: Array<number> | null
+  embedding: string | null
   final_exam_flag_id: number
   grading_option_id: number
   id: Generated<number>
@@ -423,6 +423,7 @@ export interface CourseOfferings {
   schedule_print: boolean
   subject_id: number
   title: string
+  title_clean: Generated<string | null>
   units_max: number
   units_min: number
   year: string
@@ -499,6 +500,14 @@ export interface EvaluationTextResponses {
   question_id: number
   report_id: number
   response_text: string
+}
+
+export interface EvaluationTextResponseVotes {
+  created_at: Generated<Temporal.Instant>
+  helpful: boolean
+  id: Generated<string>
+  response_id: number
+  user_id: string
 }
 
 export interface ExtensionsHypopgHiddenIndexes {
@@ -580,6 +589,15 @@ export interface FinalExamOptions {
   id: Generated<number>
 }
 
+export interface Friendships {
+  created_at: Generated<Temporal.Instant>
+  id: Generated<string>
+  recipient_id: string
+  requester_id: string
+  status: Generated<string>
+  updated_at: Generated<Temporal.Instant>
+}
+
 export interface Gers {
   code: string
   id: Generated<number>
@@ -597,7 +615,7 @@ export interface InstructorRoles {
 }
 
 export interface Instructors {
-  first_and_last_name: Generated<string | null>
+  first_and_last_name: Generated<string>
   first_name: string | null
   id: Generated<number>
   last_name: string | null
@@ -611,6 +629,74 @@ export interface LearningObjectives {
   description: string
   id: Generated<number>
   requirement_code: string
+}
+
+export interface PlanLikes {
+  created_at: Generated<Temporal.Instant>
+  id: Generated<string>
+  plan_id: string
+  user_id: string
+}
+
+export interface PlanQuarterCommitments {
+  created_at: Generated<Temporal.Instant>
+  id: Generated<string>
+  name: string
+  notes: string | null
+  plan_quarter_id: string
+}
+
+export interface PlanQuarterCommitmentTimes {
+  commitment_id: string
+  created_at: Generated<Temporal.Instant>
+  day: WeekdayType
+  end_time: Temporal.PlainTime | null
+  id: Generated<string>
+  start_time: Temporal.PlainTime | null
+}
+
+export interface PlanQuarterCourses {
+  code_number: number
+  code_suffix: string | null
+  created_at: Generated<Temporal.Instant>
+  id: Generated<string>
+  plan_quarter_id: string
+  stashed: Generated<boolean>
+  subject_id: number
+  units: number | null
+}
+
+export interface PlanQuarterCourseSections {
+  created_at: Generated<Temporal.Instant>
+  id: Generated<string>
+  plan_quarter_course_id: string
+  section_id: number
+}
+
+export interface PlanQuarters {
+  created_at: Generated<Temporal.Instant>
+  id: Generated<string>
+  plan_id: string
+  quarter: QuarterType
+  year: number
+}
+
+export interface Plans {
+  created_at: Generated<Temporal.Instant>
+  id: Generated<string>
+  name: string
+  notes: string | null
+  slug: Generated<string>
+  user_id: string
+}
+
+export interface PlanStashCourses {
+  code_number: number
+  code_suffix: string | null
+  created_at: Generated<Temporal.Instant>
+  id: Generated<string>
+  plan_id: string
+  subject_id: number
 }
 
 export interface RealtimeMessages {
@@ -808,6 +894,39 @@ export interface SupabaseMigrationsSeedFiles {
   path: string
 }
 
+export interface UserCourseCollectionCourses {
+  code_number: number
+  code_suffix: string | null
+  collection_id: string
+  created_at: Generated<Temporal.Instant>
+  id: Generated<string>
+  subject_id: number
+}
+
+export interface UserCourseCollectionLikes {
+  collection_id: string
+  created_at: Generated<Temporal.Instant>
+  id: Generated<string>
+  user_id: string
+}
+
+export interface UserCourseCollections {
+  created_at: Generated<Temporal.Instant>
+  description: string | null
+  id: Generated<string>
+  name: string
+  user_id: string
+}
+
+export interface Users {
+  created_at: Generated<Temporal.Instant>
+  description: string | null
+  display_name: string
+  friends_only: Generated<boolean>
+  id: string
+  sunet: string
+}
+
 export interface VaultDecryptedSecrets {
   created_at: Temporal.Instant | null
   decrypted_secret: string | null
@@ -871,17 +990,27 @@ export interface DB {
   evaluation_smart_averages: EvaluationSmartAverages
   evaluation_text_questions: EvaluationTextQuestions
   evaluation_text_questions_enhanced: EvaluationTextQuestionsEnhanced
+  evaluation_text_response_votes: EvaluationTextResponseVotes
   evaluation_text_responses: EvaluationTextResponses
   'extensions.hypopg_hidden_indexes': ExtensionsHypopgHiddenIndexes
   'extensions.hypopg_list_indexes': ExtensionsHypopgListIndexes
   'extensions.pg_stat_statements': ExtensionsPgStatStatements
   'extensions.pg_stat_statements_info': ExtensionsPgStatStatementsInfo
   final_exam_options: FinalExamOptions
+  friendships: Friendships
   gers: Gers
   grading_options: GradingOptions
   instructor_roles: InstructorRoles
   instructors: Instructors
   learning_objectives: LearningObjectives
+  plan_likes: PlanLikes
+  plan_quarter_commitment_times: PlanQuarterCommitmentTimes
+  plan_quarter_commitments: PlanQuarterCommitments
+  plan_quarter_course_sections: PlanQuarterCourseSections
+  plan_quarter_courses: PlanQuarterCourses
+  plan_quarters: PlanQuarters
+  plan_stash_courses: PlanStashCourses
+  plans: Plans
   'realtime.messages': RealtimeMessages
   'realtime.schema_migrations': RealtimeSchemaMigrations
   'realtime.subscription': RealtimeSubscription
@@ -901,6 +1030,10 @@ export interface DB {
   subjects: Subjects
   'supabase_migrations.schema_migrations': SupabaseMigrationsSchemaMigrations
   'supabase_migrations.seed_files': SupabaseMigrationsSeedFiles
+  user_course_collection_courses: UserCourseCollectionCourses
+  user_course_collection_likes: UserCourseCollectionLikes
+  user_course_collections: UserCourseCollections
+  users: Users
   'vault.decrypted_secrets': VaultDecryptedSecrets
   'vault.secrets': VaultSecrets
 }

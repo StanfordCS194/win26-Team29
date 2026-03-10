@@ -235,7 +235,21 @@ export const databaseUpsertFlow = ({
     )
     yield* Console.log('Refreshed course enrollment trends materialized view...')
 
-    // 6 (depends on offering_aggregates_mv)
+    // 6
+    yield* Console.log('\nRefreshing section day counts materialized view...')
+    yield* Effect.promise(() =>
+      db.schema.refreshMaterializedView('section_day_counts_mv').concurrently().execute(),
+    )
+    yield* Console.log('Refreshed section day counts materialized view...')
+
+    // 7
+    yield* Console.log('\nRefreshing subject embedding centroids materialized view...')
+    yield* Effect.promise(() =>
+      db.schema.refreshMaterializedView('subject_embedding_centroids_mv').concurrently().execute(),
+    )
+    yield* Console.log('Refreshed subject embedding centroids materialized view...')
+
+    // 8 (depends on offering_aggregates_mv)
     yield* Console.log('\nRefreshing course offerings full materialized view...')
     yield* Effect.promise(() =>
       db.schema.refreshMaterializedView('course_offerings_full_mv').concurrently().execute(),
