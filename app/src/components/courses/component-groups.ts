@@ -1,0 +1,65 @@
+// ── Group definitions ─────────────────────────────────────────────────────────
+
+export const COMPONENT_GROUPS: { name: string; topLevel?: boolean; codes: string[] }[] = [
+  {
+    name: 'Primary',
+    topLevel: true,
+    codes: [
+      'LEC',
+      'SEM',
+      'DIS',
+      'LAB',
+      'LBS',
+      'ACT',
+      'TUT',
+      'COL',
+      'WKS',
+      'RSC',
+      'RES',
+      'INS',
+      'PRA',
+      'PRC',
+      'ITR',
+      'ISF',
+      'ISS',
+      'SCS',
+      'API',
+      'LNG',
+    ],
+  },
+  {
+    name: 'Other',
+    codes: ['SIM', 'CLN', 'CLK', 'IDS', 'CAS', 'T/D'],
+  },
+]
+
+// ── Labels ─────────────────────────────────────────────────────────────────────
+
+export const COMPONENT_LABELS: Record<string, string> = {
+  LEC: 'Lecture (LEC)',
+  SEM: 'Seminar (SEM)',
+  DIS: 'Discussion Section (DIS)',
+  LAB: 'Laboratory (LAB)',
+  LBS: 'Lab Section (LBS)',
+  ACT: 'Activity (ACT)',
+  CAS: 'Case Study (CAS)',
+  COL: 'Colloquium (COL)',
+  WKS: 'Workshop (WKS)',
+  RSC: 'Research (RSC)',
+  INS: 'Independent Study (INS)',
+  IDS: 'Intro Dial, Sophomore (IDS)',
+  ISF: 'Intro Sem, Freshman (ISF)',
+  ISS: 'Intro Sem, Sophomore (ISS)',
+  ITR: 'Internship (ITR)',
+  API: 'Arts Intensive Program (API)',
+  LNG: 'Language (LNG)',
+  CLK: 'Clerkship (CLK)',
+  CLN: 'Clinic (CLN)',
+  SIM: 'Simulation (SIM)',
+  TUT: 'Tutorial (TUT)',
+  PRA: 'Practicum (PRA)',
+  PRC: 'Practicum (PRC)',
+  RES: 'Research (RES)',
+  SCS: 'Sophomore College (SCS)',
+  'T/D': 'Thesis/Dissertation (T/D)',
+}
