@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import { EVAL_QUESTION_SLUGS } from '@/data/search/eval-questions'
-import { DEFAULT_ALWAYS_VISIBLE_EVAL_SLUGS, isEvalSortOption } from '@/data/search/eval-metrics'
+import {
+  DEFAULT_ALWAYS_VISIBLE_EVAL_SLUGS,
+  DERIVED_METRIC_SLUGS,
+  isEvalSortOption,
+  isHoursPerUnitSort,
+  isAllMetricSlug,
+} from '@/data/search/eval-metrics'
 import { Route } from '@/routes/courses'
 import type { SearchParams } from '@/data/search/search.params'
 import { SlidersHorizontal } from 'lucide-react'
@@ -29,6 +35,8 @@ import { NumGersFilter } from './NumGersFilter'
 import { EvalFilters } from './EvalFilters'
 import { EnrolledFilter, MaxClassSizeFilter, EnrollmentStatusFilter } from './EnrollmentFilters'
 import { RepeatableFilter } from './RepeatableFilter'
+import { HasAccompanyingSectionsFilter } from './HasAccompanyingSectionsFilter'
+import { NewThisYearFilter } from './NewThisYearFilter'
 import { DeduplicateCrosslistings } from './DeduplicateCrosslistings'
 import { CodeNumberFilter } from './CodeNumberFilter'
 import { SubjectCountFilter } from './SubjectCountFilter'
@@ -36,7 +44,7 @@ import { NumQuartersFilter } from './NumQuartersFilter'
 import { NumMeetingDaysFilter } from './NumMeetingDaysFilter'
 import { InstructorFilter } from './InstructorFilter'
 
-import type { EvalSlug } from '@/data/search/eval-questions'
+import type { AllMetricSlug } from '@/data/search/eval-metrics'
 
 const ALWAYS_SHOW_LOCAL_STORAGE_KEY = 'courses.alwaysVisibleEvalSlugs'
 
@@ -85,20 +93,55 @@ export function CoursesPage() {
     }
   }
 
-  const [alwaysVisibleEvalSlugs, setAlwaysVisibleEvalSlugs] = useState<EvalSlug[]>(
+  const [alwaysVisibleEvalSlugs, setAlwaysVisibleEvalSlugs] = useState<AllMetricSlug[]>(
     DEFAULT_ALWAYS_VISIBLE_EVAL_SLUGS,
   )
 
+  const maxSmartAverages = 4
+  const protectedEvalSlugs = new Set<AllMetricSlug>(['hours', 'quality'])
+
   const visibleEvalSlugs = useMemo(() => {
-    const combined = new Set<EvalSlug>(alwaysVisibleEvalSlugs)
+    const combined = new Set<AllMetricSlug>(alwaysVisibleEvalSlugs)
     if (isEvalSortOption(search.sort)) combined.add(search.sort)
+    if (isHoursPerUnitSort(search.sort)) combined.add('hours_per_unit')
     for (const slug of EVAL_QUESTION_SLUGS) {
       const min = search[`min_eval_${slug}` as keyof SearchParams] as number | undefined
       const max = search[`max_eval_${slug}` as keyof SearchParams] as number | undefined
       if (min != null || max != null) combined.add(slug)
     }
-    return EVAL_QUESTION_SLUGS.filter((slug) => combined.has(slug))
+    if (search.min_eval_hours_per_unit != null || search.max_eval_hours_per_unit != null) {
+      combined.add('hours_per_unit')
+    }
+    const allSlugs: AllMetricSlug[] = [...EVAL_QUESTION_SLUGS, ...DERIVED_METRIC_SLUGS]
+    return allSlugs.filter((slug) => combined.has(slug))
   }, [alwaysVisibleEvalSlugs, search])
+
+  useEffect(() => {
+    if (visibleEvalSlugs.length <= maxSmartAverages) return
+
+    const forced = new Set<AllMetricSlug>()
+    if (isEvalSortOption(search.sort)) forced.add(search.sort)
+    if (isHoursPerUnitSort(search.sort)) forced.add('hours_per_unit')
+    for (const slug of EVAL_QUESTION_SLUGS) {
+      const min = search[`min_eval_${slug}` as keyof SearchParams] as number | undefined
+      const max = search[`max_eval_${slug}` as keyof SearchParams] as number | undefined
+      if (min != null || max != null) forced.add(slug)
+    }
+    if (search.min_eval_hours_per_unit != null || search.max_eval_hours_per_unit != null) {
+      forced.add('hours_per_unit')
+    }
+
+    let next = [...alwaysVisibleEvalSlugs]
+    while (new Set([...next, ...forced]).size > maxSmartAverages) {
+      const toRemove = next.find((slug) => !forced.has(slug) && !protectedEvalSlugs.has(slug))
+      if (!toRemove) break
+      next = next.filter((s) => s !== toRemove)
+    }
+
+    if (next.length !== alwaysVisibleEvalSlugs.length) {
+      setAlwaysVisibleEvalSlugs(next)
+    }
+  }, [visibleEvalSlugs.length, search, alwaysVisibleEvalSlugs])
 
   useEffect(() => {
     const stored = window.localStorage.getItem(ALWAYS_SHOW_LOCAL_STORAGE_KEY)
@@ -107,8 +150,7 @@ export function CoursesPage() {
       const parsed = JSON.parse(stored)
       if (!Array.isArray(parsed)) return
       const safe = parsed.filter(
-        (value): value is EvalSlug =>
-          typeof value === 'string' && EVAL_QUESTION_SLUGS.includes(value as EvalSlug),
+        (value): value is AllMetricSlug => typeof value === 'string' && isAllMetricSlug(value),
       )
       setAlwaysVisibleEvalSlugs(safe)
     } catch {
@@ -280,8 +322,9 @@ export function CoursesPage() {
                 <div id="filter-careers" className="py-1.25">
                   <CareerFilter />
                 </div>
-                <div id="filter-components" className="py-1.25">
+                <div id="filter-components" className="flex flex-col gap-2 py-1.25">
                   <ComponentFilter />
+                  <HasAccompanyingSectionsFilter />
                 </div>
                 <div id="filter-gradingOptions" className="py-1.25">
                   <GradingOptionFilter />
@@ -289,8 +332,11 @@ export function CoursesPage() {
                 <div id="filter-finalExam" className="py-1.25">
                   <FinalExamFilter />
                 </div>
-                <div id="filter-repeatable" className="py-1.25 pb-1">
+                <div id="filter-repeatable" className="py-1.25">
                   <RepeatableFilter />
+                </div>
+                <div id="filter-newThisYear" className="py-1.25 pb-1">
+                  <NewThisYearFilter />
                 </div>
               </div>
               <div className="sticky bottom-0 border-t border-slate-200 bg-sky-50" />

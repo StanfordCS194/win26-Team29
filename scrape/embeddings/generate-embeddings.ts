@@ -15,9 +15,10 @@ const EMBEDDING_DIMENSIONS = 384
 interface CourseRow {
   id: number
   title: string
+  title_clean: string | null
   description: string
   subject_code: string
-  tags: string[]
+  subject_longname: string | null
 }
 
 interface GenerateOptions {
@@ -36,14 +37,13 @@ interface GenerateResult {
 
 function prepareCourseText(course: {
   title: string
+  titleClean: string | null
   description: string
-  tags: string[]
-  subjectCode: string
+  subjectLongname: string | null
 }): string {
-  const tagText = course.tags.length > 0 ? `Tags: ${course.tags.join(', ')}` : ''
-  const subjectText = `Subject: ${course.subjectCode}`
-
-  return `${course.title}\n\n${course.description}\n\n${tagText}\n${subjectText}`.trim()
+  const title = course.titleClean ?? course.title
+  const parts = [course.subjectLongname, title, course.description].filter(Boolean)
+  return parts.join('\n\n')
 }
 
 function loadModel() {
@@ -68,7 +68,14 @@ function fetchCourseBatch(
       let query = db
         .selectFrom('course_offerings as co')
         .innerJoin('subjects as s', 's.id', 'co.subject_id')
-        .select(['co.id', 'co.title', 'co.description', 's.code as subject_code'])
+        .select([
+          'co.id',
+          'co.title',
+          'co.title_clean',
+          'co.description',
+          's.code as subject_code',
+          's.longname as subject_longname',
+        ])
         .orderBy('co.id', 'asc')
         .limit(options.batchSize)
         .offset(offset)
@@ -86,30 +93,15 @@ function fetchCourseBatch(
       }
 
       const rows = await query.execute()
-
-      // Fetch tags for each course
-      const courseIds = rows.map((r) => r.id)
-      if (courseIds.length === 0) return []
-
-      const tags = await db
-        .selectFrom('course_offering_tags')
-        .select(['course_offering_id', 'name'])
-        .where('course_offering_id', 'in', courseIds)
-        .execute()
-
-      const tagMap = new Map<number, string[]>()
-      for (const tag of tags) {
-        const existing = tagMap.get(tag.course_offering_id) ?? []
-        existing.push(tag.name)
-        tagMap.set(tag.course_offering_id, existing)
-      }
+      if (rows.length === 0) return []
 
       return rows.map((row) => ({
         id: row.id,
         title: row.title,
+        title_clean: row.title_clean,
         description: row.description,
         subject_code: row.subject_code,
-        tags: tagMap.get(row.id) ?? [],
+        subject_longname: row.subject_longname,
       }))
     },
     catch: (error) =>
@@ -240,9 +232,9 @@ export function generateEmbeddings(
       for (const course of courses) {
         const text = prepareCourseText({
           title: course.title,
+          titleClean: course.title_clean,
           description: course.description,
-          tags: course.tags,
-          subjectCode: course.subject_code,
+          subjectLongname: course.subject_longname,
         })
 
         const embeddingResult = yield* Effect.either(
@@ -283,6 +275,14 @@ export function generateEmbeddings(
     yield* Console.log(`  Success: ${success.toLocaleString()}`)
     if (failed > 0) {
       yield* Console.log(`  Failed: ${failed.toLocaleString()}`)
+    }
+
+    if (success > 0) {
+      yield* Console.log('\nRefreshing subject embedding centroids materialized view...')
+      yield* Effect.promise(() =>
+        db.schema.refreshMaterializedView('subject_embedding_centroids_mv').concurrently().execute(),
+      )
+      yield* Console.log('Refreshed subject embedding centroids materialized view.')
     }
 
     return { total, success, failed }

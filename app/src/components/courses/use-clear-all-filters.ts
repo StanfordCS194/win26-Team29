@@ -19,6 +19,8 @@ export function hasActiveFilters(search: SearchParams): boolean {
     search.codeNumberMin != null ||
     search.codeNumberMax != null ||
     search.repeatable != null ||
+    search.hasAccompanyingSections != null ||
+    search.newThisYear != null ||
     search.gradingOptions.length > 0 ||
     search.gradingOptionsExclude.length > 0 ||
     search.careers.length > 0 ||
@@ -91,6 +93,8 @@ export function useClearAllFilters() {
           numMeetingDaysMin: undefined,
           numMeetingDaysMax: undefined,
           repeatable: undefined,
+          hasAccompanyingSections: undefined,
+          newThisYear: undefined,
           ...Object.fromEntries(
             EVAL_QUESTION_SLUGS.flatMap((slug) => [
               [`min_eval_${slug}`, undefined],

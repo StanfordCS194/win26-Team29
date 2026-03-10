@@ -24,7 +24,15 @@ function coerceBoolString(val: unknown): unknown {
 
 // --- Sort options ---
 
-export const SORT_OPTIONS = ['relevance', 'code', 'units', 'num_enrolled', ...EVAL_QUESTION_SLUGS] as const
+export const SORT_OPTIONS = [
+  'relevance',
+  'code',
+  'units',
+  'num_enrolled',
+  'popularity',
+  ...EVAL_QUESTION_SLUGS,
+  'hours_per_unit',
+] as const
 export type SortOption = (typeof SORT_OPTIONS)[number]
 
 export const SORT_LABELS: Record<SortOption, string> = {
@@ -32,6 +40,7 @@ export const SORT_LABELS: Record<SortOption, string> = {
   code: 'Course code',
   units: 'Units',
   num_enrolled: 'Enrollment',
+  popularity: 'Popularity',
   quality: SLUG_LABEL.quality,
   learning: SLUG_LABEL.learning,
   organized: SLUG_LABEL.organized,
@@ -39,6 +48,7 @@ export const SORT_LABELS: Record<SortOption, string> = {
   attend_in_person: SLUG_LABEL.attend_in_person,
   attend_online: SLUG_LABEL.attend_online,
   hours: SLUG_LABEL.hours,
+  hours_per_unit: 'Hours per unit',
 }
 
 export const SORT_DEFAULT_ORDER: Record<SortOption, 'asc' | 'desc'> = {
@@ -46,6 +56,7 @@ export const SORT_DEFAULT_ORDER: Record<SortOption, 'asc' | 'desc'> = {
   code: 'asc',
   units: 'desc',
   num_enrolled: 'desc',
+  popularity: 'desc',
   quality: 'desc',
   learning: 'desc',
   organized: 'desc',
@@ -53,6 +64,7 @@ export const SORT_DEFAULT_ORDER: Record<SortOption, 'asc' | 'desc'> = {
   attend_in_person: 'desc',
   attend_online: 'desc',
   hours: 'asc',
+  hours_per_unit: 'asc',
 }
 
 // --- Shared constants ---
@@ -88,6 +100,12 @@ const rangeModeEnum = z.enum(['overlaps_with', 'contained_in'])
 // Uses .catch() so invalid URL values silently fall back to defaults rather than erroring.
 
 export const MAX_QUERY_LENGTH = 200
+
+/** Global search params validated at root; inherited by all routes. */
+export const globalSearchSchema = z.object({
+  /** Set by /auth/callback redirect when sign-in fails (e.g. non-Stanford email). Consumed by Header. */
+  authError: z.enum(['not-stanford']).optional().catch(undefined),
+})
 
 export const searchParamsSchema = z.object({
   query: z
@@ -151,6 +169,8 @@ export const searchParamsSchema = z.object({
 
   // Course metadata filters
   repeatable: z.preprocess(coerceBoolString, z.boolean().optional()).catch(undefined),
+  hasAccompanyingSections: z.preprocess(coerceBoolString, z.boolean().optional()).catch(undefined),
+  newThisYear: z.preprocess(coerceBoolString, z.boolean().optional()).catch(undefined),
 
   // GER count range (single integer — no mode)
   numGersMin: z.coerce.number().int().optional().catch(undefined),
@@ -211,6 +231,9 @@ export const searchParamsSchema = z.object({
   min_eval_hours: z.coerce.number().optional().catch(undefined),
   max_eval_hours: z.coerce.number().optional().catch(undefined),
 
+  min_eval_hours_per_unit: z.coerce.number().optional().catch(undefined),
+  max_eval_hours_per_unit: z.coerce.number().optional().catch(undefined),
+
   dedupeCrosslistings: z.preprocess(coerceBoolString, z.boolean().optional()).catch(undefined),
 
   advancedMode: z.preprocess(coerceBoolString, z.boolean().optional()).catch(undefined),
@@ -250,17 +273,28 @@ export const SEARCH_DEFAULTS = {
   order: 'desc',
   page: 1,
   unitsMode: 'overlaps_with',
+  hasAccompanyingSections: undefined,
+  newThisYear: undefined,
 } as const
 
 // --- Output types ---
 
+export type SearchCourseCrosslisting = {
+  offeringId: number
+  subjectCode: string
+  codeNumber: number
+  codeSuffix: string | null
+}
+
 export type SearchCourseResult = {
   id: number
   year: string
+  course_id: number
   subject_code: string
   code_number: number
   code_suffix: string | null
   title: string
+  title_clean: string
   description: string
   academic_group: string
   academic_career: string
@@ -270,8 +304,21 @@ export type SearchCourseResult = {
   units_min: number
   units_max: number
   gers: string[]
+  new_this_year: boolean
   sections: MvSection[]
+  crosslistings?: SearchCourseCrosslisting[]
   instructorQualityBySunet?: Record<string, number>
 }
 
 export type SearchResultSections = SearchCourseResult['sections']
+
+export type SearchCourseResultStub = {
+  id: number
+  year: string
+  subject_code: string
+  code_number: number
+  code_suffix: string | null
+  _stub: true
+}
+
+export type SearchQueryResult = Omit<SearchCourseResult, 'sections'> & { sections: MvSection[] | null }

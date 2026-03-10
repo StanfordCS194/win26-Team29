@@ -1,3 +1,5 @@
+import { type QueryClient } from '@tanstack/react-query'
+
 import {
   getAvailableYears,
   getAvailableGers,
@@ -15,7 +17,16 @@ import {
   getInstructorProfile,
 } from '@/data/search/search'
 
-import type { SearchParams } from '@/data/search/search.params'
+import type { SearchParams, SearchCourseResult, SearchCourseResultStub } from '@/data/search/search.params'
+
+export function courseQueryKey(
+  year: string,
+  subject_code: string,
+  code_number: number,
+  code_suffix: string | null,
+) {
+  return ['course', year, subject_code, code_number, code_suffix] as const
+}
 
 export const availableYearsQueryOptions = {
   queryKey: ['available-years'] as const,
@@ -101,10 +112,40 @@ export function availableComponentTypesQueryOptions(year: string) {
   }
 }
 
-export function searchQueryOptions(search: SearchParams) {
+export function searchQueryOptions(search: SearchParams, queryClient?: QueryClient) {
   return {
+    // oxlint-disable-next-line tanstack-query/exhaustive-deps -- queryClient is a stable singleton, not a data dependency
     queryKey: ['search', search] as const,
-    queryFn: () => searchCourses({ data: search as Required<SearchParams> }),
+    queryFn: async (): Promise<{ results: SearchCourseResult[]; totalCount: number }> => {
+      if (!queryClient) {
+        const raw = await searchCourses({ data: search as Required<SearchParams> })
+        return raw as { results: SearchCourseResult[]; totalCount: number }
+      }
+
+      const cachedEntries = queryClient.getQueriesData<SearchCourseResult>({ queryKey: ['course'] })
+      const clientCachedOfferingIds = cachedEntries.filter(([, d]) => d != null).map(([, d]) => d!.id)
+
+      const { results: rawResults, totalCount } = await searchCourses({
+        data: { ...search, clientCachedOfferingIds } as Required<SearchParams>,
+      })
+
+      const results: SearchCourseResult[] = rawResults
+        .map((r) => {
+          if ((r as SearchCourseResultStub)._stub) {
+            const stub = r as SearchCourseResultStub
+            const slug = `${stub.subject_code}${stub.code_number}${stub.code_suffix ?? ''}`
+            return (
+              queryClient.getQueryData<SearchCourseResult>(
+                courseByCodeQueryOptions(stub.year, slug).queryKey,
+              ) ?? null
+            )
+          }
+          return r as SearchCourseResult
+        })
+        .filter((r): r is SearchCourseResult => r != null)
+
+      return { results, totalCount }
+    },
     staleTime: 1000 * 60 * 60,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

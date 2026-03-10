@@ -39,6 +39,7 @@ export const getRouter = () => {
     } satisfies RouterContext,
 
     defaultPreload: 'intent',
+    defaultPendingMinMs: 0,
   })
 
   setupRouterSsrQueryIntegration({ router, queryClient: rqContext.queryClient })

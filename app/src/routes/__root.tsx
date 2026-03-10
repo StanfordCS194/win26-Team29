@@ -2,10 +2,11 @@ import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from '@tanst
 import type { QueryClient } from '@tanstack/react-query'
 import type { User } from '@supabase/supabase-js'
 
+import { globalSearchSchema } from '@/data/search/search.params'
 import Header from '../components/Header'
 import { NotFoundComponent } from '../components/errors/NotFoundComponent'
 import { RootErrorComponent } from '../components/errors/RootErrorComponent'
-import { getUser } from '../data/auth'
+import { userQueryOptions } from '../data/auth'
 import appCss from '../styles.css?url'
 
 export interface RouterContext {
@@ -14,8 +15,9 @@ export interface RouterContext {
 }
 
 export const Route = createRootRouteWithContext<RouterContext>()({
-  beforeLoad: async () => {
-    const user = await getUser()
+  validateSearch: globalSearchSchema,
+  beforeLoad: async ({ context }) => {
+    const user = await context.queryClient.ensureQueryData(userQueryOptions)
     return { user }
   },
   head: () => ({
