@@ -23,61 +23,63 @@ export function inlineParams(sql: string, params: readonly unknown[]): string {
 }
 
 // Maximum number of vector-similarity candidates fetched before filtering.
-const VECTOR_TOP_K = 100
-const VECTOR_MIN_SIMILARITY = 0.349 // cosine similarity threshold; below this is not considered a match
+const VECTOR_TOP_K = 80
+const VECTOR_MIN_SIMILARITY = 0.35 // cosine similarity threshold; below this is not considered a match
 
 // Offerings whose final relevance_score falls below this are dropped.
 // Prevents noise results when a content/code/embedding query is active.
-const MIN_RELEVANCE_THRESHOLD = 0.38
+const MIN_RELEVANCE_THRESHOLD = 0.4
 
 // Relevance score rounding step (e.g. 0.02 → 0.38, 0.40, 0.42, …)
-const RELEVANCE_SCORE_ROUNDING = 0.0075
+const RELEVANCE_SCORE_ROUNDING = 0.005
 
 // ── Logsumexp sharpness ────────────────────────────────────────────────────
 // Higher k → winner-takes-more; lower k → scores blend more evenly.
-const LOGSUMEXP_K = 5
+const LOGSUMEXP_K = 4.725
 
 // ── Text-tier blend weights (must sum to 1.0) ─────────────────────────────
 // Phrase match carries the most weight; OR is a weak fallback signal.
-const SCALE_PHRASE = 1.25
-const SCALE_AND = 0.765
-const SCALE_OR = 0.31475
+const SCALE_PHRASE = 0.975
+const SCALE_AND = 0.75
+const SCALE_OR = 0.3
 // Course-code match is a high-signal, structured filter: exact hits (1.0)
 // should dominate; title (0.8) and description (0.5) fuzzy hits still surface
 // the result but rank below genuine text/vector matches.
-const SCALE_CODE = 1.5
+const SCALE_CODE = 1.1
 
 // ── AND/OR dampening steepness ────────────────────────────────────────────
 // When a strong phrase signal exists, AND is mildly suppressed;
 // OR is aggressively suppressed. When AND is also strong, OR gets
 // an additional multiplicative penalty.
-const DAMPEN_AND_BY_PHRASE = 8.0 // steepness of AND suppression via phrase score
-const DAMPEN_OR_BY_PHRASE = 10.25 // steepness of OR suppression via phrase score
-const DAMPEN_OR_BY_AND = 8.25 // steepness of OR suppression via AND score
+const DAMPEN_AND_BY_PHRASE = 8.65 // steepness of AND suppression via phrase score
+const DAMPEN_OR_BY_PHRASE = 10.75 // steepness of OR suppression via phrase score
+const DAMPEN_OR_BY_AND = 8.75 // steepness of OR suppression via AND score
 
 // ── Enrollment popularity boost ───────────────────────────────────────────
 // Softly scales relevance upward for courses with higher historical enrolment.
 // Formula: 1 + (ENROLL_BOOST_WEIGHT * N) / (N + ENROLL_BOOST_MIDPOINT)
 // At midpoint enrolment the boost is exactly 1 + ENROLL_BOOST_WEIGHT / 2.
-const ENROLL_BOOST_WEIGHT = 0.175
-const ENROLL_BOOST_MIDPOINT = 200.0
+// Uses 100% code-based enrollment (subject_id + code_number + code_suffix).
+const ENROLL_BOOST_WEIGHT = 0.1872
+const ENROLL_BOOST_MIDPOINT = 440.0
 
 // ── Vector score scaling ───────────────────────────────────────────────────
 // Cosine similarity [0,1] is shifted and cubed so that near-duplicate
 // embeddings score much higher than loose semantic matches.
 const VECTOR_SHIFT = 0.2725 // added to score before squaring
 const VECTOR_FLOOR = -0.3 // coalesce fallback when no vector match
-const SCALE_VECTOR = 1.02 // overall multiplier on the cubed term
-const SUBJECT_BOOST_FALLBACK = 0.85 // subject_boost when centroid is absent
+const SCALE_VECTOR = 1.123 // overall multiplier on the cubed term
+const SUBJECT_BOOST_FALLBACK = 0.6 // subject_boost when centroid is absent
 
 // ── Code-number tier multipliers ──────────────────────────────────────────
 // Slightly penalises very low-numbered (freshman) and graduate-level courses
 // to keep the mid-level undergraduate sweet spot at full weight.
-const CODE_MULT_BELOW_100 = 0.98
+const CODE_MULT_BELOW_100 = 0.99
 const CODE_MULT_100 = 1.0
-const CODE_MULT_200 = 0.99
-const CODE_MULT_300 = 0.95
-const CODE_MULT_400_PLUS = 0.9
+const CODE_MULT_200_239 = 0.99
+const CODE_MULT_240_299 = 0.98
+const CODE_MULT_300 = 0.97
+const CODE_MULT_400_PLUS = 0.925
 
 export type EvalSlug = (typeof EVAL_QUESTION_SLUGS)[number]
 
@@ -384,26 +386,45 @@ export async function searchCourseOfferings(
             .select(['co.id as offering_id'])
             .where(sql<SqlBool>`false`),
     )
+    .with('vector_candidate_count', (cte) =>
+      hasEmbedding
+        ? cte.selectFrom('vector_candidates').select(sql<number>`count(*)::int`.as('cnt'))
+        : cte.selectFrom(sql`(select 0 as cnt)`.as('_')).select(sql<number>`0`.as('cnt')),
+    )
     .with('subject_scores', (cte) =>
       hasEmbedding
-        ? cte.selectFrom('subject_embedding_centroids_mv as sec').select([
-            'sec.subject_id',
-            sql<number>`
-                round(
-                  greatest(
-                    1.0 / (1.0 + exp(-20.0 * (
-                      (1.0 - (sec.centroid <=> ${embeddingVector!}::vector))
-                      * sec.subject_multiplier * 2.0
-                      - 0.38
-                    ))),
-                    0.8
-                  ) / 0.05
-                ) * 0.05
-              `.as('subject_boost'),
-          ])
+        ? cte
+            .selectFrom(
+              cte
+                .selectFrom('subject_embedding_centroids_mv as sec')
+                .crossJoin('vector_candidate_count as vcc')
+                .select([
+                  'sec.subject_id',
+                  sql<number>`
+                    case
+                      when vcc.cnt < 10 then 1.0::float
+                      else round(
+                        greatest(
+                          1.0 / (1.0 + exp(-20.0 * (
+                            (1.0 - (sec.centroid <=> ${embeddingVector!}::vector))
+                            * sec.subject_multiplier * 2.0
+                            - 0.38
+                          ))),
+                          0.49
+                        ) / 0.04
+                      ) * 0.04
+                    end
+                  `.as('boost'),
+                ])
+                .as('raw_scores'),
+            )
+            .select([
+              'raw_scores.subject_id',
+              sql<number>`(raw_scores.boost / max(raw_scores.boost) over ())`.as('subject_boost'),
+            ])
         : cte
             .selectFrom('subject_embedding_centroids_mv as sec')
-            .select(['sec.subject_id', sql<number>`null::float`.as('subject_boost')])
+            .select(['sec.subject_id', sql<number>`1.0::float`.as('subject_boost')])
             .where(sql<SqlBool>`false`),
     )
 
@@ -418,8 +439,17 @@ export async function searchCourseOfferings(
         .leftJoin('crosslistings_mv as cl', (join) =>
           join.onRef('cl.course_id', '=', 'co.course_id').onRef('cl.year', '=', 'co.year'),
         )
-        .leftJoin('course_enrollment_trends_mv as cet', (join) =>
-          join.onRef('cet.course_id', '=', 'co.course_id').onRef('cet.year', '=', 'co.year'),
+        .leftJoin('course_code_enrollment_trends_mv as cetc', (join) =>
+          join
+            .onRef('cetc.subject_id', '=', 'co.subject_id')
+            .onRef('cetc.code_number', '=', 'co.code_number')
+            .on((eb) =>
+              eb.or([
+                eb('cetc.code_suffix', '=', eb.ref('co.code_suffix')),
+                eb.and([eb('cetc.code_suffix', 'is', null), eb('co.code_suffix', 'is', null)]),
+              ]),
+            )
+            .onRef('cetc.year', '=', 'co.year'),
         )
         .leftJoin('all_candidates as ac', 'ac.offering_id', 'co.id')
         .leftJoin('vector_candidates as vc', 'vc.offering_id', 'co.id')
@@ -654,18 +684,21 @@ export async function searchCourseOfferings(
           const subjectFallback = sql.lit(SUBJECT_BOOST_FALLBACK)
           const enrollWeight = sql.lit(ENROLL_BOOST_WEIGHT)
           const enrollMidpoint = sql.lit(ENROLL_BOOST_MIDPOINT)
+          const effectiveEnrolled = sql`coalesce(${eb.ref('cetc.cumulative_num_enrolled')}, 0)`
 
           const relevanceScore = hasCandidateFilter
             ? sql<number>`(
                 ln(
                   exp(${k} * ${scale.code} * coalesce(${eb.ref('cc.code_score')}, 0))
                   +
-                  exp(${k} * ${scale.phrase} * coalesce(${eb.ref('pc.score')}, 0))
+                  exp(${k} * ${scale.phrase} * coalesce(${eb.ref('pc.score')}, 0) 
+                           * coalesce(${eb.ref('ss.subject_boost')}, ${subjectFallback}))
                   +
                   exp(
                     ${k} * ${scale.and} * (
                       coalesce(${eb.ref('andc.score')}, 0)
                       * (1.0 / (1.0 + ${dAndByPhrase} * ${eb.ref('ps.best_phrase')}))
+                      * coalesce(${eb.ref('ss.subject_boost')}, ${subjectFallback})
                     )
                   )
                   +
@@ -674,6 +707,7 @@ export async function searchCourseOfferings(
                       coalesce(${eb.ref('orc.score')}, 0)
                       * (1.0 / (1.0 + ${dOrByPhrase} * coalesce(${eb.ref('ps.best_phrase')}, 0)))
                       * (1.0 / (1.0 + ${dOrByAnd} * coalesce(${eb.ref('ps.best_phrase')}, 0)))
+                      * coalesce(${eb.ref('ss.subject_boost')}, ${subjectFallback})
                     )
                   )
                   +
@@ -691,7 +725,8 @@ export async function searchCourseOfferings(
             CASE
               WHEN ${eb.ref('co.code_number')} < 100 THEN ${sql.lit(CODE_MULT_BELOW_100)}
               WHEN ${eb.ref('co.code_number')} < 200 THEN ${sql.lit(CODE_MULT_100)}
-              WHEN ${eb.ref('co.code_number')} < 300 THEN ${sql.lit(CODE_MULT_200)}
+              WHEN ${eb.ref('co.code_number')} < 240 THEN ${sql.lit(CODE_MULT_200_239)}
+              WHEN ${eb.ref('co.code_number')} < 300 THEN ${sql.lit(CODE_MULT_240_299)}
               WHEN ${eb.ref('co.code_number')} < 400 THEN ${sql.lit(CODE_MULT_300)}
               ELSE ${sql.lit(CODE_MULT_400_PLUS)}
             END
@@ -707,11 +742,12 @@ export async function searchCourseOfferings(
             'co.units_max',
             sql<number>`round(
               (coalesce(${relevanceScore}, 0) * (
-                1.0 + (${enrollWeight} * coalesce(${eb.ref('cet.cumulative_num_enrolled')}, 0))
-                    / (coalesce(${eb.ref('cet.cumulative_num_enrolled')}, 0) + ${enrollMidpoint})
+                1.0 + (${enrollWeight} * ${effectiveEnrolled})
+                    / (${effectiveEnrolled} + ${enrollMidpoint}
+                        * (case when ${eb.ref('s.code')} IN ('CS', 'COLLEGE') then 7.0 else 1.0 end))
               ) * ${codeNumberMultiplier}) / ${sql.lit(RELEVANCE_SCORE_ROUNDING)}
             ) * ${sql.lit(RELEVANCE_SCORE_ROUNDING)}`.as('relevance_score'),
-            'cet.cumulative_num_enrolled',
+            sql<number | null>`${effectiveEnrolled}`.as('cumulative_num_enrolled'),
           ]
         }),
     )
