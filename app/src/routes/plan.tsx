@@ -10,15 +10,108 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
+import { parseTranscriptPDF } from '@/lib/parse-transcript'
+import {
+  getUserPlan,
+  addPlanCourse,
+  removePlanCourse,
+  addStashCourse,
+  removeStashCourse,
+  resetPlan,
+} from '@/data/plan/plan-server'
 
 export const Route = createFileRoute('/plan')({ component: PlanPage })
 
 const TERMS = ['Autumn', 'Winter', 'Spring', 'Summer'] as const
 type TermKey = (typeof TERMS)[number]
 
-type PlannedCourse = { code: string; title: string; units: number }
+type PlannedCourse = { code: string; title: string; units: number; dbId?: string }
+
+function AllYearsOverview({
+  startYear,
+  getPlanned,
+  getTermUnits,
+  getYearUnits,
+  removeFromPlanned,
+}: {
+  startYear: number
+  getPlanned: (yi: number, term: TermKey) => PlannedCourse[]
+  getTermUnits: (courses: PlannedCourse[]) => number
+  getYearUnits: (yi: number) => number
+  removeFromPlanned: (yi: number, term: TermKey, code: string) => void
+}) {
+  return (
+    <div className="overflow-auto">
+      <div className="grid min-w-[700px] grid-cols-4 divide-x divide-slate-200 rounded-2xl border border-slate-200 bg-white shadow-sm">
+        {[0, 1, 2, 3].map((yi) => {
+          const yr = startYear + yi
+          const yearLabel = `${yr}–${String(yr + 1).slice(-2)}`
+          return (
+            <div key={yi} className="flex flex-col">
+              {/* Sticky year header */}
+              <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white/90 px-3 py-2.5 backdrop-blur-sm">
+                <span className="text-sm font-semibold text-slate-800">{yearLabel}</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                  {getYearUnits(yi)} / 45 units
+                </span>
+              </div>
+
+              {/* Quarters */}
+              <div className="flex flex-col gap-3 p-3">
+                {TERMS.map((term) => {
+                  const courses = getPlanned(yi, term)
+                  const termUnits = getTermUnits(courses)
+                  return (
+                    <div
+                      key={term}
+                      className="flex flex-col rounded-xl border border-slate-200 bg-slate-50/80 text-xs"
+                    >
+                      {/* Quarter header */}
+                      <div className="flex items-center justify-between px-3 pt-3 pb-1.5">
+                        <p className="font-semibold text-slate-700">{term}</p>
+                        <span className="rounded-full bg-white px-1.5 py-0.5 text-[10px] text-slate-500">
+                          {termUnits} units
+                        </span>
+                      </div>
+
+                      {/* Droppable zone */}
+                      <div className="flex flex-col gap-2 px-3 pb-2">
+                        <p className="text-[10px] font-medium tracking-wider text-slate-500 uppercase">
+                          Planned
+                        </p>
+                        <DroppableZone id={plannedDropId(yi, term)} className="flex flex-wrap gap-1.5">
+                          {courses.map((c) => (
+                            <CourseBox
+                              key={c.code}
+                              id={`planned-${yi}-${term}-${c.code}`}
+                              course={c}
+                              source={{ type: 'planned', yearIndex: yi, term }}
+                              variant="planned"
+                              onRemove={() => removeFromPlanned(yi, term, c.code)}
+                            />
+                          ))}
+                        </DroppableZone>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="mx-3 mb-3 rounded-full bg-slate-900/90 px-2 py-1.5 text-[11px] font-normal text-slate-50 transition hover:bg-slate-900"
+                      >
+                        Add course
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 function quarterKey(yearIndex: number, term: TermKey) {
   return `${yearIndex}-${term}`
@@ -106,54 +199,56 @@ function CourseBox({
       </span>
     </span>
   )
+
   return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      className={`${base} ${variantClass} ${isDragging ? 'opacity-50' : ''}`}
-    >
-      <span className="tracking-wide">{course.code}</span>
-      <span className="text-slate-500">({course.units})</span>
-      {variant === 'stash' && (
-        <span className="ml-1 flex gap-0.5" onClick={(e) => e.stopPropagation()}>
-          {onMoveToPlanned && (
-            <button
-              type="button"
-              onClick={() => onMoveToPlanned()}
-              className="rounded p-0.5 text-slate-500 hover:bg-amber-200 hover:text-[#8C1515]"
-              title="To planned"
-            >
-              +
-            </button>
-          )}
-          {onRemove && (
-            <button
-              type="button"
-              onClick={() => onRemove()}
-              className="rounded p-0.5 text-slate-400 hover:bg-amber-200 hover:text-[#8C1515]"
-              title="Remove"
-            >
-              ×
-            </button>
-          )}
-        </span>
-      )}
-      {variant === 'global' && onRemove && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            e.preventDefault()
-            onRemove()
-          }}
-          className="ml-1 rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-[#8C1515]"
-          title="Remove"
+    <div className="group relative inline-flex">
+      {/* Chip — old style */}
+      <div
+        ref={setNodeRef}
+        {...listeners}
+        {...attributes}
+        className={`${base} ${variantClass} ${isDragging ? 'opacity-50' : ''}`}
+      >
+        <span className="tracking-wide">{course.code}</span>
+        <span className="text-slate-500">({course.units})</span>
+        {sixDots}
+      </div>
+
+      {/* Corner popup — appears at top-right, overlapping the chip corner */}
+      {(onRemove || onMoveToPlanned) && (
+        <div
+          className="pointer-events-none absolute -top-1 -right-1 z-50 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100"
+          onClick={(e) => e.stopPropagation()}
         >
-          ×
-        </button>
+          <div className="flex min-w-[130px] flex-col gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-xl">
+            <p className="text-[11px] font-semibold text-slate-800">{course.code}</p>
+            {course.units > 0 && <p className="text-[10px] text-slate-400">{course.units} units</p>}
+            {course.title && (
+              <p className="max-w-[160px] truncate text-[10px] text-slate-400">{course.title}</p>
+            )}
+            <div className="mt-1 flex flex-wrap gap-1">
+              {variant === 'stash' && onMoveToPlanned && (
+                <button
+                  type="button"
+                  onClick={() => onMoveToPlanned()}
+                  className="rounded-full bg-slate-800 px-2.5 py-0.5 text-[10px] font-medium text-white hover:bg-slate-900"
+                >
+                  + Plan
+                </button>
+              )}
+              {onRemove && (
+                <button
+                  type="button"
+                  onClick={() => onRemove()}
+                  className="rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[10px] font-medium text-red-600 hover:bg-red-100"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
-      {sixDots}
     </div>
   )
 }
@@ -179,17 +274,104 @@ function DroppableZone({
 }
 
 function PlanPage() {
-  const START_YEAR = 2024
-  const [viewYear, setViewYear] = useState(START_YEAR) // which single academic year we're showing
+  const [startYear, setStartYear] = useState(2024)
+  const [viewYear, setViewYear] = useState(2024)
   const [planned, setPlanned] = useState<Record<string, PlannedCourse[]>>(INITIAL_PLANNED)
   const [globalStash, setGlobalStash] = useState<PlannedCourse[]>([])
   const [quarterStash, setQuarterStash] = useState<Record<string, PlannedCourse[]>>({})
   const [searchQuery, setSearchQuery] = useState('')
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [mounted, setMounted] = useState(false)
+  const [showOverview, setShowOverview] = useState(false)
+  const [planId, setPlanId] = useState<string | null>(null)
 
-  const yearIndex = viewYear - START_YEAR
+  useEffect(() => {
+    setMounted(true)
+    getUserPlan()
+      .then((data) => {
+        if (!data) return
+        setPlanId(data.planId)
+        // Only hydrate from DB if it has data; keep INITIAL_PLANNED otherwise
+        if (Object.keys(data.planned).length > 0) {
+          setStartYear(data.startYear)
+          setViewYear(data.startYear)
+          setPlanned(
+            Object.fromEntries(
+              Object.entries(data.planned).map(([key, courses]) => [
+                key,
+                courses.map((c) => ({ code: c.code, title: '', units: c.units, dbId: c.dbId })),
+              ]),
+            ),
+          )
+        }
+        if (data.globalStash.length > 0) {
+          setGlobalStash(
+            data.globalStash.map((c) => ({ code: c.code, title: '', units: c.units, dbId: c.dbId })),
+          )
+        }
+      })
+      .catch((_err: unknown) => console.error('[plan] load error:', _err))
+  }, [])
+
+  async function handleTranscriptUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    console.log('[transcript] onChange fired, files:', e.target.files)
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImporting(true)
+    setImportError(null)
+    try {
+      const data = await parseTranscriptPDF(file)
+      console.log('[transcript] parsed:', data)
+      setStartYear(data.startYear)
+      setViewYear(data.startYear)
+      setPlanned(data.planned)
+      setQuarterStash({})
+
+      // Persist to DB if logged in
+      if (planId !== null) {
+        try {
+          const dbResult = await resetPlan({
+            data: {
+              planId,
+              startYear: data.startYear,
+              planned: Object.fromEntries(
+                Object.entries(data.planned).map(([key, courses]) => [
+                  key,
+                  courses.map((c) => ({ code: c.code, units: c.units })),
+                ]),
+              ),
+            },
+          })
+          // Hydrate dbIds into local state
+          setPlanned(
+            Object.fromEntries(
+              Object.entries(data.planned).map(([key, courses]) => {
+                const dbCourses = dbResult[key] ?? []
+                const dbById = new Map(dbCourses.map((c) => [c.code, c.dbId]))
+                return [key, courses.map((c) => ({ ...c, dbId: dbById.get(c.code) }))]
+              }),
+            ),
+          )
+        } catch (dbErr) {
+          console.error('[plan] resetPlan error:', dbErr)
+        }
+      }
+    } catch (err) {
+      console.error('[transcript] error:', err)
+      setImportError(err instanceof Error ? err.message : 'Failed to parse transcript.')
+    } finally {
+      setImporting(false)
+      // Reset input so the same file can be re-uploaded
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const yearIndex = viewYear - startYear
   const viewYearLabel = `${viewYear}-${String(viewYear + 1).slice(-2)}`
-  const canGoPrev = viewYear > START_YEAR
-  const canGoNext = viewYear < START_YEAR + 3
+  const canGoPrev = viewYear > startYear
+  const canGoNext = viewYear < startYear + 3
 
   function getPlanned(yearIndex: number, term: TermKey): PlannedCourse[] {
     return planned[quarterKey(yearIndex, term)] ?? []
@@ -209,10 +391,25 @@ function PlanPage() {
 
   function addToGlobalStash(course: PlannedCourse) {
     setGlobalStash((prev) => [...prev, course])
+    if (planId !== null) {
+      addStashCourse({ data: { planId, courseCode: course.code } })
+        .then((res) => {
+          setGlobalStash((prev) =>
+            prev.map((c) => (c.code === course.code && c.dbId === undefined ? { ...c, dbId: res.dbId } : c)),
+          )
+        })
+        .catch((_err: unknown) => console.error('[plan] addStashCourse error:', _err))
+    }
   }
 
   function removeFromGlobalStash(code: string) {
+    const course = globalStash.find((c) => c.code === code)
     setGlobalStash((prev) => prev.filter((c) => c.code !== code))
+    if (course?.dbId !== undefined) {
+      removeStashCourse({ data: { stashDbId: course.dbId } }).catch((_err: unknown) =>
+        console.error('[plan] removeStashCourse error:', _err),
+      )
+    }
   }
 
   function addToQuarterStash(yearIndex: number, term: TermKey, course: PlannedCourse) {
@@ -237,14 +434,40 @@ function PlanPage() {
       ...prev,
       [key]: [...(prev[key] ?? []), course],
     }))
+    if (planId !== null) {
+      addPlanCourse({
+        data: {
+          planId,
+          actualYear: startYear + yearIndex,
+          quarter: term,
+          courseCode: course.code,
+          units: course.units,
+        },
+      })
+        .then((res) => {
+          setPlanned((prev) => ({
+            ...prev,
+            [key]: (prev[key] ?? []).map((c) =>
+              c.code === course.code && c.dbId === undefined ? { ...c, dbId: res.dbId } : c,
+            ),
+          }))
+        })
+        .catch((_err: unknown) => console.error('[plan] addPlanCourse error:', _err))
+    }
   }
 
   function removeFromPlanned(yearIndex: number, term: TermKey, code: string) {
     const key = quarterKey(yearIndex, term)
+    const course = (planned[key] ?? []).find((c) => c.code === code)
     setPlanned((prev) => ({
       ...prev,
       [key]: (prev[key] ?? []).filter((c) => c.code !== code),
     }))
+    if (course?.dbId !== undefined) {
+      removePlanCourse({ data: { courseDbId: course.dbId } }).catch((_err: unknown) =>
+        console.error('[plan] removePlanCourse error:', _err),
+      )
+    }
   }
 
   // Mock search results (in real app would come from API)
@@ -333,6 +556,8 @@ function PlanPage() {
     return null
   })()
 
+  if (!mounted) return <div className="min-h-screen bg-gradient-to-b from-sky-50 via-slate-50 to-sky-100" />
+
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="min-h-screen bg-gradient-to-b from-sky-50 via-slate-50 to-sky-100">
@@ -400,24 +625,46 @@ function PlanPage() {
 
           {/* Center: 4-year grid with year nav */}
           <main className="min-w-0 flex-1">
-            <header className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-              <div>
+            <header className="mb-4 flex items-center justify-between gap-3">
+              <div className="min-w-0">
                 <h1 className="text-3xl font-normal text-slate-900">4-year plan</h1>
-                <p className="mt-1 text-sm text-slate-600">
-                  Map out each quarter; use stashes to try options before committing.
-                </p>
+                {importError !== null && <p className="mt-0.5 text-xs text-red-600">{importError}</p>}
               </div>
-              <div className="flex flex-wrap items-center gap-3">
+              <div className="flex shrink-0 items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    void handleTranscriptUpload(e)
+                  }}
+                />
                 <button
                   type="button"
-                  className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-normal text-slate-800 shadow-sm transition hover:border-[#8C1515] hover:text-[#8C1515]"
+                  disabled={importing}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-normal text-slate-800 shadow-sm transition hover:border-[#8C1515] hover:text-[#8C1515] disabled:opacity-60"
                 >
-                  Import current schedule
+                  {importing ? 'Importing…' : 'Import transcript'}
                 </button>
-                <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setShowOverview((v) => !v)}
+                  className={`rounded-full border px-4 py-2 text-sm font-normal shadow-sm transition ${
+                    showOverview
+                      ? 'border-[#8C1515] bg-[#8C1515] text-white'
+                      : 'border-slate-300 bg-white text-slate-800 hover:border-[#8C1515] hover:text-[#8C1515]'
+                  }`}
+                >
+                  All years
+                </button>
+                <div
+                  className={`flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 shadow-sm transition-opacity duration-200 ${showOverview ? 'pointer-events-none opacity-30' : 'opacity-100'}`}
+                >
                   <button
                     type="button"
-                    onClick={() => setViewYear((y) => Math.max(START_YEAR, y - 1))}
+                    onClick={() => setViewYear((y) => Math.max(startYear, y - 1))}
                     disabled={!canGoPrev}
                     className="rounded-full p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40 disabled:hover:bg-transparent"
                     aria-label="Previous year"
@@ -429,7 +676,7 @@ function PlanPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setViewYear((y) => Math.min(START_YEAR + 3, y + 1))}
+                    onClick={() => setViewYear((y) => Math.min(startYear + 3, y + 1))}
                     disabled={!canGoNext}
                     className="rounded-full p-1.5 text-slate-600 hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40 disabled:hover:bg-transparent"
                     aria-label="Next year"
@@ -440,7 +687,23 @@ function PlanPage() {
               </div>
             </header>
 
-            <section className="grid w-full grid-cols-1 gap-4">
+            {/* All-years view */}
+            <div
+              className={`transition-all duration-200 ${showOverview ? 'opacity-100' : 'pointer-events-none absolute opacity-0'}`}
+            >
+              <AllYearsOverview
+                startYear={startYear}
+                getPlanned={getPlanned}
+                getTermUnits={getTermUnits}
+                getYearUnits={getYearUnits}
+                removeFromPlanned={removeFromPlanned}
+              />
+            </div>
+
+            {/* Single-year view */}
+            <section
+              className={`grid w-full grid-cols-1 gap-4 transition-all duration-200 ${showOverview ? 'pointer-events-none absolute opacity-0' : 'opacity-100'}`}
+            >
               <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                 <h2 className="text-sm font-semibold tracking-[0.18em] text-slate-500 uppercase">
                   {viewYearLabel}
@@ -476,6 +739,7 @@ function PlanPage() {
                               course={c}
                               source={{ type: 'planned', yearIndex, term }}
                               variant="planned"
+                              onRemove={() => removeFromPlanned(yearIndex, term, c.code)}
                             />
                           ))}
                         </DroppableZone>
