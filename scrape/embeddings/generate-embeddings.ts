@@ -19,7 +19,10 @@ interface CourseRow {
   description: string
   subject_code: string
   subject_longname: string | null
+  review_text: string | null
 }
+
+const MAX_TEXT_LENGTH = 2000
 
 interface GenerateOptions {
   batchSize: number
@@ -40,10 +43,18 @@ function prepareCourseText(course: {
   titleClean: string | null
   description: string
   subjectLongname: string | null
+  reviewText: string | null
 }): string {
   const title = course.titleClean ?? course.title
   const parts = [course.subjectLongname, title, course.description].filter(Boolean)
-  return parts.join('\n\n')
+  if (course.reviewText != null && course.reviewText !== '') {
+    parts.push(`Student Reviews: ${course.reviewText}`)
+  }
+  let text = parts.join('\n\n')
+  if (text.length > MAX_TEXT_LENGTH) {
+    text = text.slice(0, MAX_TEXT_LENGTH)
+  }
+  return text
 }
 
 function loadModel() {
@@ -75,6 +86,7 @@ function fetchCourseBatch(
           'co.description',
           's.code as subject_code',
           's.longname as subject_longname',
+          'co.review_text',
         ])
         .orderBy('co.id', 'asc')
         .limit(options.batchSize)
@@ -102,6 +114,7 @@ function fetchCourseBatch(
         description: row.description,
         subject_code: row.subject_code,
         subject_longname: row.subject_longname,
+        review_text: row.review_text,
       }))
     },
     catch: (error) =>
@@ -235,6 +248,7 @@ export function generateEmbeddings(
           titleClean: course.title_clean,
           description: course.description,
           subjectLongname: course.subject_longname,
+          reviewText: course.review_text,
         })
 
         const embeddingResult = yield* Effect.either(

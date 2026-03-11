@@ -3,11 +3,12 @@ import { pathToFileURL } from 'node:url'
 
 import { Command, Options } from '@effect/cli'
 import { NodeContext, NodeRuntime } from '@effect/platform-node'
-import { ConfigProvider, Effect, Layer } from 'effect'
+import { ConfigProvider, Console, Effect, Layer } from 'effect'
 import cliProgress from 'cli-progress'
 
 import { DbLive } from '@scrape/shared/db-layer.ts'
 import { generateEmbeddings } from './generate-embeddings.ts'
+import { aggregateReviewText } from './aggregate-reviews.ts'
 
 const batchSize = Options.integer('batch-size').pipe(
   Options.withDefault(100),
@@ -34,11 +35,35 @@ const force = Options.boolean('force').pipe(
   Options.withDescription('Regenerate embeddings even if they exist'),
 )
 
+const withReviews = Options.boolean('with-reviews').pipe(
+  Options.withDefault(false),
+  Options.withDescription('Aggregate review text before generating embeddings'),
+)
+
 const command = Command.make(
   'generate-embeddings',
-  { batchSize, concurrency, year, subject, force },
+  { batchSize, concurrency, year, subject, force, withReviews },
   (options) =>
     Effect.gen(function* () {
+      yield* Console.log('[debug] CLI handler entered')
+      const yearVal = options.year._tag === 'Some' ? options.year.value : undefined
+      const subjectVal = options.subject._tag === 'Some' ? options.subject.value : undefined
+      yield* Console.log(
+        `[debug] year=${yearVal} subject=${subjectVal} withReviews=${options.withReviews} force=${options.force}`,
+      )
+
+      if (options.withReviews) {
+        yield* Console.log('Step 1/2: Aggregating review text...')
+        yield* aggregateReviewText({
+          batchSize: options.batchSize,
+          force: options.force,
+          year: yearVal,
+          subject: subjectVal,
+        })
+        yield* Console.log('Review text aggregation complete.\n')
+        yield* Console.log('Step 2/2: Generating embeddings (with reviews)...')
+      }
+
       const progressBar = new cliProgress.SingleBar(
         {
           format: 'Progress |{bar}| {percentage}% | {value}/{total}',
@@ -53,9 +78,9 @@ const command = Command.make(
         {
           batchSize: options.batchSize,
           concurrency: options.concurrency,
-          year: options.year._tag === 'Some' ? options.year.value : undefined,
-          subject: options.subject._tag === 'Some' ? options.subject.value : undefined,
-          force: options.force,
+          year: yearVal,
+          subject: subjectVal,
+          force: options.withReviews || options.force,
         },
         progressBar,
       )

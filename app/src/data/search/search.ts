@@ -1055,12 +1055,16 @@ export const searchCourses = createServerFn({ method: 'GET' })
         `[sections-cache] ${nullSectionsCount}/${rawResults.length} rows had null sections (served from cache)`,
       )
 
+      const withReviewText = rawResults.filter((r) => r.review_text != null).length
+      console.log(`[reviews] ${withReviewText}/${rawResults.length} results have review_text`)
+
       const hydratedResults: SearchCourseResult[] = rawResults.map((r) => {
+        const reviewSnippet = extractRelevantSnippet(r.review_text, rawQuery)
         if (r.sections != null) {
           cachedSectionsByOfferingId.set(r.id, r.sections)
-          return r as SearchCourseResult
+          return { ...r, sections: r.sections, reviewSnippet } as SearchCourseResult
         }
-        return { ...r, sections: cachedSectionsByOfferingId.get(r.id) ?? [] }
+        return { ...r, sections: cachedSectionsByOfferingId.get(r.id) ?? [], reviewSnippet }
       })
 
       const clientCachedSet = new Set(data.clientCachedOfferingIds ?? [])
@@ -1087,3 +1091,34 @@ export const searchCourses = createServerFn({ method: 'GET' })
       return { results, totalCount }
     },
   )
+
+/**
+ * Extract the most relevant review snippet based on word overlap with the search query
+ */
+function extractRelevantSnippet(
+  reviewText: string | null,
+  query: string,
+  maxLength: number = 150,
+): string | null {
+  if (reviewText == null || reviewText === '') return null
+
+  const reviews = reviewText.split(' | ')
+  const queryWords = new Set(
+    query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 2),
+  )
+
+  const scored = reviews.map((review) => {
+    const reviewWords = review.toLowerCase().split(/\s+/)
+    const overlap = reviewWords.filter((w) => queryWords.has(w)).length
+    return { review, score: overlap }
+  })
+
+  scored.sort((a, b) => b.score - a.score)
+  const best = scored[0]?.review
+  if (!best) return null
+
+  return best.length > maxLength ? best.slice(0, maxLength).trim() + '...' : best
+}

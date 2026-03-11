@@ -123,28 +123,43 @@ export function parseSearchQuery(raw: string, knownSubjects: string[]): ParsedSe
   }
 
   // Second pass: extract lone subject codes (no adjacent number)
+  // Only treat as a subject filter when the subject code is the ENTIRE remaining
+  // query (e.g. "CS" or "MATH"). When mixed with other words ("easy math"),
+  // the subject token is natural language and should stay in remainingQuery.
   const subjectOnlyRegex = new RegExp(`(?:^|\\s)(${subjectPattern})(?=\\s|$)`, 'gi')
 
-  const subjectOnlyMatches: { match: string; start: number; end: number }[] = []
+  const subjectOnlyMatches: { match: string; start: number; end: number; subject: string }[] = []
 
   while ((m = subjectOnlyRegex.exec(working)) !== null) {
-    const subject = m[1].toUpperCase()
-    // Avoid duplicates if already captured as a full code
-    if (!subjectsOnly.includes(subject)) {
-      subjectsOnly.push(subject)
-    }
     subjectOnlyMatches.push({
       match: m[0],
       start: m.index,
       end: m.index + m[0].length,
+      subject: m[1].toUpperCase(),
     })
   }
 
-  // Remove matched subject-only tokens
-  const toRemove2 = [...subjectOnlyMatches].sort((a, b) => b.start - a.start)
-  for (const { start, end } of toRemove2) {
-    working = working.slice(0, start) + ' ' + working.slice(end)
+  // Check if the query consists ONLY of subject codes (no other words remain)
+  let testWorking = working
+  const sortedMatches = [...subjectOnlyMatches].sort((a, b) => b.start - a.start)
+  for (const { start, end } of sortedMatches) {
+    testWorking = testWorking.slice(0, start) + ' ' + testWorking.slice(end)
   }
+  const hasOtherWords = testWorking.replace(/\s+/g, ' ').trim().length > 0
+
+  if (!hasOtherWords) {
+    // Pure subject query (e.g. "CS", "MATH EE") — extract as subject filters
+    for (const match of subjectOnlyMatches) {
+      if (!subjectsOnly.includes(match.subject)) {
+        subjectsOnly.push(match.subject)
+      }
+    }
+    // Remove matched subject-only tokens
+    for (const { start, end } of sortedMatches) {
+      working = working.slice(0, start) + ' ' + working.slice(end)
+    }
+  }
+  // Otherwise leave the subject words in the free-text query
 
   // Clean up remaining query
   let remainingQuery = working.replace(/\s+/g, ' ').trim()

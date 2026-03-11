@@ -1251,6 +1251,7 @@ export async function searchCourseOfferings(
     // ═══════════════════════════════════════════════════════════
     .selectFrom('sorted_page as sp')
     .innerJoin('course_offerings_full_mv as mv', 'mv.offering_id', 'sp.offering_id')
+    .innerJoin('course_offerings as co_rt', 'co_rt.id', 'sp.offering_id')
     .select([
       'mv.offering_id as id',
       'mv.course_id',
@@ -1276,6 +1277,7 @@ export async function searchCourseOfferings(
         'sections',
       ),
       'mv.crosslistings',
+      'co_rt.review_text',
       'sp.relevance_score',
       sql<number>`(SELECT count FROM total_count)::int`.as('total_count'),
     ])

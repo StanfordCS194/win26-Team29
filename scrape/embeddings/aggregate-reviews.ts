@@ -10,7 +10,7 @@ import type { SingleBar } from 'cli-progress'
 
 const REVIEW_QUESTION =
   'What would you like to say about this course to a student who is considering taking it in the future?'
-const MAX_REVIEW_TEXT_LENGTH = 500
+const MAX_REVIEW_TEXT_LENGTH = 1500
 
 interface AggregateOptions {
   batchSize: number

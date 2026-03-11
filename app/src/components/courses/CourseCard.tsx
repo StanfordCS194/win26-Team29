@@ -668,6 +668,12 @@ export function CourseCard({
               renderText={(t) => renderDescriptionWithLinks(t, validSubjects, year)}
             />
           )}
+          {course.reviewSnippet != null && course.reviewSnippet !== '' && (
+            <div className="mt-2 rounded-lg border border-slate-100 bg-slate-50 p-3">
+              <p className="mb-1 text-xs font-medium text-slate-500">Student Review</p>
+              <p className="text-sm text-slate-600 italic">&ldquo;{course.reviewSnippet}&rdquo;</p>
+            </div>
+          )}
         </div>
 
         <div ref={rightRef}>

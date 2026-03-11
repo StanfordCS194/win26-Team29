@@ -308,6 +308,9 @@ export type SearchCourseResult = {
   sections: MvSection[]
   crosslistings?: SearchCourseCrosslisting[]
   instructorQualityBySunet?: Record<string, number>
+  review_text: string | null
+  /** Relevant review snippet from student evaluations */
+  reviewSnippet: string | null
 }
 
 export type SearchResultSections = SearchCourseResult['sections']
