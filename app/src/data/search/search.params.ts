@@ -324,4 +324,6 @@ export type SearchCourseResultStub = {
   _stub: true
 }
 
-export type SearchQueryResult = Omit<SearchCourseResult, 'sections'> & { sections: MvSection[] | null }
+export type SearchQueryResult = Omit<SearchCourseResult, 'sections' | 'reviewSnippet'> & {
+  sections: MvSection[] | null
+}
