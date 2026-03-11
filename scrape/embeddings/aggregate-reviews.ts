@@ -5,7 +5,7 @@ import { DbService } from '@scrape/shared/db-layer.ts'
 import { DatabaseUpdateError } from './errors.ts'
 
 import type { Kysely } from 'kysely'
-import type { DB } from '@courses/db/db.types'
+import type { DB } from '@courses/db/db-postgres-js'
 import type { SingleBar } from 'cli-progress'
 
 const REVIEW_QUESTION =
@@ -68,7 +68,7 @@ function fetchAggregatedReviews(
           .where('sub.code', '=', options.subject)
       }
 
-      return  query.execute()
+      return query.execute()
     },
     catch: (error) =>
       new DatabaseUpdateError({
