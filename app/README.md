@@ -11,7 +11,7 @@ CourseTree helps students plan their courses with social features and functional
 Install dependencies from the root:
 
 ```bash
-pnpm install
+bun install
 ```
 
 ## Development
@@ -19,7 +19,7 @@ pnpm install
 Start the development server:
 
 ```bash
-pnpm dev
+bun dev
 ```
 
 The app will be available at `http://localhost:3000`.
@@ -29,23 +29,23 @@ The app will be available at `http://localhost:3000`.
 Build for production:
 
 ```bash
-pnpm build
+bun build
 ```
 
 Preview the production build:
 
 ```bash
-pnpm preview
+bun preview
 ```
 
 ## Available Scripts
 
-- `pnpm dev` - Start development server (port 3000)
-- `pnpm build` - Build for production
-- `pnpm preview` - Preview production build
-- `pnpm test` - Run tests
-- `pnpm lint` - Run ESLint
-- `pnpm format` - Format code with Prettier
+- `bun dev` - Start development server (port 3000)
+- `bun build` - Build for production
+- `bun preview` - Preview production build
+- `bun test` - Run tests
+- `bun lint` - Run ESLint
+- `bun format` - Format code with Prettier
 
 ## Tech Stack
 
@@ -76,7 +76,7 @@ app/
 Install Shadcn components:
 
 ```bash
-pnpm dlx shadcn@latest add <component-name>
+bunx shadcn@latest add <component-name>
 ```
 
 ## Environment Variables

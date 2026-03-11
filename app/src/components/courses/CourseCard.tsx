@@ -478,20 +478,10 @@ export function CourseCard({
             },
           ]
     if (raw.length < 2) return raw
-    const offeringSubject = course.subject_code
-    return [...raw].sort((a, b) => {
-      const aIsOffering = a.offeringId === course.id ? 0 : 1
-      const bIsOffering = b.offeringId === course.id ? 0 : 1
-      if (aIsOffering !== bIsOffering) return aIsOffering - bIsOffering
-      const aSameSubject = a.subjectCode === offeringSubject ? 0 : 1
-      const bSameSubject = b.subjectCode === offeringSubject ? 0 : 1
-      if (aSameSubject !== bSameSubject) return aSameSubject - bSameSubject
-      const cmpSubject = a.subjectCode.localeCompare(b.subjectCode)
-      if (cmpSubject !== 0) return cmpSubject
-      const cmpNum = a.codeNumber - b.codeNumber
-      if (cmpNum !== 0) return cmpNum
-      return (a.codeSuffix ?? '').localeCompare(b.codeSuffix ?? '')
-    })
+    // Put the current result/offering first; rest stay in server order (enrollment)
+    const current = raw.find((c) => c.offeringId === course.id)
+    if (!current) return raw
+    return [current, ...raw.filter((c) => c.offeringId !== course.id)]
   }, [course.crosslistings, course.id, course.subject_code, course.code_number, course.code_suffix])
   const showToggles = allCodes.length >= 2
 

@@ -8,6 +8,7 @@
     "smart-averages": "bun smart-averages/cli.ts",
     "embed": "bun embeddings/cli.ts",
     "generate-embeddings": "bun embeddings/cli.ts",
+    "search-tags": "bun search-tags/cli.ts",
     "lint": "oxlint --type-aware --import-plugin .",
     "lint:fix": "oxlint --type-aware --fix --import-plugin .",
     "format": "oxfmt",
@@ -31,6 +32,7 @@
     "node-html-parser": "^7.0.2",
     "@xenova/transformers": "^2.17.1",
     "nodejs-polars": "^0.24.0",
+    "openai": "^4.77.0",
     "pg": "^8.18.0",
     "zod": "^4.3.6"
   },
