@@ -420,6 +420,7 @@ export interface CourseOfferings {
   max_units_repeat: number
   offer_number: number
   repeatable: boolean
+  review_text: string | null
   schedule_print: boolean
   subject_id: number
   title: string
