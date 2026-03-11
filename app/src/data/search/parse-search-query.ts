@@ -128,7 +128,11 @@ export function parseSearchQuery(raw: string, knownSubjects: string[]): ParsedSe
   const subjectOnlyMatches: { match: string; start: number; end: number }[] = []
 
   while ((m = subjectOnlyRegex.exec(working)) !== null) {
-    const subject = m[1].toUpperCase()
+    const raw = m[1]!
+    // A token that is 4+ characters and entirely lowercase is likely a plain
+    // English word rather than a subject code abbreviation — skip it.
+    if (raw.length >= 4 && raw === raw.toLowerCase()) continue
+    const subject = raw.toUpperCase()
     // Avoid duplicates if already captured as a full code
     if (!subjectsOnly.includes(subject)) {
       subjectsOnly.push(subject)
