@@ -179,6 +179,10 @@ export function CoursesPage() {
     return () => scroll.removeEventListener('scroll', onScroll)
   }, [])
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [search.query])
+
   useLayoutEffect(() => {
     const sticky = filterStickyRef.current
     const scroll = filterScrollRef.current

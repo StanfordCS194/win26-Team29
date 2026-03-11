@@ -8,21 +8,18 @@ import { generateCandidate, getPrevalidatedSuggestions, type Suggestion } from '
 import { searchQueryOptions } from '@/components/courses/courses-query-options'
 
 const PLACEHOLDER_EXAMPLES = [
-  'classes with field trips',
   'robotics in biology',
-  'poetry workshop',
+  'scary poetry',
   'machine learning',
   'psychology of decision making',
-  'climate and society',
-  'creative writing workshop',
-  'entrepreneurship',
+  'global cuisines',
+  'urban music',
+  'climate entrepreneurship',
   'music history',
-  'game design',
-  'sleep science',
+  'game development',
+  'science of sleep',
   'urban planning',
 ]
-const PLACEHOLDER_ROTATE_MS = 3000
-const PLACEHOLDER_FADE_MS = 400
 
 type FilterChip = { kind: 'check'; label: string } | { kind: 'sort'; label: string }
 
@@ -63,7 +60,7 @@ function getSuggestionChips(params: SearchParams): FilterChip[] {
 export const Route = createFileRoute('/')({ component: App })
 
 const ROTATE_INTERVAL_MS = 4000
-const FIRST_ROTATE_MS = 1500
+const FILTERED_OFFSET_MS = ROTATE_INTERVAL_MS / 2
 const SCROLL_DURATION_MS = 400
 const MAX_VALIDATION_ATTEMPTS = 8
 const PREFETCH_AHEAD = 3
@@ -75,19 +72,43 @@ function App() {
   const queryClient = useQueryClient()
   const [query, setQuery] = useState('')
 
-  const [placeholderIdx, setPlaceholderIdx] = useState(0)
-  const [placeholderVisible, setPlaceholderVisible] = useState(true)
+  const [semanticIdx, setSemanticIdx] = useState(0)
+  const [semanticNextIdx, setSemanticNextIdx] = useState<number | null>(null)
+  const [semanticPhase, setSemanticPhase] = useState<'idle' | 'ready' | 'scrolling'>('idle')
+  const semanticIdxRef = useRef(0)
+  semanticIdxRef.current = semanticIdx
 
+  // Semantic suggestions: rotate at t=0, then every ROTATE_INTERVAL_MS (scroll animation)
   useEffect(() => {
-    const id = setInterval(() => {
-      setPlaceholderVisible(false)
-      setTimeout(() => {
-        setPlaceholderIdx((i) => (i + 1) % PLACEHOLDER_EXAMPLES.length)
-        setPlaceholderVisible(true)
-      }, PLACEHOLDER_FADE_MS)
-    }, PLACEHOLDER_ROTATE_MS)
+    const rotate = () => {
+      if (semanticPhase !== 'idle') return
+      const next = (semanticIdxRef.current + 1) % PLACEHOLDER_EXAMPLES.length
+      setSemanticNextIdx(next)
+      setSemanticPhase('ready')
+    }
+    const id = setInterval(rotate, ROTATE_INTERVAL_MS)
     return () => clearInterval(id)
-  }, [])
+  }, [semanticPhase])
+
+  // When semantic next is mounted in 'ready', kick off the animation
+  useEffect(() => {
+    if (semanticPhase !== 'ready' || semanticNextIdx === null) return
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setSemanticPhase('scrolling'))
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [semanticPhase, semanticNextIdx])
+
+  // When semantic scrolling finishes, promote next → current
+  useEffect(() => {
+    if (semanticPhase !== 'scrolling' || semanticNextIdx === null) return
+    const timeout = setTimeout(() => {
+      setSemanticIdx(semanticNextIdx)
+      setSemanticNextIdx(null)
+      setSemanticPhase('idle')
+    }, SCROLL_DURATION_MS)
+    return () => clearTimeout(timeout)
+  }, [semanticPhase, semanticNextIdx])
 
   const prefetchDebouncer = useDebouncer(
     (normalized: string) => {
@@ -208,7 +229,7 @@ function App() {
     return () => clearTimeout(timeout)
   }, [phase, next])
 
-  // Rotation: first change is faster, then normal cadence
+  // Filtered suggestions: offset by half interval, then rotate every ROTATE_INTERVAL_MS
   const hasRotatedOnce = useRef(false)
   useEffect(() => {
     const rotate = () => {
@@ -219,7 +240,7 @@ function App() {
       setPhase('ready')
     }
 
-    const delay = hasRotatedOnce.current ? ROTATE_INTERVAL_MS : FIRST_ROTATE_MS
+    const delay = hasRotatedOnce.current ? ROTATE_INTERVAL_MS : FILTERED_OFFSET_MS
     const id = setTimeout(() => {
       rotate()
       hasRotatedOnce.current = true
@@ -251,22 +272,41 @@ function App() {
     })
   }
 
+  const handleSemanticClick = (example: string) => {
+    abortedRef.current = true
+    prefetchDebouncer.cancel()
+    void queryClient.cancelQueries({ queryKey: ['search'] })
+    void navigate({
+      to: '/courses',
+      search: {
+        query: normalizeQuery(example),
+        quarters: ALL_QUARTERS,
+        page: 1,
+      } as Required<SearchParams>,
+    })
+  }
+
   const anim = `transform ${SCROLL_DURATION_MS}ms ease-in-out, opacity ${SCROLL_DURATION_MS}ms ease-in-out`
 
-  const labelStyle = (slot: 'current' | 'next'): React.CSSProperties => {
-    if (slot === 'current') {
+  const makeLabelStyle =
+    (animPhase: 'idle' | 'ready' | 'scrolling') =>
+    (slot: 'current' | 'next'): React.CSSProperties => {
+      const slide = '3.5rem' // matches min-h-14
+      if (slot === 'current') {
+        return {
+          transition: animPhase === 'scrolling' ? anim : 'none',
+          transform: animPhase === 'scrolling' ? `translateY(-${slide})` : 'translateY(0)',
+          opacity: animPhase === 'scrolling' ? 0 : 1,
+        }
+      }
       return {
-        transition: phase === 'scrolling' ? anim : 'none',
-        transform: phase === 'scrolling' ? 'translateY(-28px)' : 'translateY(0)',
-        opacity: phase === 'scrolling' ? 0 : 1,
+        transition: animPhase === 'scrolling' ? anim : 'none',
+        transform: animPhase === 'scrolling' ? 'translateY(0)' : `translateY(${slide})`,
+        opacity: animPhase === 'scrolling' ? 1 : 0,
       }
     }
-    return {
-      transition: phase === 'scrolling' ? anim : 'none',
-      transform: phase === 'scrolling' ? 'translateY(0)' : 'translateY(28px)',
-      opacity: phase === 'scrolling' ? 1 : 0,
-    }
-  }
+  const labelStyle = makeLabelStyle(phase)
+  const semanticLabelStyle = makeLabelStyle(semanticPhase)
 
   const chipsFade = `opacity ${SCROLL_DURATION_MS}ms ease-in-out`
 
@@ -286,8 +326,8 @@ function App() {
   return (
     <div className="h-[calc(100vh-4rem)] overflow-hidden bg-gradient-to-b from-sky-50 via-slate-50 to-sky-100">
       <main className="relative h-full">
-        <div className="absolute top-[calc(50%-2rem)] left-1/2 w-full max-w-2xl -translate-x-1/2 -translate-y-1/2 px-6">
-          <form onSubmit={handleSearch}>
+        <div className="absolute top-[calc(50%-2rem)] left-1/2 w-full -translate-x-1/2 -translate-y-1/2 px-6">
+          <form onSubmit={handleSearch} className="mx-auto max-w-2xl">
             <label htmlFor="course-search" className="sr-only">
               Search courses
             </label>
@@ -303,21 +343,9 @@ function App() {
                   const normalized = normalizeQuery(v)
                   prefetchDebouncer.maybeExecute(normalized)
                 }}
-                placeholder=""
+                placeholder="Search courses"
                 className="w-full rounded-full border border-slate-300 bg-white py-5 pr-28 pl-6 text-lg text-slate-900 shadow-[0_14px_28px_color-mix(in_srgb,var(--primary)_25%,transparent)] focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none"
               />
-              {query.length === 0 && (
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute top-1/2 left-6 -translate-y-1/2 truncate pr-32 text-lg text-slate-400 select-none"
-                  style={{
-                    opacity: placeholderVisible ? 1 : 0,
-                    transition: `opacity ${PLACEHOLDER_FADE_MS}ms ease-in-out`,
-                  }}
-                >
-                  {PLACEHOLDER_EXAMPLES[placeholderIdx]}
-                </span>
-              )}
               <button
                 type="submit"
                 aria-label="Search"
@@ -328,80 +356,112 @@ function App() {
             </div>
           </form>
 
-          {/* Filtered suggestions */}
-          <div className="mt-12 flex flex-col items-center gap-2">
-            <p className="text-xs font-medium tracking-wide text-slate-400 uppercase">
-              Try filtered suggestions
-            </p>
-
-            {/* Animated suggestion label */}
-            <div className="relative h-7 w-[52ch] overflow-hidden text-[1.2rem]">
-              {current && (
+          {/* Side-by-side: semantic (left) and filtered (right) */}
+          <div className="mx-auto mt-12 grid w-full max-w-3xl grid-cols-[1fr_1fr] items-start gap-1">
+            {/* Left: Semantic search suggestions */}
+            <div className="flex min-w-0 flex-col items-center gap-2">
+              <p className="text-xs font-medium tracking-wide text-slate-400 uppercase">
+                Try semantic search
+              </p>
+              <div className="relative min-h-14 w-full overflow-hidden text-[1.2rem]">
                 <button
                   type="button"
-                  onClick={() => handleSuggestionClick(current)}
-                  style={labelStyle('current')}
-                  className="absolute inset-0 flex w-full items-center justify-center gap-2 font-medium whitespace-nowrap text-primary underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+                  onClick={() => handleSemanticClick(PLACEHOLDER_EXAMPLES[semanticIdx])}
+                  style={semanticLabelStyle('current')}
+                  className="absolute inset-0 flex w-full items-center justify-center gap-2 text-center font-medium text-primary underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
                 >
-                  {current.label}
+                  {PLACEHOLDER_EXAMPLES[semanticIdx]}
                   <Search className="size-[1em] shrink-0" aria-hidden />
                 </button>
-              )}
-              {next && (
-                <button
-                  type="button"
-                  onClick={() => handleSuggestionClick(next)}
-                  style={labelStyle('next')}
-                  className="absolute inset-0 flex w-full items-center justify-center gap-2 font-medium whitespace-nowrap text-primary underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
-                >
-                  {next.label}
-                  <Search className="size-[1em] shrink-0" aria-hidden />
-                </button>
-              )}
+                {semanticNextIdx !== null && (
+                  <button
+                    type="button"
+                    onClick={() => handleSemanticClick(PLACEHOLDER_EXAMPLES[semanticNextIdx!])}
+                    style={semanticLabelStyle('next')}
+                    className="absolute inset-0 flex w-full items-center justify-center gap-2 text-center font-medium text-primary underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+                  >
+                    {PLACEHOLDER_EXAMPLES[semanticNextIdx!]}
+                    <Search className="size-[1em] shrink-0" aria-hidden />
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Filter chips — current fades out, next fades in */}
-            <div className="relative h-6 w-full">
-              {current && (
-                <div
-                  style={chipsStyle('current')}
-                  className="absolute inset-0 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-slate-500"
-                >
-                  {getSuggestionChips(current.searchParams).map((chip, i) =>
-                    chip.kind === 'check' ? (
-                      <span key={i} className="flex items-center gap-1">
-                        <CheckSquare className="size-3.5 text-primary/70" aria-hidden />
-                        {chip.label}
-                      </span>
-                    ) : (
-                      <span key={i}>
-                        <span className="text-primary/70">Sort:</span>
-                        {chip.label.slice('Sort:'.length)}
-                      </span>
-                    ),
-                  )}
-                </div>
-              )}
-              {next && (
-                <div
-                  style={chipsStyle('next')}
-                  className="absolute inset-0 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-slate-500"
-                >
-                  {getSuggestionChips(next.searchParams).map((chip, i) =>
-                    chip.kind === 'check' ? (
-                      <span key={i} className="flex items-center gap-1">
-                        <CheckSquare className="size-3.5 text-primary/70" aria-hidden />
-                        {chip.label}
-                      </span>
-                    ) : (
-                      <span key={i}>
-                        <span className="text-primary/70">Sort:</span>
-                        {chip.label.slice('Sort:'.length)}
-                      </span>
-                    ),
-                  )}
-                </div>
-              )}
+            {/* Right: Filtered suggestions */}
+            <div className="flex min-w-0 flex-col items-center gap-2">
+              <p className="text-xs font-medium tracking-wide text-slate-400 uppercase">
+                Try filtered suggestions
+              </p>
+
+              {/* Animated suggestion label */}
+              <div className="relative min-h-14 w-full overflow-hidden text-[1.2rem]">
+                {current && (
+                  <button
+                    type="button"
+                    onClick={() => handleSuggestionClick(current)}
+                    style={labelStyle('current')}
+                    className="absolute inset-0 flex w-full items-center justify-center gap-2 text-center font-medium text-primary underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+                  >
+                    {current.label}
+                    <Search className="size-[1em] shrink-0" aria-hidden />
+                  </button>
+                )}
+                {next && (
+                  <button
+                    type="button"
+                    onClick={() => handleSuggestionClick(next)}
+                    style={labelStyle('next')}
+                    className="absolute inset-0 flex w-full items-center justify-center gap-2 text-center font-medium text-primary underline-offset-2 hover:underline focus-visible:underline focus-visible:outline-none"
+                  >
+                    {next.label}
+                    <Search className="size-[1em] shrink-0" aria-hidden />
+                  </button>
+                )}
+              </div>
+
+              {/* Filter chips — current fades out, next fades in */}
+              <div className="relative h-6 w-full">
+                {current && (
+                  <div
+                    style={chipsStyle('current')}
+                    className="absolute inset-0 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-slate-500"
+                  >
+                    {getSuggestionChips(current.searchParams).map((chip, i) =>
+                      chip.kind === 'check' ? (
+                        <span key={i} className="flex items-center gap-1">
+                          <CheckSquare className="size-3.5 text-primary/70" aria-hidden />
+                          {chip.label}
+                        </span>
+                      ) : (
+                        <span key={i}>
+                          <span className="text-primary/70">Sort:</span>
+                          {chip.label.slice('Sort:'.length)}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                )}
+                {next && (
+                  <div
+                    style={chipsStyle('next')}
+                    className="absolute inset-0 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-xs text-slate-500"
+                  >
+                    {getSuggestionChips(next.searchParams).map((chip, i) =>
+                      chip.kind === 'check' ? (
+                        <span key={i} className="flex items-center gap-1">
+                          <CheckSquare className="size-3.5 text-primary/70" aria-hidden />
+                          {chip.label}
+                        </span>
+                      ) : (
+                        <span key={i}>
+                          <span className="text-primary/70">Sort:</span>
+                          {chip.label.slice('Sort:'.length)}
+                        </span>
+                      ),
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
