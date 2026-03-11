@@ -19,6 +19,8 @@ import {
 import { formatCourseCodeForDisplay } from '@/lib/course-code'
 import { renderDescriptionWithLinks } from '@/components/courses/render-description-links'
 import { getCurrentQuarter, getNextQuarter } from '@/lib/quarter-utils'
+import { getUserPlan, addPlanCourse, removePlanCourse } from '@/data/plan/plan-server'
+import { WeeklyCalendar } from '@/components/WeeklyCalendar'
 
 const PREFETCH_START_YEAR = parseInt(DEFAULT_YEAR.split('-')[0]!, 10)
 const PREFETCH_YEARS = [
@@ -660,9 +662,55 @@ function ClassPage() {
     [subjects],
   )
 
+  const [calendarKey, setCalendarKey] = useState(0)
+
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [courseCodeSlug])
+
+  const courseCodeStr = course
+    ? `${course.subject_code} ${course.code_number}${course.code_suffix ?? ''}`
+    : ''
+
+  async function handleAddToQuarter(quarter: string) {
+    if (!course) return
+    try {
+      const plan = await getUserPlan()
+      if (!plan) return
+      await addPlanCourse({
+        data: {
+          planId: plan.planId,
+          actualYear: plan.startYear,
+          quarter: quarter as 'Autumn' | 'Winter' | 'Spring' | 'Summer',
+          courseCode: courseCodeStr,
+          units: course.units_max,
+        },
+      })
+      setCalendarKey((k) => k + 1)
+    } catch (err) {
+      console.error('[plan] addPlanCourse error:', err)
+    }
+  }
+
+  async function handleRemoveFromQuarter(quarter: string) {
+    if (!course) return
+    try {
+      const plan = await getUserPlan()
+      if (!plan) return
+      for (const [key, courses] of Object.entries(plan.planned)) {
+        const q = key.split('-')[1]
+        if (q !== quarter) continue
+        const match = courses.find((c) => c.code === courseCodeStr)
+        if (match) {
+          await removePlanCourse({ data: { courseDbId: match.dbId } })
+          setCalendarKey((k) => k + 1)
+          break
+        }
+      }
+    } catch (err) {
+      console.error('[plan] removePlanCourse error:', err)
+    }
+  }
 
   if (!isPending && (course === null || course === undefined)) {
     return (
@@ -687,100 +735,135 @@ function ClassPage() {
 
       <div className="pointer-events-none absolute top-0 right-0 h-[800px] w-[800px] rounded-full bg-gradient-to-bl from-purple-300/30 via-blue-300/20 to-transparent blur-3xl" />
 
-      <main className="relative z-10 mx-auto w-full max-w-4xl flex-grow px-4 pt-24 pb-14">
-        <div className="flex flex-col gap-8">
-          <div className="space-y-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0 space-y-2">
-                <h1 className="font-['Clash_Display'] text-6xl leading-none font-semibold tracking-tight text-[#150F21] md:text-7xl">
-                  {courseCode}
-                </h1>
-                {isPending ? (
-                  <div className="h-8 w-3/4 animate-pulse rounded bg-[#4A4557]/20" />
-                ) : (
-                  <h2 className="text-2xl font-medium text-primary md:text-3xl">{course?.title ?? '—'}</h2>
-                )}
-                {!isPending && course && (
-                  <p className="flex flex-wrap text-sm text-[#4A4557]">
-                    {[
-                      course.units_min === course.units_max
-                        ? `${course.units_min} units`
-                        : `${course.units_min} - ${course.units_max} units`,
-                      course.gers?.length ? `GERs: ${course.gers.join(', ')}` : null,
-                      course.grading_option || null,
-                    ]
-                      .filter(Boolean)
-                      .map((item, i, arr) => (
-                        <span key={i} className="whitespace-nowrap">
-                          {item}
-                          {i < arr.length - 1 && (
-                            <span className="mx-1.5 inline-block h-[3px] w-[3px] rounded-full bg-[#4A4557]/40 align-middle" />
-                          )}
-                        </span>
-                      ))}
-                  </p>
-                )}
-                {!isPending &&
-                course != null &&
-                typeof course.description === 'string' &&
-                course.description.trim().length > 0 ? (
-                  <DescriptionClamp
-                    text={course.description}
-                    expanded={descriptionExpanded}
-                    onToggle={() => setDescriptionExpanded((prev) => !prev)}
-                    maxHeight={192}
-                    className="mt-2 text-base leading-relaxed text-[#4A4557]"
-                    renderText={(t) => renderDescriptionWithLinks(t, validSubjects, DEFAULT_YEAR)}
-                  />
-                ) : (
-                  !isPending &&
-                  course && <p className="mt-2 text-base text-[#4A4557]">No description available.</p>
-                )}
-              </div>
-              <div className="flex shrink-0 flex-col gap-4 sm:min-w-[220px]">
-                <div className="flex items-center gap-2">
-                  <button className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-xl">
-                    Add to Plan
-                  </button>
-                  <button
-                    type="button"
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/60 text-[#4A4557] shadow-sm backdrop-blur-xl transition-colors hover:bg-white/80 hover:text-[#150F21]"
-                    aria-label="Like"
-                  >
-                    <ThumbsUp className="h-5 w-5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="flex h-7 w-7 items-center justify-center rounded-full border border-white/60 bg-white/60 text-[#4A4557] shadow-sm backdrop-blur-xl transition-colors hover:bg-white/80 hover:text-[#150F21]"
-                    aria-label="Dislike"
-                  >
-                    <ThumbsDown className="h-3.5 w-3.5" />
-                  </button>
+      <div className="relative z-10 mx-auto flex w-full max-w-6xl gap-6 px-4 pt-24 pb-14">
+        <main className="min-w-0 flex-1">
+          <div className="flex flex-col gap-8">
+            <div className="space-y-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 space-y-2">
+                  <h1 className="font-['Clash_Display'] text-6xl leading-none font-semibold tracking-tight text-[#150F21] md:text-7xl">
+                    {courseCode}
+                  </h1>
+                  {isPending ? (
+                    <div className="h-8 w-3/4 animate-pulse rounded bg-[#4A4557]/20" />
+                  ) : (
+                    <h2 className="text-2xl font-medium text-primary md:text-3xl">{course?.title ?? '—'}</h2>
+                  )}
+                  {!isPending && course && (
+                    <p className="flex flex-wrap text-sm text-[#4A4557]">
+                      {[
+                        course.units_min === course.units_max
+                          ? `${course.units_min} units`
+                          : `${course.units_min} - ${course.units_max} units`,
+                        course.gers?.length ? `GERs: ${course.gers.join(', ')}` : null,
+                        course.grading_option || null,
+                      ]
+                        .filter(Boolean)
+                        .map((item, i, arr) => (
+                          <span key={i} className="whitespace-nowrap">
+                            {item}
+                            {i < arr.length - 1 && (
+                              <span className="mx-1.5 inline-block h-[3px] w-[3px] rounded-full bg-[#4A4557]/40 align-middle" />
+                            )}
+                          </span>
+                        ))}
+                    </p>
+                  )}
+                  {!isPending &&
+                  course != null &&
+                  typeof course.description === 'string' &&
+                  course.description.trim().length > 0 ? (
+                    <DescriptionClamp
+                      text={course.description}
+                      expanded={descriptionExpanded}
+                      onToggle={() => setDescriptionExpanded((prev) => !prev)}
+                      maxHeight={192}
+                      className="mt-2 text-base leading-relaxed text-[#4A4557]"
+                      renderText={(t) => renderDescriptionWithLinks(t, validSubjects, DEFAULT_YEAR)}
+                    />
+                  ) : (
+                    !isPending &&
+                    course && <p className="mt-2 text-base text-[#4A4557]">No description available.</p>
+                  )}
                 </div>
-                {course && !isIndividualInstructionCourse(course.sections) && (
-                  <CourseDetailsCard key={courseCodeSlug} course={course} />
-                )}
+                <div className="flex shrink-0 flex-col gap-4 sm:min-w-[220px]">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      className="flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/60 text-[#4A4557] shadow-sm backdrop-blur-xl transition-colors hover:bg-white/80 hover:text-[#150F21]"
+                      aria-label="Like"
+                    >
+                      <ThumbsUp className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      className="flex h-7 w-7 items-center justify-center rounded-full border border-white/60 bg-white/60 text-[#4A4557] shadow-sm backdrop-blur-xl transition-colors hover:bg-white/80 hover:text-[#150F21]"
+                      aria-label="Dislike"
+                    >
+                      <ThumbsDown className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  {course && !isIndividualInstructionCourse(course.sections) && (
+                    <CourseDetailsCard key={courseCodeSlug} course={course} />
+                  )}
+                </div>
               </div>
             </div>
+
+            {!isPending && course && (
+              <EvalDistributionSection
+                course={course}
+                courseCodeSlug={courseCodeSlug}
+                hideInstructorSelector={isIndividualInstructionCourse(course.sections)}
+              />
+            )}
+
+            {!isPending && course && (
+              <TextReviewsSection
+                course={course}
+                courseCodeSlug={courseCodeSlug}
+                hideInstructorSelector={isIndividualInstructionCourse(course.sections)}
+              />
+            )}
           </div>
+        </main>
 
-          {!isPending && course && (
-            <EvalDistributionSection
-              course={course}
-              courseCodeSlug={courseCodeSlug}
-              hideInstructorSelector={isIndividualInstructionCourse(course.sections)}
+        {/* Weekly calendar sidebar — right */}
+        <aside className="hidden w-[320px] shrink-0 lg:block">
+          <div className="sticky top-28">
+            <WeeklyCalendar
+              year={DEFAULT_YEAR}
+              courseCode={courseCodeStr || undefined}
+              onAddToQuarter={
+                course
+                  ? (quarter) => {
+                      void handleAddToQuarter(quarter)
+                    }
+                  : undefined
+              }
+              onRemoveFromQuarter={
+                course
+                  ? (quarter) => {
+                      void handleRemoveFromQuarter(quarter)
+                    }
+                  : undefined
+              }
+              availableQuarters={
+                course
+                  ? [
+                      ...new Set(
+                        (course.sections ?? [])
+                          .filter((s) => s.cancelled !== true && s.termQuarter !== '')
+                          .map((s) => s.termQuarter),
+                      ),
+                    ]
+                  : undefined
+              }
+              refreshTrigger={calendarKey}
             />
-          )}
-
-          {!isPending && course && (
-            <TextReviewsSection
-              course={course}
-              courseCodeSlug={courseCodeSlug}
-              hideInstructorSelector={isIndividualInstructionCourse(course.sections)}
-            />
-          )}
-        </div>
-      </main>
+          </div>
+        </aside>
+      </div>
     </div>
   )
 }

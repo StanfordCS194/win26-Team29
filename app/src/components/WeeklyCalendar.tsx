@@ -1,0 +1,599 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { getUserPlan } from '@/data/plan/plan-server'
+import { getCourseByCode } from '@/data/search/search'
+import { toCourseCodeSlug } from '@/lib/course-code'
+
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] as const
+type DayKey = (typeof DAYS)[number]
+
+const DAY_MAP: Record<string, DayKey> = {
+  Monday: 'Mon',
+  Tuesday: 'Tue',
+  Wednesday: 'Wed',
+  Thursday: 'Thu',
+  Friday: 'Fri',
+}
+
+const QUARTERS = ['Autumn', 'Winter', 'Spring', 'Summer'] as const
+
+const START_MIN = 8 * 60
+const END_MIN = 19 * 60
+const SLOT_MINUTES = 60
+const SLOT_COUNT = (END_MIN - START_MIN) / SLOT_MINUTES
+const ROW_HEIGHT = 24
+
+function slotLabel(index: number): string {
+  const totalMin = START_MIN + index * SLOT_MINUTES
+  const h = Math.floor(totalMin / 60)
+  if (h === 0) return '12 AM'
+  if (h < 12) return `${h} AM`
+  if (h === 12) return '12 PM'
+  return `${h - 12} PM`
+}
+
+function parseTime(t: string): number {
+  const [hh, mm] = t.split(':').map(Number)
+  return hh! * 60 + (mm ?? 0)
+}
+
+function formatTime(min: number): string {
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  const hour = h % 12 || 12
+  const ampm = h < 12 ? 'AM' : 'PM'
+  return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`
+}
+
+const BLOCK_COLORS = [
+  { bg: 'rgba(99,102,241,0.15)', text: '#3730a3' },
+  { bg: 'rgba(16,185,129,0.15)', text: '#065f46' },
+  { bg: 'rgba(245,158,11,0.15)', text: '#92400e' },
+  { bg: 'rgba(244,63,94,0.15)', text: '#9f1239' },
+  { bg: 'rgba(6,182,212,0.15)', text: '#155e75' },
+  { bg: 'rgba(168,85,247,0.15)', text: '#6b21a8' },
+  { bg: 'rgba(249,115,22,0.15)', text: '#9a3412' },
+]
+
+type CalendarBlock = {
+  code: string
+  title: string
+  day: DayKey
+  startMin: number
+  endMin: number
+  sectionNumber: string
+  colorIdx: number
+  isPreview: boolean
+}
+
+// ── Overlap layout algorithm ─────────────────────────────────────────
+
+type LayoutBlock = CalendarBlock & { column: number; totalColumns: number }
+
+function layoutBlocksForDay(dayBlocks: CalendarBlock[]): LayoutBlock[] {
+  if (dayBlocks.length === 0) return []
+
+  const sorted = [...dayBlocks].sort(
+    (a, b) => a.startMin - b.startMin || b.endMin - b.startMin - (a.endMin - a.startMin),
+  )
+
+  const columnEnds: number[] = []
+  const assigned: { block: CalendarBlock; column: number }[] = []
+
+  for (const block of sorted) {
+    let col = -1
+    for (let c = 0; c < columnEnds.length; c++) {
+      if (columnEnds[c]! <= block.startMin) {
+        col = c
+        break
+      }
+    }
+    if (col === -1) {
+      col = columnEnds.length
+      columnEnds.push(0)
+    }
+    columnEnds[col] = block.endMin
+    assigned.push({ block, column: col })
+  }
+
+  const n = assigned.length
+  const parent = Array.from({ length: n }, (_, i) => i)
+  function find(x: number): number {
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]!]!
+      x = parent[x]!
+    }
+    return x
+  }
+  function union(a: number, b: number) {
+    const ra = find(a),
+      rb = find(b)
+    if (ra !== rb) parent[ra] = rb
+  }
+
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      const a = assigned[i]!.block,
+        b = assigned[j]!.block
+      if (a.startMin < b.endMin && a.endMin > b.startMin) union(i, j)
+    }
+  }
+
+  const groups = new Map<number, number[]>()
+  for (let i = 0; i < n; i++) {
+    const root = find(i)
+    if (!groups.has(root)) groups.set(root, [])
+    groups.get(root)!.push(i)
+  }
+
+  const result: LayoutBlock[] = []
+  for (const indices of groups.values()) {
+    const totalColumns = Math.max(...indices.map((i) => assigned[i]!.column)) + 1
+    for (const i of indices) {
+      result.push({ ...assigned[i]!.block, column: assigned[i]!.column, totalColumns })
+    }
+  }
+  return result
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function courseCodeToSlug(code: string) {
+  return toCourseCodeSlug({
+    subjectCode: code.split(' ')[0]!,
+    codeNumber: parseInt(code.split(' ')[1]!, 10),
+    codeSuffix: code.split(' ')[1]?.replace(/^\d+/, '') || null,
+  })
+}
+
+async function resolveScheduleBlocks(
+  courses: { code: string; colorIdx: number }[],
+  quarter: string,
+  year: string | undefined,
+  isPreview: boolean,
+): Promise<CalendarBlock[]> {
+  const results = await Promise.allSettled(
+    courses.map((c) =>
+      getCourseByCode({ data: { courseCodeSlug: courseCodeToSlug(c.code), year } }).then((result) => ({
+        course: c,
+        result,
+      })),
+    ),
+  )
+
+  const blocks: CalendarBlock[] = []
+  for (const settled of results) {
+    if (settled.status !== 'fulfilled' || !settled.value.result) continue
+    const { course: c, result } = settled.value
+    const sections = (result.sections ?? []).filter(
+      (s) => s.termQuarter === quarter && !s.cancelled && (s.unitsMin != null || s.unitsMax != null),
+    )
+    for (const sec of sections) {
+      for (const sched of sec.schedules ?? []) {
+        const days = sched.days ?? []
+        if (
+          sched.startTime == null ||
+          sched.startTime === '' ||
+          sched.endTime == null ||
+          sched.endTime === '' ||
+          days.length === 0
+        )
+          continue
+        const startMin = parseTime(sched.startTime)
+        const endMin = parseTime(sched.endTime)
+        for (const dayName of days) {
+          const day = DAY_MAP[dayName]
+          if (!day) continue
+          blocks.push({
+            code: c.code,
+            title: result.title,
+            day,
+            startMin,
+            endMin,
+            sectionNumber: sec.sectionNumber,
+            colorIdx: c.colorIdx,
+            isPreview,
+          })
+        }
+      }
+    }
+  }
+  return blocks
+}
+
+// ── Section info derived from blocks ─────────────────────────────────
+
+type SectionOption = { sectionNumber: string; label: string }
+
+function buildSectionOptions(blocks: CalendarBlock[]): Record<string, SectionOption[]> {
+  const info: Record<string, SectionOption[]> = {}
+  for (const block of blocks) {
+    if (info[block.code] === undefined) info[block.code] = []
+    if (info[block.code].some((s) => s.sectionNumber === block.sectionNumber)) continue
+    const secBlocks = blocks.filter((b) => b.code === block.code && b.sectionNumber === block.sectionNumber)
+    const days = [...new Set(secBlocks.map((b) => b.day))].join(', ')
+    const first = secBlocks[0]
+    const time = first !== undefined ? `${formatTime(first.startMin)}-${formatTime(first.endMin)}` : ''
+    info[block.code].push({ sectionNumber: block.sectionNumber, label: `${days} ${time}` })
+  }
+  return info
+}
+
+// ── Component ────────────────────────────────────────────────────────
+
+export function WeeklyCalendar({
+  year,
+  onAddToQuarter,
+  onRemoveFromQuarter,
+  availableQuarters,
+  courseCode,
+  refreshTrigger,
+}: {
+  year?: string
+  onAddToQuarter?: (quarter: string) => void
+  onRemoveFromQuarter?: (quarter: string) => void
+  availableQuarters?: string[]
+  courseCode?: string
+  refreshTrigger?: number
+}) {
+  const [quarterIdx, setQuarterIdx] = useState(0)
+  const [planCourses, setPlanCourses] = useState<{ code: string; quarter: string }[]>([])
+  const [planBlocks, setPlanBlocks] = useState<CalendarBlock[]>([])
+  const [previewBlocks, setPreviewBlocks] = useState<CalendarBlock[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedSections, setSelectedSections] = useState<Record<string, string>>({})
+
+  const quarter = QUARTERS[quarterIdx]!
+
+  // ── Load plan courses ────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false
+    getUserPlan()
+      .then((data) => {
+        if (cancelled) return
+        if (!data) {
+          setLoading(false)
+          return
+        }
+        const courses: { code: string; quarter: string }[] = []
+        for (const [key, list] of Object.entries(data.planned)) {
+          const q = key.split('-')[1]!
+          for (const c of list) courses.push({ code: c.code, quarter: q })
+        }
+        setPlanCourses(courses)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [refreshTrigger])
+
+  // ── Courses in current quarter ───────────────────────────────────
+  const coursesInQuarter = useMemo(
+    () => planCourses.filter((c) => c.quarter === quarter),
+    [planCourses, quarter],
+  )
+  const coursesKey = useMemo(
+    () =>
+      coursesInQuarter
+        .map((c) => c.code)
+        .sort()
+        .join(','),
+    [coursesInQuarter],
+  )
+
+  const isCurrentCourseInPlan =
+    courseCode != null && courseCode !== '' ? coursesInQuarter.some((c) => c.code === courseCode) : false
+
+  // ── Resolve schedule blocks for planned courses ──────────────────
+  const resolveIdRef = useRef(0)
+
+  useEffect(() => {
+    if (coursesInQuarter.length === 0) {
+      setPlanBlocks([])
+      return
+    }
+    const id = ++resolveIdRef.current
+
+    void resolveScheduleBlocks(
+      coursesInQuarter.map((c, i) => ({ code: c.code, colorIdx: i })),
+      quarter,
+      year,
+      false,
+    )
+      .then((blocks) => {
+        if (resolveIdRef.current === id) setPlanBlocks(blocks)
+      })
+      .catch(() => {})
+  }, [coursesKey, year, quarter]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Resolve preview blocks ───────────────────────────────────────
+  const previewIdRef = useRef(0)
+
+  useEffect(() => {
+    if (courseCode == null || courseCode === '' || isCurrentCourseInPlan) {
+      setPreviewBlocks([])
+      return
+    }
+    const id = ++previewIdRef.current
+
+    void resolveScheduleBlocks([{ code: courseCode, colorIdx: -1 }], quarter, year, true)
+      .then((blocks) => {
+        if (previewIdRef.current === id) setPreviewBlocks(blocks)
+      })
+      .catch(() => {})
+  }, [courseCode, isCurrentCourseInPlan, year, quarter])
+
+  // ── Section options & auto-selection ─────────────────────────────
+  const allRawBlocks = useMemo(() => [...planBlocks, ...previewBlocks], [planBlocks, previewBlocks])
+
+  const sectionOptions = useMemo(() => buildSectionOptions(allRawBlocks), [allRawBlocks])
+
+  // Auto-select the first section for any course that doesn't have a selection yet
+  useEffect(() => {
+    setSelectedSections((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const [code, sections] of Object.entries(sectionOptions)) {
+        if (sections.length === 0) continue
+        if (!next[code] || !sections.some((s) => s.sectionNumber === next[code])) {
+          next[code] = sections[0]!.sectionNumber
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [sectionOptions])
+
+  // ── Filter blocks to selected sections ───────────────────────────
+  const displayBlocks = useMemo(() => {
+    return allRawBlocks.filter((b) => {
+      const selected = selectedSections[b.code]
+      if (!selected) return true
+      return b.sectionNumber === selected
+    })
+  }, [allRawBlocks, selectedSections])
+
+  // ── Layout ───────────────────────────────────────────────────────
+  const layoutByDay = useMemo(() => {
+    const map = new Map<DayKey, LayoutBlock[]>()
+    for (const day of DAYS) {
+      map.set(day, layoutBlocksForDay(displayBlocks.filter((b) => b.day === day)))
+    }
+    return map
+  }, [displayBlocks])
+
+  // ── Section picker helpers ───────────────────────────────────────
+  function cycleSection(code: string, delta: number) {
+    const options = sectionOptions[code]
+    if (options === undefined || options.length <= 1) return
+    const currentIdx = options.findIndex((s) => s.sectionNumber === selectedSections[code])
+    const nextIdx = (currentIdx + delta + options.length) % options.length
+    setSelectedSections((prev) => ({ ...prev, [code]: options[nextIdx]!.sectionNumber }))
+  }
+
+  // ── Render helpers ───────────────────────────────────────────────
+  const times = Array.from({ length: SLOT_COUNT }, (_, i) => i)
+  const gridHeight = SLOT_COUNT * ROW_HEIGHT
+  const totalUnits = coursesInQuarter.length * 4
+
+  // All courses to show in summary: planned + preview (if any)
+  const summaryCourses = useMemo(() => {
+    const items: { code: string; isPreview: boolean }[] = coursesInQuarter.map((c) => ({
+      code: c.code,
+      isPreview: false,
+    }))
+    if (courseCode != null && courseCode !== '' && !isCurrentCourseInPlan && previewBlocks.length > 0) {
+      items.push({ code: courseCode, isPreview: true })
+    }
+    return items
+  }, [coursesInQuarter, courseCode, isCurrentCourseInPlan, previewBlocks])
+
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Quarter nav + add/remove */}
+      <div className="flex items-center gap-2">
+        <div className="flex flex-1 items-center justify-between rounded-xl bg-slate-800 px-3 py-2 text-sm text-white">
+          <button
+            type="button"
+            onClick={() => setQuarterIdx((i) => Math.max(0, i - 1))}
+            disabled={quarterIdx === 0}
+            className="px-1 disabled:opacity-30"
+          >
+            ←
+          </button>
+          <span className="font-medium">
+            {quarter} {year ?? ''}
+          </span>
+          <button
+            type="button"
+            onClick={() => setQuarterIdx((i) => Math.min(QUARTERS.length - 1, i + 1))}
+            disabled={quarterIdx === QUARTERS.length - 1}
+            className="px-1 disabled:opacity-30"
+          >
+            →
+          </button>
+        </div>
+        {(onAddToQuarter || onRemoveFromQuarter) &&
+          (() => {
+            const isAdded =
+              courseCode != null && courseCode !== ''
+                ? planCourses.some((c) => c.code === courseCode && c.quarter === quarter)
+                : false
+            const canAdd = !availableQuarters || availableQuarters.includes(quarter)
+            if (isAdded && onRemoveFromQuarter) {
+              return (
+                <button
+                  type="button"
+                  onClick={() => onRemoveFromQuarter(quarter)}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-500 text-lg font-bold text-white shadow-sm transition-all hover:scale-110 hover:bg-slate-600"
+                  title={`Remove from ${quarter}`}
+                >
+                  ✕
+                </button>
+              )
+            }
+            if (onAddToQuarter) {
+              return (
+                <button
+                  type="button"
+                  disabled={!canAdd}
+                  onClick={() => onAddToQuarter(quarter)}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg font-bold shadow-sm transition-all ${
+                    canAdd
+                      ? 'bg-primary text-white hover:scale-110 hover:bg-primary-hover'
+                      : 'cursor-not-allowed bg-slate-200 text-slate-400'
+                  }`}
+                  title={canAdd ? `Add to ${quarter}` : `Not offered in ${quarter}`}
+                >
+                  +
+                </button>
+              )
+            }
+            return null
+          })()}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="grid grid-cols-[40px_repeat(5,minmax(0,1fr))] border-b border-slate-100 bg-slate-50/60 px-1 py-1.5 text-[10px] font-medium text-slate-500">
+          <div />
+          {DAYS.map((d) => (
+            <div key={d} className="text-center">
+              {d}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid" style={{ gridTemplateColumns: '40px repeat(5, minmax(0, 1fr))', padding: 4 }}>
+          <div style={{ height: gridHeight }}>
+            {times.map((i) => (
+              <div
+                key={i}
+                className="flex items-center justify-end pr-1 text-[9px] text-slate-400"
+                style={{ height: ROW_HEIGHT }}
+              >
+                {slotLabel(i)}
+              </div>
+            ))}
+          </div>
+
+          {DAYS.map((day) => {
+            const dayLayout = layoutByDay.get(day) ?? []
+            return (
+              <div key={day} className="relative" style={{ height: gridHeight }}>
+                {times.map((i) => (
+                  <div
+                    key={i}
+                    className="border-b border-slate-100/60 bg-slate-50/30"
+                    style={{ height: ROW_HEIGHT }}
+                  />
+                ))}
+
+                {dayLayout.map((block, idx) => {
+                  const top = ((block.startMin - START_MIN) / SLOT_MINUTES) * ROW_HEIGHT
+                  const height = ((block.endMin - block.startMin) / SLOT_MINUTES) * ROW_HEIGHT
+                  const leftPct = (block.column / block.totalColumns) * 100
+                  const widthPct = (1 / block.totalColumns) * 100
+                  const color = block.isPreview ? null : BLOCK_COLORS[block.colorIdx % BLOCK_COLORS.length]!
+
+                  return (
+                    <div
+                      key={`${block.code}-${block.sectionNumber}-${idx}`}
+                      className={`absolute rounded ${block.isPreview ? 'border border-dashed border-primary/40' : ''}`}
+                      style={{
+                        top,
+                        height: Math.max(height - 1, ROW_HEIGHT - 1),
+                        left: `calc(${leftPct}% + 1px)`,
+                        width: `calc(${widthPct}% - 2px)`,
+                        backgroundColor: block.isPreview ? 'rgba(140,21,21,0.08)' : color?.bg,
+                        color: block.isPreview ? 'rgba(140,21,21,0.5)' : color?.text,
+                        zIndex: block.isPreview ? 0 : 1,
+                      }}
+                    >
+                      <div className="flex h-full flex-col overflow-hidden px-1 py-0.5 text-[10px]">
+                        <span className="truncate leading-tight font-semibold">{block.code}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Summary with section pickers */}
+      {!loading && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs text-slate-600">
+            <span>
+              Pinned units: <strong>{totalUnits}</strong>
+            </span>
+          </div>
+          {summaryCourses.length > 0 && (
+            <div className="space-y-1">
+              {summaryCourses.map((item) => {
+                const options = sectionOptions[item.code] ?? []
+                const selected = selectedSections[item.code]
+                const selectedOption = options.find((s) => s.sectionNumber === selected)
+                const selectedIdx = options.findIndex((s) => s.sectionNumber === selected)
+
+                return (
+                  <div
+                    key={item.code}
+                    className={`rounded-lg px-2 py-1.5 text-[11px] ${
+                      item.isPreview ? 'border border-dashed border-primary/30 bg-primary/5' : 'bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`font-medium ${item.isPreview ? 'text-primary/70' : 'text-slate-800'}`}
+                      >
+                        {item.code}
+                        {item.isPreview && (
+                          <span className="ml-1 font-normal text-primary/40 italic">preview</span>
+                        )}
+                      </span>
+                      {options.length > 1 && (
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => cycleSection(item.code, -1)}
+                            className="px-1 text-slate-400 transition-colors hover:text-slate-700"
+                          >
+                            ‹
+                          </button>
+                          <span className="min-w-[28px] text-center text-[10px] text-slate-400 tabular-nums">
+                            {selectedIdx + 1}/{options.length}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => cycleSection(item.code, 1)}
+                            className="px-1 text-slate-400 transition-colors hover:text-slate-700"
+                          >
+                            ›
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {selectedOption && (
+                      <div className={`mt-0.5 ${item.isPreview ? 'text-primary/40' : 'text-slate-500'}`}>
+                        {selectedOption.label}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {summaryCourses.length === 0 && (
+            <p className="text-center text-xs text-slate-400">No courses planned for {quarter}</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

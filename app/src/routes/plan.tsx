@@ -20,6 +20,8 @@ import {
   addStashCourse,
   removeStashCourse,
   resetPlan,
+  searchCoursesForPlan,
+  type PlanSearchResult,
 } from '@/data/plan/plan-server'
 
 export const Route = createFileRoute('/plan')({ component: PlanPage })
@@ -35,12 +37,14 @@ function AllYearsOverview({
   getTermUnits,
   getYearUnits,
   removeFromPlanned,
+  addToPlanned,
 }: {
   startYear: number
   getPlanned: (yi: number, term: TermKey) => PlannedCourse[]
   getTermUnits: (courses: PlannedCourse[]) => number
   getYearUnits: (yi: number) => number
   removeFromPlanned: (yi: number, term: TermKey, code: string) => void
+  addToPlanned: (yi: number, term: TermKey, course: PlannedCourse) => void
 }) {
   return (
     <div className="overflow-auto">
@@ -95,12 +99,9 @@ function AllYearsOverview({
                         </DroppableZone>
                       </div>
 
-                      <button
-                        type="button"
-                        className="mx-3 mb-3 rounded-full bg-slate-900/90 px-2 py-1.5 text-[11px] font-normal text-slate-50 transition hover:bg-slate-900"
-                      >
-                        Add course
-                      </button>
+                      <div className="mx-3 mb-3">
+                        <AddCourseInline onAdd={(c) => addToPlanned(yi, term, c)} targetTerm={term} />
+                      </div>
                     </div>
                   )
                 })}
@@ -117,32 +118,7 @@ function quarterKey(yearIndex: number, term: TermKey) {
   return `${yearIndex}-${term}`
 }
 
-// Initial planned courses (Year 1 only for demo)
-const INITIAL_PLANNED: Record<string, PlannedCourse[]> = {
-  '0-Autumn': [
-    { code: 'PWR 1', title: 'Writing & Rhetoric', units: 4 },
-    { code: 'MATH 51', title: 'Linear Algebra & Multivariable Calculus', units: 5 },
-    { code: 'CS 106A', title: 'Programming Methodology', units: 5 },
-    { code: 'ESF 10', title: 'Education as Self-Fashioning', units: 4 },
-  ],
-  '0-Winter': [
-    { code: 'CS 106B', title: 'Programming Abstractions', units: 5 },
-    { code: 'MATH 52', title: 'Integral Calculus of Several Variables', units: 5 },
-    { code: 'PWR 2', title: 'Writing & Rhetoric 2', units: 4 },
-  ],
-  '0-Spring': [
-    { code: 'CS 103', title: 'Mathematical Foundations of Computing', units: 5 },
-    { code: 'CS 107', title: 'Computer Systems', units: 5 },
-    { code: 'PHIL 80', title: 'Mind, Matter, and Meaning', units: 4 },
-  ],
-}
-
-// Sample courses for global stash / search (mock results)
-const SAMPLE_SEARCH_COURSES: PlannedCourse[] = [
-  { code: 'CS 109', title: 'Probability for Computer Scientists', units: 5 },
-  { code: 'CS 161', title: 'Design and Analysis of Algorithms', units: 5 },
-  { code: 'ECON 1', title: 'Principles of Economics', units: 5 },
-]
+const INITIAL_PLANNED: Record<string, PlannedCourse[]> = {}
 
 // Drag-and-drop: payload and drop id helpers
 type DragSource =
@@ -269,6 +245,110 @@ function DroppableZone({
       className={`min-h-[2.5rem] rounded-lg transition ${isOver ? 'bg-[#8C1515]/5 ring-2 ring-[#8C1515]/40' : ''} ${className ?? ''}`}
     >
       {children}
+    </div>
+  )
+}
+
+function AddCourseInline({
+  onAdd,
+  targetTerm,
+}: {
+  onAdd: (course: PlannedCourse) => void
+  targetTerm?: TermKey
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<PlanSearchResult[]>([])
+  const [loading, setLoading] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const q = query.trim()
+    if (!q) {
+      setResults([])
+      return
+    }
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      setLoading(true)
+      searchCoursesForPlan({ data: { query: q } })
+        .then(setResults)
+        .catch(() => setResults([]))
+        .finally(() => setLoading(false))
+    }, 300)
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [query])
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="w-full rounded-full bg-slate-900/90 px-2 py-1.5 text-[11px] font-normal text-slate-50 transition hover:bg-slate-900"
+      >
+        Add course
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded-lg border border-slate-200 bg-white p-2">
+      <div className="flex items-center gap-1">
+        <input
+          type="text"
+          autoFocus
+          placeholder="CS 106A or title…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="min-w-0 flex-1 rounded border border-slate-200 px-2 py-1 text-[11px] text-slate-900 placeholder:text-slate-400 focus:border-[#8C1515] focus:ring-1 focus:ring-[#8C1515] focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false)
+            setQuery('')
+            setResults([])
+          }}
+          className="text-[11px] text-slate-400 hover:text-slate-600"
+        >
+          ✕
+        </button>
+      </div>
+      {loading && <p className="text-[10px] text-slate-400">Searching…</p>}
+      {results.map((c) => {
+        const available = !targetTerm || c.quarters.includes(targetTerm)
+        return (
+          <button
+            key={c.code}
+            type="button"
+            disabled={!available}
+            onClick={() => {
+              onAdd({ code: c.code, title: c.title, units: c.unitsMax })
+              setOpen(false)
+              setQuery('')
+              setResults([])
+            }}
+            className={`flex flex-col gap-0.5 rounded-md px-2 py-1 text-left text-[11px] ${available ? 'bg-slate-50 hover:bg-slate-100' : 'cursor-not-allowed bg-slate-50/50 opacity-50'}`}
+          >
+            <div className="flex items-center justify-between gap-1">
+              <span className="font-medium text-slate-800">{c.code}</span>
+              <span className="shrink-0 text-[10px] text-slate-400">
+                {c.unitsMin === c.unitsMax ? c.unitsMin : `${c.unitsMin}–${c.unitsMax}`}u
+              </span>
+            </div>
+            <span className="truncate text-[10px] text-slate-500">{c.title}</span>
+            {!available && <span className="text-[9px] text-red-400">Not offered in {targetTerm}</span>}
+            {available && c.quarters.length > 0 && (
+              <span className="text-[9px] text-slate-400">{c.quarters.join(', ')}</span>
+            )}
+          </button>
+        )
+      })}
+      {!loading && query.trim() && results.length === 0 && (
+        <p className="text-[10px] text-slate-400">No results</p>
+      )}
     </div>
   )
 }
@@ -470,14 +550,28 @@ function PlanPage() {
     }
   }
 
-  // Mock search results (in real app would come from API)
-  const searchResults = searchQuery.trim()
-    ? SAMPLE_SEARCH_COURSES.filter(
-        (c) =>
-          c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          c.title.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    : []
+  const [searchResults, setSearchResults] = useState<PlanSearchResult[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (!q) {
+      setSearchResults([])
+      return
+    }
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = setTimeout(() => {
+      setSearchLoading(true)
+      searchCoursesForPlan({ data: { query: q } })
+        .then(setSearchResults)
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearchLoading(false))
+    }, 300)
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    }
+  }, [searchQuery])
 
   const [activeId, setActiveId] = useState<string | null>(null)
   const sensors = useSensors(
@@ -576,24 +670,36 @@ function PlanPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="mt-2 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-[#8C1515] focus:ring-1 focus:ring-[#8C1515] focus:outline-none"
                 />
-                {searchResults.length > 0 && (
+                {searchLoading && <p className="mt-2 text-xs text-slate-400">Searching…</p>}
+                {!searchLoading && searchResults.length > 0 && (
                   <ul className="mt-2 space-y-1">
                     {searchResults.map((c) => (
                       <li
                         key={c.code}
-                        className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1.5 text-xs"
+                        className="flex flex-col gap-1 rounded-lg bg-slate-50 px-2 py-1.5 text-xs"
                       >
-                        <span className="font-medium text-slate-800">{c.code}</span>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-slate-800">{c.code}</span>
+                          <span className="text-[10px] text-slate-400">
+                            {c.unitsMin === c.unitsMax ? c.unitsMin : `${c.unitsMin}–${c.unitsMax}`} units
+                          </span>
+                        </div>
+                        <p className="truncate text-[10px] text-slate-500">{c.title}</p>
                         <button
                           type="button"
-                          onClick={() => addToGlobalStash(c)}
-                          className="rounded bg-[#8C1515] px-2 py-0.5 text-[10px] text-white hover:bg-[#7A1212]"
+                          onClick={() =>
+                            addToGlobalStash({ code: c.code, title: c.title, units: c.unitsMax })
+                          }
+                          className="mt-0.5 w-full rounded bg-[#8C1515] px-2 py-0.5 text-[10px] text-white hover:bg-[#7A1212]"
                         >
-                          Stash
+                          + Stash
                         </button>
                       </li>
                     ))}
                   </ul>
+                )}
+                {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+                  <p className="mt-2 text-xs text-slate-400">No courses found.</p>
                 )}
               </div>
               <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -697,6 +803,7 @@ function PlanPage() {
                 getTermUnits={getTermUnits}
                 getYearUnits={getYearUnits}
                 removeFromPlanned={removeFromPlanned}
+                addToPlanned={addToPlanned}
               />
             </div>
 
@@ -744,12 +851,9 @@ function PlanPage() {
                           ))}
                         </DroppableZone>
                       </div>
-                      <button
-                        type="button"
-                        className="mt-auto w-full rounded-full bg-slate-900/90 px-2 py-1.5 text-[11px] font-normal text-slate-50 transition hover:bg-slate-900"
-                      >
-                        Add course
-                      </button>
+                      <div className="mt-auto">
+                        <AddCourseInline onAdd={(c) => addToPlanned(yearIndex, term, c)} />
+                      </div>
                     </div>
                   </div>
                 )
