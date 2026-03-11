@@ -565,7 +565,7 @@ function SchedulePage() {
         const slug = toCourseCodeSlug({
           subjectCode: parts[0]!,
           codeNumber: parseInt(numMatch?.[1] ?? '0', 10),
-          codeSuffix: numMatch?.[2] || null,
+          codeSuffix: numMatch?.[2] != null && numMatch[2] !== '' ? numMatch[2] : null,
         })
         return getCourseByCode({ data: { courseCodeSlug: slug, year: DEFAULT_YEAR } }).then((result) => ({
           planCourse: c,
@@ -605,7 +605,7 @@ function SchedulePage() {
 
           // Extract instructors
           const instructorNames: string[] = []
-          if (sec) {
+          if (sec != null) {
             for (const sched of sec.schedules ?? []) {
               for (const inst of sched.instructors ?? []) {
                 if (!instructorNames.includes(inst.name)) instructorNames.push(inst.name)
@@ -615,7 +615,7 @@ function SchedulePage() {
 
           // Build schedule blocks
           const courseBlocks: ScheduleBlock[] = []
-          if (sec) {
+          if (sec != null) {
             for (const sched of sec.schedules ?? []) {
               const days = sched.days ?? []
               if (

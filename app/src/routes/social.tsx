@@ -32,7 +32,7 @@ function Avatar({ src, name, size = 'md' }: { src: string | null; name: string; 
   const sizeClasses = { sm: 'h-8 w-8 text-xs', md: 'h-10 w-10 text-sm', lg: 'h-16 w-16 text-xl' }
   const initial = name.charAt(0).toUpperCase()
 
-  if (src) {
+  if (src != null) {
     return (
       <img
         src={src}
@@ -84,8 +84,8 @@ function UserCard({
         >
           {displayName}
         </Link>
-        {description && <p className="mt-0.5 truncate text-sm text-[#4A4557]/70">{description}</p>}
-        {isFollowingYou && (
+        {description != null && <p className="mt-0.5 truncate text-sm text-[#4A4557]/70">{description}</p>}
+        {isFollowingYou === true && (
           <span className="mt-0.5 inline-block text-xs text-[#4A4557]/50">Follows you</span>
         )}
       </div>
@@ -363,7 +363,7 @@ function ProfileSettings() {
         <Avatar src={profile.avatarUrl} name={profile.displayName} size="lg" />
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-semibold text-[#150F21]">{profile.displayName}</h2>
-          {profile.description && <p className="mt-0.5 text-sm text-[#4A4557]/70">{profile.description}</p>}
+          {profile.description != null && <p className="mt-0.5 text-sm text-[#4A4557]/70">{profile.description}</p>}
           {profile.friendsOnly && (
             <span className="mt-1 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
               Approval required to follow
@@ -500,7 +500,7 @@ function PeopleSearch() {
                     >
                       {u.displayName}
                     </Link>
-                    {u.description && (
+                    {u.description != null && (
                       <p className="truncate text-xs text-[#4A4557]/60">{u.description}</p>
                     )}
                   </div>

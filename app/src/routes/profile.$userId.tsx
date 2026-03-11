@@ -23,7 +23,7 @@ export const Route = createFileRoute('/profile/$userId')({
 function Avatar({ src, name }: { src: string | null; name: string }) {
   const initial = name.charAt(0).toUpperCase()
 
-  if (src) {
+  if (src != null) {
     return (
       <div className="relative group">
         <div className="absolute inset-0 bg-[#8C1515] rounded-full blur-xl opacity-20 group-hover:opacity-30 transition-opacity" />
@@ -350,7 +350,7 @@ function WeeklySchedule({
                           {block.title}
                         </div>
                       )}
-                      {height > 55 && block.location && (
+                      {height > 55 && block.location != null && (
                         <div
                           className="text-[10px] font-bold bg-white/50 inline-block px-1.5 py-0.5 rounded mt-1.5"
                           style={{ color: color.text }}
@@ -395,7 +395,7 @@ function ProfilePage() {
 
   // Default to most recent quarter
   const [selectedQuarter, setSelectedQuarter] = useState<string | null>(null)
-  const activeQuarter = selectedQuarter && quarters.includes(selectedQuarter)
+  const activeQuarter = selectedQuarter != null && quarters.includes(selectedQuarter)
     ? selectedQuarter
     : quarters[quarters.length - 1] ?? null
 
@@ -475,7 +475,7 @@ function ProfilePage() {
                 {profile.displayName}
               </h1>
               <div className="flex items-center gap-3 flex-wrap">
-                {profile.description && (
+                {profile.description != null && (
                   <span className="flex items-center gap-1.5 bg-white/40 px-3 py-1 rounded-full border border-white/40 text-sm font-medium text-[#4A4557]">
                     <GraduationCap className="w-4 h-4" />
                     {profile.description}

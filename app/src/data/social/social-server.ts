@@ -277,8 +277,8 @@ function findClassmates(
     const courses = USER_COURSES[user.id] ?? []
     const match = courses.some((c) => {
       if (c.courseCode.toUpperCase() !== target) return false
-      if (quarter && c.quarter !== quarter) return false
-      if (year && c.year !== year) return false
+      if (quarter != null && quarter !== '' && c.quarter !== quarter) return false
+      if (year != null && c.year !== year) return false
       return true
     })
     if (match) {
@@ -315,7 +315,7 @@ export const getOwnProfile = createServerFn({ method: 'GET' }).handler(
       (typeof rawMeta?.picture === 'string' && rawMeta.picture) ||
       null
     const displayName =
-      (typeof rawMeta?.full_name === 'string' && rawMeta.full_name) || user.email?.split('@')[0] || 'User'
+      (typeof rawMeta?.full_name === 'string' ? rawMeta.full_name : null) ?? user.email?.split('@')[0] ?? 'User'
 
     return {
       id: user.id,

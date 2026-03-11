@@ -600,7 +600,7 @@ export function WeeklyCalendar({
       )}
 
       {/* Classmates planning this course */}
-      {courseCode && <CalendarClassmates courseCode={courseCode} quarter={quarter} year={year} />}
+      {courseCode != null && courseCode !== '' && <CalendarClassmates courseCode={courseCode} quarter={quarter} year={year} />}
     </div>
   )
 }
@@ -630,7 +630,7 @@ function CalendarClassmates({
 
   // Derive numeric year: Autumn uses start year, Winter/Spring/Summer use end year
   const numericYear = useMemo(() => {
-    if (!year) return undefined
+    if (year == null || year === '') return undefined
     const parts = year.split('-')
     if (parts.length !== 2) return undefined
     const startYear = parseInt(parts[0]!, 10)
@@ -675,7 +675,7 @@ function CalendarClassmates({
             title={cm.displayName}
             className="group relative"
           >
-            {cm.avatarUrl ? (
+            {cm.avatarUrl != null ? (
               <img
                 src={cm.avatarUrl}
                 alt={cm.displayName}
