@@ -2,8 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo } from 'react'
 import { getEvalMetricMeta, getEvalValueColor } from '@/data/search/eval-metrics'
-import { DEFAULT_YEAR, SEARCH_DEFAULTS } from '@/data/search/search.params'
-import type { SearchParams } from '@/data/search/search.params'
+import { DEFAULT_YEAR } from '@/data/search/search.params'
 import type { InstructorCourseEntry } from '@/data/search/search'
 import { instructorProfileQueryOptions } from '@/components/courses/courses-query-options'
 
@@ -34,10 +33,10 @@ function CourseEntryCard({ entry }: { entry: InstructorCourseEntry }) {
     <Link
       to="/course/$courseId"
       params={{ courseId: entry.courseCodeSlug }}
-      className="block rounded-xl border border-white/60 bg-white/50 p-3 backdrop-blur-md transition-all hover:bg-white/70 hover:shadow-md"
+      className="block rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-opacity hover:shadow-md"
     >
-      <div className="text-sm font-semibold text-[#150F21]">{entry.displayCode}</div>
-      <div className="mt-0.5 truncate text-xs text-[#4A4557]/70">{entry.title}</div>
+      <div className="text-sm font-semibold text-slate-900">{entry.displayCode}</div>
+      <div className="mt-0.5 truncate text-xs text-slate-600">{entry.title}</div>
       <div className="mt-1.5">
         <QualityChip value={entry.avgQuality} />
       </div>
@@ -67,15 +66,8 @@ function InstructorPage() {
 
   if (!isPending && profile == null) {
     return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center bg-sky-50 font-['Satoshi']">
-        <p className="text-lg text-[#4A4557]">Instructor not found.</p>
-        <Link
-          to="/courses"
-          search={SEARCH_DEFAULTS as unknown as Required<SearchParams>}
-          className="mt-4 text-primary underline-offset-2 hover:underline"
-        >
-          Back to search
-        </Link>
+      <div className="flex min-h-[calc(100vh-var(--header-height))] flex-col items-center justify-center bg-sky-50">
+        <p className="text-lg text-slate-800">Instructor not found.</p>
       </div>
     )
   }
@@ -105,36 +97,22 @@ function InstructorPage() {
   )
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-sky-50 font-['Satoshi']">
-      <style>{`
-        @import url('https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@300,400,500,700&display=swap');
-      `}</style>
-
-      <div className="pointer-events-none absolute top-0 right-0 h-[800px] w-[800px] rounded-full bg-gradient-to-bl from-purple-300/30 via-blue-300/20 to-transparent blur-3xl" />
-
-      <main className="relative z-10 mx-auto w-full max-w-5xl flex-grow px-4 pt-24 pb-14">
-        <Link
-          to="/courses"
-          search={SEARCH_DEFAULTS as unknown as Required<SearchParams>}
-          className="mb-6 inline-block text-sm text-[#4A4557]/60 transition-colors hover:text-primary"
-        >
-          &larr; Back to search
-        </Link>
-
-        <div className="mb-10 space-y-1">
+    <div className="min-h-[calc(100vh-var(--header-height))] overflow-x-clip bg-sky-50">
+      <main className="mx-auto w-full max-w-6xl px-2.5 pt-5 pb-8">
+        <div className="mb-5 space-y-1">
           {isPending ? (
             <>
-              <div className="h-12 w-2/5 animate-pulse rounded bg-[#4A4557]/20" />
-              <div className="h-5 w-1/5 animate-pulse rounded bg-[#4A4557]/10" />
+              <div className="h-12 w-2/5 animate-pulse rounded bg-slate-200" />
+              <div className="h-5 w-1/5 animate-pulse rounded bg-slate-100" />
             </>
           ) : (
             <>
-              <h1 className="font-['Clash_Display'] text-5xl leading-tight font-semibold tracking-tight text-[#150F21] md:text-6xl">
+              <h1 className="text-3xl leading-tight font-semibold tracking-tight text-slate-900 md:text-4xl">
                 {profile?.name}
               </h1>
               <a
                 href={`mailto:${sunet}@stanford.edu`}
-                className="text-sm text-[#4A4557]/50 transition-colors hover:text-primary hover:underline"
+                className="text-sm text-slate-500 transition-colors hover:text-primary hover:underline"
               >
                 {sunet}@stanford.edu
               </a>
@@ -142,19 +120,14 @@ function InstructorPage() {
           )}
         </div>
 
-        <div className="mb-4 flex items-center gap-2">
-          <div className="h-5 w-1 rounded-full bg-primary" />
-          <h2 className="font-['Clash_Display'] text-xl font-semibold text-[#150F21]">Teaching History</h2>
-        </div>
-
         {isPending ? (
-          <div className="space-y-6">
+          <div className="space-y-5">
             {Array.from({ length: 3 }, (_, i) => (
               <div key={i} className="space-y-2">
-                <div className="h-5 w-24 animate-pulse rounded bg-[#4A4557]/15" />
+                <div className="h-5 w-24 animate-pulse rounded bg-slate-200" />
                 <div className="grid grid-cols-4 gap-3">
                   {Array.from({ length: 4 }, (_, j) => (
-                    <div key={j} className="h-20 animate-pulse rounded-xl bg-white/40" />
+                    <div key={j} className="h-20 animate-pulse rounded-xl border border-slate-200 bg-white" />
                   ))}
                 </div>
               </div>
@@ -166,19 +139,19 @@ function InstructorPage() {
               const quarterMap = entriesByYearQuarter.get(year)!
               return (
                 <div key={year}>
-                  <h3 className="mb-2 text-sm font-bold text-[#150F21]/70">{year}</h3>
+                  <h3 className="mb-2 text-sm font-semibold text-slate-700">{year}</h3>
                   <div className="grid grid-cols-4 gap-3">
                     {QUARTER_COLUMNS.map((q) => {
                       const courses = quarterMap.get(q)
                       return (
                         <div key={q} className="space-y-2">
-                          <div className="text-xs font-medium text-[#4A4557]/50">{q}</div>
+                          <div className="text-xs font-medium text-slate-500">{q}</div>
                           {courses != null && courses.length > 0 ? (
                             courses.map((entry, idx) => (
                               <CourseEntryCard key={`${entry.courseCodeSlug}-${idx}`} entry={entry} />
                             ))
                           ) : (
-                            <div className="flex h-20 items-center justify-center rounded-xl border border-dashed border-[#4A4557]/10 text-xs text-[#4A4557]/20">
+                            <div className="flex min-h-[5rem] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-xs text-slate-400">
                               —
                             </div>
                           )}
@@ -191,7 +164,7 @@ function InstructorPage() {
             })}
           </div>
         ) : (
-          <p className="py-12 text-center text-sm text-[#4A4557]/60">No teaching history found.</p>
+          <p className="py-12 text-center text-sm text-slate-500">No teaching history found.</p>
         )}
       </main>
     </div>

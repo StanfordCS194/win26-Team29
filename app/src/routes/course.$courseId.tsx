@@ -127,16 +127,16 @@ function CourseDetailsCard({ course }: { course: SearchCourseResult }) {
   const qualityMap = course.instructorQualityBySunet
 
   return (
-    <div className="rounded-3xl border border-white/50 bg-white/40 p-6 shadow-sm backdrop-blur-xl">
+    <div>
       {instructorsByQuarter.size === 0 ? (
-        <p className="text-base text-[#4A4557]">—</p>
+        <p className="text-sm text-slate-500">—</p>
       ) : (
         <div className="space-y-2">
           {Array.from(instructorsByQuarter.entries()).map(([quarter, instructors]) => (
-            <div key={quarter} className="text-base text-[#4A4557]">
-              <div className="font-bold text-[#150F21]">{quarter}</div>
+            <div key={quarter} className="text-sm text-slate-600">
+              <div className="font-semibold text-slate-800">{quarter}</div>
               {instructors.length ? (
-                <div className="mt-0.5 space-y-0.5 pl-4">
+                <div className="mt-0.5 space-y-0.5 pl-3">
                   {instructors.map((inst) => (
                     <InstructorRow key={inst.sunet || inst.name} instructor={inst} qualityMap={qualityMap} />
                   ))}
@@ -221,7 +221,7 @@ function DistributionBarChart({
       </div>
       <div className="flex justify-between">
         {boundaryLabels.map((label, i) => (
-          <span key={i} className="text-[10px] leading-tight text-[#4A4557]/70">
+          <span key={i} className="text-[10px] leading-tight text-slate-400">
             {label}
           </span>
         ))}
@@ -265,26 +265,26 @@ function MultiSelect({
     <div className="relative">
       <button
         type="button"
-        className="flex items-center gap-1.5 rounded-lg border border-white/60 bg-white/60 px-3 py-1.5 text-sm text-[#150F21] shadow-sm backdrop-blur-xl transition-colors hover:bg-white/80"
+        className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 shadow-sm transition-colors hover:bg-slate-50"
         onClick={() => setOpen(!open)}
       >
         <span className="max-w-[160px] truncate">{display}</span>
-        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#4A4557]" />
+        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute z-20 mt-1 max-h-48 min-w-[180px] overflow-y-auto rounded-lg border border-white/60 bg-white/90 py-1 shadow-lg backdrop-blur-xl">
+          <div className="absolute z-20 mt-1 max-h-48 min-w-[180px] overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
             {options.map((opt) => (
               <label
                 key={opt.value}
-                className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-[#150F21] hover:bg-[#150F21]/5"
+                className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-slate-900 hover:bg-slate-50"
               >
                 <input
                   type="checkbox"
                   checked={selected.includes(opt.value)}
                   onChange={() => toggle(opt.value)}
-                  className="rounded border-[#4A4557]/30"
+                  className="rounded border-slate-300"
                 />
                 {opt.label}
               </label>
@@ -388,19 +388,17 @@ function EvalDistributionSection({
   }))
 
   return (
-    <div className="rounded-3xl border border-white/50 bg-white/40 p-6 shadow-sm backdrop-blur-xl">
+    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="mb-4 flex items-center gap-2">
         <div className="h-5 w-1 rounded-full bg-primary" />
-        <h3 className="font-['Clash_Display'] text-xl font-semibold text-[#150F21]">
-          Evaluation Distribution
-        </h3>
+        <h3 className="text-base font-semibold text-slate-900">Evaluation Distribution</h3>
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <select
           value={metric}
           onChange={(e) => setMetric(e.target.value as EvalSlug)}
-          className="rounded-lg border border-white/60 bg-white/60 px-3 py-1.5 text-sm text-[#150F21] shadow-sm backdrop-blur-xl transition-colors hover:bg-white/80"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-900 shadow-sm transition-colors hover:bg-slate-50"
         >
           {DISTRIBUTION_METRICS.map((slug) => (
             <option key={slug} value={slug}>
@@ -439,12 +437,12 @@ function EvalDistributionSection({
             totalResponses={distribution.totalResponses}
             boundaryLabels={distribution.boundaryLabels}
           />
-          <p className="mt-3 text-xs text-[#4A4557]/60">
+          <p className="mt-3 text-xs text-slate-400">
             Based on {distribution.totalResponses} response{distribution.totalResponses !== 1 ? 's' : ''}
           </p>
         </div>
       ) : (
-        <p className="py-8 text-center text-sm text-[#4A4557]/60">No distribution data for this selection.</p>
+        <p className="py-8 text-center text-sm text-slate-400">No distribution data for this selection.</p>
       )}
     </div>
   )
@@ -572,10 +570,10 @@ function TextReviewsSection({
   }, [reviews, normalizedSearch])
 
   return (
-    <div className="mt-8">
-      <div className="mb-6 flex items-center gap-2.5">
-        <div className="h-6 w-1 rounded-full bg-primary" />
-        <h3 className="font-['Clash_Display'] text-2xl font-semibold text-[#150F21]">Student Reviews</h3>
+    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="mb-4 flex items-center gap-2">
+        <div className="h-5 w-1 rounded-full bg-primary" />
+        <h3 className="text-base font-semibold text-slate-900">Student Reviews</h3>
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -596,13 +594,13 @@ function TextReviewsSection({
           />
         )}
         <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-[#4A4557]/50" />
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
           <input
             type="search"
             placeholder="Search reviews..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="rounded-lg border border-white/60 bg-white/60 py-1.5 pr-3 pl-8 text-sm text-[#150F21] shadow-sm backdrop-blur-xl transition-colors placeholder:text-[#4A4557]/40 hover:bg-white/80 focus:bg-white/80 focus:outline-none"
+            className="rounded-lg border border-slate-200 bg-white py-1.5 pr-3 pl-8 text-sm text-slate-900 shadow-sm transition-colors placeholder:text-slate-400 hover:bg-slate-50 focus:bg-white focus:outline-none"
           />
         </div>
       </div>
@@ -616,14 +614,14 @@ function TextReviewsSection({
           {filteredReviews.map((review, i) => (
             <div
               key={i}
-              className="rounded-2xl border border-white/60 bg-white/50 p-5 backdrop-blur-md transition-all hover:shadow-md"
+              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
             >
-              <div className="mb-2 text-xs text-[#4A4557]/60">
-                <span className="font-medium text-[#150F21]/70">
+              <div className="mb-2 text-xs text-slate-400">
+                <span className="font-medium text-slate-500">
                   {review.quarter} {review.year}
                 </span>
               </div>
-              <p className="text-sm leading-relaxed text-[#4A4557]">
+              <p className="text-sm leading-relaxed text-slate-600">
                 {normalizedSearch.length > 0
                   ? highlightSearchMatch(review.responseText, normalizedSearch)
                   : review.responseText}
@@ -632,7 +630,7 @@ function TextReviewsSection({
           ))}
         </div>
       ) : (
-        <p className="py-8 text-center text-sm text-[#4A4557]/60">
+        <p className="py-8 text-center text-sm text-slate-400">
           {reviews != null && reviews.length > 0 && normalizedSearch.length > 0
             ? 'No reviews match your search.'
             : 'No reviews available for this selection.'}
@@ -640,7 +638,7 @@ function TextReviewsSection({
       )}
 
       {!isReviewsLoading && filteredReviews.length > 0 && (
-        <p className="mt-3 text-xs text-[#4A4557]/60">
+        <p className="mt-3 text-xs text-slate-400">
           {filteredReviews.length} review{filteredReviews.length !== 1 ? 's' : ''}
           {normalizedSearch.length > 0 && reviews != null ? ` (${reviews.length} total)` : ''}
         </p>
@@ -666,8 +664,8 @@ function ClassPage() {
 
   if (!isPending && (course === null || course === undefined)) {
     return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center bg-sky-50 font-['Satoshi']">
-        <p className="text-lg text-[#4A4557]">Course not found.</p>
+      <div className="relative flex min-h-screen flex-col items-center justify-center bg-sky-50">
+        <p className="text-lg text-slate-600">Course not found.</p>
         <Link
           to="/courses"
           search={SEARCH_DEFAULTS as unknown as Required<SearchParams>}
@@ -680,28 +678,22 @@ function ClassPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-sky-50 font-['Satoshi']">
-      <style>{`
-        @import url('https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@300,400,500,700&display=swap');
-      `}</style>
-
-      <div className="pointer-events-none absolute top-0 right-0 h-[800px] w-[800px] rounded-full bg-gradient-to-bl from-purple-300/30 via-blue-300/20 to-transparent blur-3xl" />
-
-      <main className="relative z-10 mx-auto w-full max-w-4xl flex-grow px-4 pt-24 pb-14">
-        <div className="flex flex-col gap-8">
-          <div className="space-y-4">
+    <div className="relative flex min-h-screen flex-col bg-sky-50">
+      <main className="mx-auto w-full max-w-4xl flex-grow px-4 pt-8 pb-14">
+        <div className="flex flex-col gap-4">
+          <div className="rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0 space-y-2">
-                <h1 className="font-['Clash_Display'] text-6xl leading-none font-semibold tracking-tight text-[#150F21] md:text-7xl">
-                  {courseCode}
-                </h1>
-                {isPending ? (
-                  <div className="h-8 w-3/4 animate-pulse rounded bg-[#4A4557]/20" />
-                ) : (
-                  <h2 className="text-2xl font-medium text-primary md:text-3xl">{course?.title ?? '—'}</h2>
-                )}
+              <div className="flex min-w-0 flex-col gap-1">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <h1 className="text-2xl leading-snug font-bold text-slate-900 md:text-3xl">{courseCode}</h1>
+                  {isPending ? (
+                    <div className="h-6 w-48 animate-pulse rounded bg-slate-200" />
+                  ) : (
+                    <h2 className="text-xl font-normal text-slate-700 md:text-2xl">{course?.title ?? '—'}</h2>
+                  )}
+                </div>
                 {!isPending && course && (
-                  <p className="flex flex-wrap text-sm text-[#4A4557]">
+                  <p className="flex flex-wrap text-sm text-slate-400">
                     {[
                       course.units_min === course.units_max
                         ? `${course.units_min} units`
@@ -714,7 +706,7 @@ function ClassPage() {
                         <span key={i} className="whitespace-nowrap">
                           {item}
                           {i < arr.length - 1 && (
-                            <span className="mx-1.5 inline-block h-[3px] w-[3px] rounded-full bg-[#4A4557]/40 align-middle" />
+                            <span className="mx-1.5 inline-block h-[3px] w-[3px] rounded-full bg-slate-300 align-middle" />
                           )}
                         </span>
                       ))}
@@ -729,32 +721,32 @@ function ClassPage() {
                     expanded={descriptionExpanded}
                     onToggle={() => setDescriptionExpanded((prev) => !prev)}
                     maxHeight={192}
-                    className="mt-2 text-base leading-relaxed text-[#4A4557]"
+                    className="mt-1 text-sm leading-relaxed text-slate-600"
                     renderText={(t) => renderDescriptionWithLinks(t, validSubjects, DEFAULT_YEAR)}
                   />
                 ) : (
                   !isPending &&
-                  course && <p className="mt-2 text-base text-[#4A4557]">No description available.</p>
+                  course && <p className="mt-1 text-sm text-slate-500">No description available.</p>
                 )}
               </div>
-              <div className="flex shrink-0 flex-col gap-4 sm:min-w-[220px]">
+              <div className="flex shrink-0 flex-col gap-3 sm:min-w-[200px]">
                 <div className="flex items-center gap-2">
-                  <button className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-xl">
+                  <button className="flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-hover">
                     Add to Plan
                   </button>
                   <button
                     type="button"
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/60 text-[#4A4557] shadow-sm backdrop-blur-xl transition-colors hover:bg-white/80 hover:text-[#150F21]"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
                     aria-label="Like"
                   >
-                    <ThumbsUp className="h-5 w-5" />
+                    <ThumbsUp className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
-                    className="flex h-7 w-7 items-center justify-center rounded-full border border-white/60 bg-white/60 text-[#4A4557] shadow-sm backdrop-blur-xl transition-colors hover:bg-white/80 hover:text-[#150F21]"
+                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
                     aria-label="Dislike"
                   >
-                    <ThumbsDown className="h-3.5 w-3.5" />
+                    <ThumbsDown className="h-4 w-4" />
                   </button>
                 </div>
                 {course && !isIndividualInstructionCourse(course.sections) && (
