@@ -154,6 +154,7 @@ function CourseDetailsCard({ course }: { course: SearchCourseResult }) {
   )
 }
 
+
 const DISTRIBUTION_METRICS: EvalSlug[] = ['hours', 'quality', 'learning', 'organized', 'goals']
 
 function useDistributionDefaults(course: SearchCourseResult | null | undefined) {

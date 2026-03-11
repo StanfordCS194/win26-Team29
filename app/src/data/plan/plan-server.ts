@@ -1,4 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
+import { sql } from 'kysely'
 import { z } from 'zod'
 
 export type PlanCourseData = { dbId: string; code: string; units: number }
@@ -15,47 +16,57 @@ export type PlanSearchResult = {
 export const searchCoursesForPlan = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ query: z.string().min(1).max(200), year: z.string().optional() }))
   .handler(async ({ data }): Promise<PlanSearchResult[]> => {
-    const { getServerDb } = await import('@/lib/server-db')
-    const { DEFAULT_YEAR } = await import('@/data/search/search.params')
-    const db = getServerDb()
-    const year = data.year ?? DEFAULT_YEAR
-    const q = data.query.trim()
-    if (!q) return []
+    try {
+      const { getServerDb } = await import('@/lib/server-db')
+      const { DEFAULT_YEAR } = await import('@/data/search/search.params')
+      const db = getServerDb()
+      const year = data.year ?? DEFAULT_YEAR
+      const q = data.query.trim()
+      if (!q) return []
 
-    const rows = await db
-      .selectFrom('course_offerings_full_mv')
-      .select(['subject_code', 'code_number', 'code_suffix', 'title', 'units_min', 'units_max', 'sections'])
-      .where('year', '=', year)
-      .where((eb) => {
-        const pattern = `%${q}%`
-        return eb.or([
-          eb('title', 'ilike', pattern),
-          eb('title_clean', 'ilike', pattern),
-          eb(eb.fn('concat', ['subject_code', eb.val(' '), 'code_number']), 'ilike', pattern),
-        ])
+      const rows = await db
+        .selectFrom('course_offerings_full_mv')
+        .select(['subject_code', 'code_number', 'code_suffix', 'title', 'units_min', 'units_max', 'sections'])
+        .where('year', '=', year)
+        .where((eb) => {
+          const pattern = `%${q}%`
+          // Full code = "CS 106A": subject_code + ' ' + code_number + code_suffix
+          const fullCode = sql`concat(subject_code, ' ', code_number::text, coalesce(code_suffix, ''))`
+          // No-space variant = "CS106A" for users who skip the space
+          const compactCode = sql`concat(subject_code, code_number::text, coalesce(code_suffix, ''))`
+          return eb.or([
+            eb('title', 'ilike', pattern),
+            eb('title_clean', 'ilike', pattern),
+            eb(fullCode, 'ilike', pattern),
+            eb(compactCode, 'ilike', pattern),
+          ])
+        })
+        .orderBy('code_number', 'asc')
+        .limit(10)
+        .execute()
+
+      return rows.map((r) => {
+        const suffix = r.code_suffix != null && r.code_suffix !== '' ? String(r.code_suffix) : ''
+        const sections = (r.sections ?? []) as Array<{ termQuarter?: string; cancelled?: boolean }>
+        const quarters = [
+          ...new Set(
+            sections
+              .filter((s) => s.cancelled !== true && s.termQuarter != null && s.termQuarter !== '')
+              .map((s) => s.termQuarter!),
+          ),
+        ]
+        return {
+          code: `${r.subject_code} ${r.code_number}${suffix}`,
+          title: r.title,
+          unitsMin: Number(r.units_min),
+          unitsMax: Number(r.units_max),
+          quarters,
+        }
       })
-      .orderBy('code_number', 'asc')
-      .limit(10)
-      .execute()
-
-    return rows.map((r) => {
-      const suffix = r.code_suffix != null && r.code_suffix !== '' ? String(r.code_suffix) : ''
-      const sections = (r.sections ?? []) as Array<{ termQuarter?: string; cancelled?: boolean }>
-      const quarters = [
-        ...new Set(
-          sections
-            .filter((s) => s.cancelled !== true && s.termQuarter != null && s.termQuarter !== '')
-            .map((s) => s.termQuarter!),
-        ),
-      ]
-      return {
-        code: `${r.subject_code} ${r.code_number}${suffix}`,
-        title: r.title,
-        unitsMin: Number(r.units_min),
-        unitsMax: Number(r.units_max),
-        quarters,
-      }
-    })
+    } catch (err) {
+      console.error('[searchCoursesForPlan] Server error:', err)
+      throw err
+    }
   })
 
 export type PlanData = {

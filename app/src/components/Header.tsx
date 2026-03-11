@@ -74,12 +74,12 @@ export default function Header() {
           >
             4Y Plan
           </Link>
-          <button
-            type="button"
+          <Link
+            to="/social"
             className="text-base font-normal text-slate-700 transition hover:text-primary focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 focus-visible:outline-none"
           >
             Social
-          </button>
+          </Link>
 
           {displayError !== null && displayError.length > 0 ? (
             <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-3 py-1.5 text-sm text-destructive">

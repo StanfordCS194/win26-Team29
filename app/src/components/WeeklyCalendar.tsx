@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { getUserPlan } from '@/data/plan/plan-server'
 import { getCourseByCode } from '@/data/search/search'
-import { toCourseCodeSlug } from '@/lib/course-code'
+import { parseCourseCodeSlug, toCourseCodeSlug } from '@/lib/course-code'
+import { courseClassmatesQueryOptions } from '@/data/social/social-query-options'
+import { userQueryOptions } from '@/data/auth'
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] as const
 type DayKey = (typeof DAYS)[number]
@@ -594,6 +598,103 @@ export function WeeklyCalendar({
           )}
         </div>
       )}
+
+      {/* Classmates planning this course */}
+      {courseCode && <CalendarClassmates courseCode={courseCode} quarter={quarter} year={year} />}
+    </div>
+  )
+}
+
+// ── Classmates sub-component ──────────────────────────────────────────
+
+function CalendarClassmates({
+  courseCode,
+  quarter,
+  year,
+}: {
+  courseCode: string
+  quarter: string
+  year: string | undefined
+}) {
+  const { data: authUser } = useQuery(userQueryOptions)
+  // courseCode may be a slug ("cs161") or display format ("CS 161") — handle both
+  const parsed = useMemo(() => {
+    // Try slug parse first
+    const slugResult = parseCourseCodeSlug(courseCode)
+    if (slugResult) return slugResult
+    // Try spaced format: "CS 161", "MATH 51A"
+    const m = courseCode.match(/^([A-Z]+(?:\s[A-Z]+)?)\s+(\d+)([A-Za-z]*)$/)
+    if (m) return { subjectCode: m[1]!, codeNumber: parseInt(m[2]!, 10), codeSuffix: m[3] || null }
+    return null
+  }, [courseCode])
+
+  // Derive numeric year: Autumn uses start year, Winter/Spring/Summer use end year
+  const numericYear = useMemo(() => {
+    if (!year) return undefined
+    const parts = year.split('-')
+    if (parts.length !== 2) return undefined
+    const startYear = parseInt(parts[0]!, 10)
+    const endYear = parseInt(parts[1]!, 10)
+    return quarter === 'Autumn' ? startYear : endYear
+  }, [year, quarter])
+
+  const { data: classmates } = useQuery({
+    ...courseClassmatesQueryOptions(
+      parsed?.subjectCode ?? '',
+      parsed?.codeNumber ?? 0,
+      parsed?.codeSuffix,
+      quarter,
+      numericYear,
+    ),
+    enabled: !!parsed && !!authUser && numericYear != null,
+  })
+
+  if (!classmates || classmates.length === 0) return null
+
+  const MAX_VISIBLE = 6
+  const visible = classmates.slice(0, MAX_VISIBLE)
+  const overflowCount = classmates.length - MAX_VISIBLE
+
+  return (
+    <div className="rounded-xl border border-white/50 bg-white/40 p-3 shadow-sm backdrop-blur-xl">
+      <div className="mb-2 flex items-center gap-1.5">
+        <div className="h-3.5 w-0.5 rounded-full bg-primary" />
+        <span className="text-[11px] font-semibold text-[#150F21]">
+          {classmates.length} {classmates.length === 1 ? 'person' : 'people'} planning this
+        </span>
+        <span className="text-[10px] text-[#4A4557]/50 ml-auto">
+          {quarter} {numericYear}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1">
+        {visible.map((cm) => (
+          <Link
+            key={cm.userId}
+            to="/profile/$userId"
+            params={{ userId: cm.userId }}
+            title={cm.displayName}
+            className="group relative"
+          >
+            {cm.avatarUrl ? (
+              <img
+                src={cm.avatarUrl}
+                alt={cm.displayName}
+                className="h-8 w-8 rounded-full object-cover ring-2 ring-white transition-transform group-hover:scale-110"
+                referrerPolicy="no-referrer"
+              />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary ring-2 ring-white transition-transform group-hover:scale-110">
+                {cm.displayName.charAt(0).toUpperCase()}
+              </div>
+            )}
+          </Link>
+        ))}
+        {overflowCount > 0 && (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#4A4557]/10 text-xs font-semibold text-[#4A4557] ring-2 ring-white">
+            +{overflowCount}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
