@@ -72,7 +72,7 @@ export default function Header() {
             to="/plan"
             className="text-base font-normal text-slate-700 transition hover:text-primary focus-visible:ring-2 focus-visible:ring-[#8C1515]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 focus-visible:outline-none"
           >
-            4Y Plan
+            Plan
           </Link>
           <button
             type="button"

@@ -15,7 +15,7 @@ const PLACEHOLDER_EXAMPLES = [
   'global cuisines',
   'urban music',
   'climate entrepreneurship',
-  'music history',
+  'history of capitalism',
   'game development',
   'science of sleep',
   'urban planning',
