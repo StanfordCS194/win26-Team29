@@ -55,12 +55,16 @@ export function SearchBar() {
 
   const commitSearch = () => {
     prefetchDebouncer.cancel()
+    const normalized = normalizeQuery(value)
+    const queryChanged = normalized !== search.query
     void navigate({
       search: (prev) =>
         ({
           ...prev,
-          query: normalizeQuery(value),
-          page: 1,
+          query: normalized,
+          // Only reset to page 1 when the query actually changed (avoids resetting when
+          // blur is triggered by clicking elsewhere, e.g. "Show more" on a course card)
+          ...(queryChanged ? { page: 1 } : {}),
         }) as Required<SearchParams>,
     })
   }

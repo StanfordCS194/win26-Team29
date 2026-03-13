@@ -154,10 +154,17 @@ course_crosslistings AS (
         'subjectCode', s.code,
         'codeNumber', co.code_number,
         'codeSuffix', co.code_suffix
-      ) ORDER BY s.code, co.code_number, co.code_suffix NULLS FIRST
+      ) ORDER BY
+        COALESCE(cetc.cumulative_num_enrolled, 0) DESC,
+        s.code, co.code_number, co.code_suffix NULLS FIRST
     ) AS crosslistings
   FROM course_offerings co
   JOIN subjects s ON s.id = co.subject_id
+  LEFT JOIN course_code_enrollment_trends_mv cetc
+    ON cetc.subject_id = co.subject_id
+   AND cetc.code_number = co.code_number
+   AND (cetc.code_suffix = co.code_suffix OR (cetc.code_suffix IS NULL AND co.code_suffix IS NULL))
+   AND cetc.year = co.year
   GROUP BY co.course_id, co.year
 ),
 

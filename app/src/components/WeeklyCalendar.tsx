@@ -19,6 +19,36 @@ const DAY_MAP: Record<string, DayKey> = {
 }
 
 const QUARTERS = ['Autumn', 'Winter', 'Spring', 'Summer'] as const
+type QuarterKey = (typeof QUARTERS)[number]
+
+const PLAN_SPAN_STORAGE_KEY = 'plan-span'
+
+function getStoredPlanSpan(): number {
+  if (typeof window === 'undefined') return 4
+  const stored = localStorage.getItem(PLAN_SPAN_STORAGE_KEY)
+  if (stored == null) return 4
+  const n = parseInt(stored, 10)
+  return n >= 1 && n <= 5 ? n : 4
+}
+
+type PlanSlot = { quarter: QuarterKey; planYear: number }
+
+function buildAllSlots(startYear: number, span: number): PlanSlot[] {
+  return Array.from({ length: span * 4 }, (_, i) => ({
+    planYear: startYear + Math.floor(i / 4),
+    quarter: QUARTERS[i % 4]!,
+  }))
+}
+
+function guessCurrentSlot(): { quarter: QuarterKey; planYear: number } {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  if (month >= 9) return { quarter: 'Autumn', planYear: year }
+  if (month >= 6) return { quarter: 'Summer', planYear: year - 1 }
+  if (month >= 3) return { quarter: 'Spring', planYear: year - 1 }
+  return { quarter: 'Winter', planYear: year - 1 }
+}
 
 const START_MIN = 8 * 60
 const END_MIN = 19 * 60
@@ -225,28 +255,49 @@ function buildSectionOptions(blocks: CalendarBlock[]): Record<string, SectionOpt
 // ── Component ────────────────────────────────────────────────────────
 
 export function WeeklyCalendar({
-  year,
+  year: _year,
   onAddToQuarter,
   onRemoveFromQuarter,
+  onSlotChange,
   availableQuarters,
   courseCode,
   refreshTrigger,
 }: {
   year?: string
-  onAddToQuarter?: (quarter: string) => void
-  onRemoveFromQuarter?: (quarter: string) => void
+  onAddToQuarter?: (quarter: string, planYear: number) => void
+  onRemoveFromQuarter?: (quarter: string, planYear: number) => void
+  onSlotChange?: (quarter: string, planYear: number, isCourseAdded: boolean) => void
   availableQuarters?: string[]
   courseCode?: string
   refreshTrigger?: number
 }) {
-  const [quarterIdx, setQuarterIdx] = useState(0)
-  const [planCourses, setPlanCourses] = useState<{ code: string; quarter: string }[]>([])
+  const [planStartYear, setPlanStartYear] = useState<number | null>(null)
+  const [slotIdx, setSlotIdx] = useState(0)
+  const [planCourses, setPlanCourses] = useState<{ code: string; quarter: string; planYear: string }[]>([])
   const [planBlocks, setPlanBlocks] = useState<CalendarBlock[]>([])
   const [previewBlocks, setPreviewBlocks] = useState<CalendarBlock[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedSections, setSelectedSections] = useState<Record<string, string>>({})
 
-  const quarter = QUARTERS[quarterIdx]!
+  // ── All navigable quarter-slots across the plan ──────────────────
+  const allSlots = useMemo((): PlanSlot[] => {
+    if (planStartYear === null) return []
+    return buildAllSlots(planStartYear, getStoredPlanSpan())
+  }, [planStartYear])
+
+  // Auto-jump to the current academic quarter the first time slots load
+  const didJumpRef = useRef(false)
+  useEffect(() => {
+    if (didJumpRef.current || allSlots.length === 0) return
+    didJumpRef.current = true
+    const guess = guessCurrentSlot()
+    const idx = allSlots.findIndex((s) => s.quarter === guess.quarter && s.planYear === guess.planYear)
+    if (idx >= 0) setSlotIdx(idx)
+  }, [allSlots])
+
+  const currentSlot: PlanSlot = allSlots[slotIdx] ?? guessCurrentSlot()
+  const quarter = currentSlot.quarter
+  const academicYear = `${currentSlot.planYear}-${currentSlot.planYear + 1}`
 
   // ── Load plan courses ────────────────────────────────────────────
   useEffect(() => {
@@ -258,10 +309,15 @@ export function WeeklyCalendar({
           setLoading(false)
           return
         }
-        const courses: { code: string; quarter: string }[] = []
+        setPlanStartYear(data.startYear)
+        const courses: { code: string; quarter: string; planYear: string }[] = []
         for (const [key, list] of Object.entries(data.planned)) {
-          const q = key.split('-')[1]!
-          for (const c of list) courses.push({ code: c.code, quarter: q })
+          // Server keys are year-offset based: "0-Autumn", "1-Winter", etc.
+          const dashIdx = key.indexOf('-')
+          const yearOffset = parseInt(key.slice(0, dashIdx), 10)
+          const q = key.slice(dashIdx + 1)
+          const actualPlanYear = data.startYear + yearOffset
+          for (const c of list) courses.push({ code: c.code, quarter: q, planYear: String(actualPlanYear) })
         }
         setPlanCourses(courses)
         setLoading(false)
@@ -275,9 +331,10 @@ export function WeeklyCalendar({
   }, [refreshTrigger])
 
   // ── Courses in current quarter ───────────────────────────────────
+  // planYear is the Autumn calendar year of the academic year (all 4 quarters share it)
   const coursesInQuarter = useMemo(
-    () => planCourses.filter((c) => c.quarter === quarter),
-    [planCourses, quarter],
+    () => planCourses.filter((c) => c.quarter === quarter && c.planYear === String(currentSlot.planYear)),
+    [planCourses, quarter, currentSlot.planYear],
   )
   const coursesKey = useMemo(
     () =>
@@ -290,6 +347,11 @@ export function WeeklyCalendar({
 
   const isCurrentCourseInPlan =
     courseCode != null && courseCode !== '' ? coursesInQuarter.some((c) => c.code === courseCode) : false
+
+  // Notify parent of current slot and whether the course is in it
+  useEffect(() => {
+    onSlotChange?.(currentSlot.quarter, currentSlot.planYear, isCurrentCourseInPlan)
+  }, [currentSlot.quarter, currentSlot.planYear, isCurrentCourseInPlan, onSlotChange])
 
   // ── Resolve schedule blocks for planned courses ──────────────────
   const resolveIdRef = useRef(0)
@@ -304,14 +366,14 @@ export function WeeklyCalendar({
     void resolveScheduleBlocks(
       coursesInQuarter.map((c, i) => ({ code: c.code, colorIdx: i })),
       quarter,
-      year,
+      academicYear,
       false,
     )
       .then((blocks) => {
         if (resolveIdRef.current === id) setPlanBlocks(blocks)
       })
       .catch(() => {})
-  }, [coursesKey, year, quarter]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [coursesKey, academicYear, quarter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Resolve preview blocks ───────────────────────────────────────
   const previewIdRef = useRef(0)
@@ -323,12 +385,12 @@ export function WeeklyCalendar({
     }
     const id = ++previewIdRef.current
 
-    void resolveScheduleBlocks([{ code: courseCode, colorIdx: -1 }], quarter, year, true)
+    void resolveScheduleBlocks([{ code: courseCode, colorIdx: -1 }], quarter, academicYear, true)
       .then((blocks) => {
         if (previewIdRef.current === id) setPreviewBlocks(blocks)
       })
       .catch(() => {})
-  }, [courseCode, isCurrentCourseInPlan, year, quarter])
+  }, [courseCode, isCurrentCourseInPlan, academicYear, quarter])
 
   // ── Section options & auto-selection ─────────────────────────────
   const allRawBlocks = useMemo(() => [...planBlocks, ...previewBlocks], [planBlocks, previewBlocks])
@@ -402,19 +464,19 @@ export function WeeklyCalendar({
         <div className="flex flex-1 items-center justify-between rounded-xl bg-slate-800 px-3 py-2 text-sm text-white">
           <button
             type="button"
-            onClick={() => setQuarterIdx((i) => Math.max(0, i - 1))}
-            disabled={quarterIdx === 0}
+            onClick={() => setSlotIdx((i) => Math.max(0, i - 1))}
+            disabled={slotIdx === 0}
             className="px-1 disabled:opacity-30"
           >
             ←
           </button>
           <span className="font-medium">
-            {quarter} {year ?? ''}
+            {quarter} {currentSlot.planYear}–{String(currentSlot.planYear + 1).slice(-2)}
           </span>
           <button
             type="button"
-            onClick={() => setQuarterIdx((i) => Math.min(QUARTERS.length - 1, i + 1))}
-            disabled={quarterIdx === QUARTERS.length - 1}
+            onClick={() => setSlotIdx((i) => Math.min(Math.max(allSlots.length - 1, 0), i + 1))}
+            disabled={allSlots.length > 0 && slotIdx >= allSlots.length - 1}
             className="px-1 disabled:opacity-30"
           >
             →
@@ -424,14 +486,14 @@ export function WeeklyCalendar({
           (() => {
             const isAdded =
               courseCode != null && courseCode !== ''
-                ? planCourses.some((c) => c.code === courseCode && c.quarter === quarter)
+                ? coursesInQuarter.some((c) => c.code === courseCode)
                 : false
             const canAdd = !availableQuarters || availableQuarters.includes(quarter)
             if (isAdded && onRemoveFromQuarter) {
               return (
                 <button
                   type="button"
-                  onClick={() => onRemoveFromQuarter(quarter)}
+                  onClick={() => onRemoveFromQuarter(quarter, currentSlot.planYear)}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-500 text-lg font-bold text-white shadow-sm transition-all hover:scale-110 hover:bg-slate-600"
                   title={`Remove from ${quarter}`}
                 >
@@ -444,7 +506,7 @@ export function WeeklyCalendar({
                 <button
                   type="button"
                   disabled={!canAdd}
-                  onClick={() => onAddToQuarter(quarter)}
+                  onClick={() => onAddToQuarter(quarter, currentSlot.planYear)}
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg font-bold shadow-sm transition-all ${
                     canAdd
                       ? 'bg-primary text-white hover:scale-110 hover:bg-primary-hover'
@@ -600,7 +662,9 @@ export function WeeklyCalendar({
       )}
 
       {/* Classmates planning this course */}
-      {courseCode != null && courseCode !== '' && <CalendarClassmates courseCode={courseCode} quarter={quarter} year={year} />}
+      {courseCode != null && courseCode !== '' && (
+        <CalendarClassmates courseCode={courseCode} quarter={quarter} year={academicYear} />
+      )}
     </div>
   )
 }
@@ -662,7 +726,7 @@ function CalendarClassmates({
         <span className="text-[11px] font-semibold text-[#150F21]">
           {classmates.length} {classmates.length === 1 ? 'person' : 'people'} planning this
         </span>
-        <span className="text-[10px] text-[#4A4557]/50 ml-auto">
+        <span className="ml-auto text-[10px] text-[#4A4557]/50">
           {quarter} {numericYear}
         </span>
       </div>

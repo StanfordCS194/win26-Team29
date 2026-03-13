@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { addPlanCourse, getUserPlan, removePlanCourse, searchCoursesForPlan } from '@/data/plan/plan-server'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { addPlanCourse, removePlanCourse, searchCoursesForPlan } from '@/data/plan/plan-server'
 import type { PlanSearchResult } from '@/data/plan/plan-server'
+import { planQueryOptions } from '@/data/plan/plan-query-options'
 import { getCourseByCode } from '@/data/search/search'
 import { toCourseCodeSlug } from '@/lib/course-code'
 import { getCurrentQuarter } from '@/lib/quarter-utils'
-import { DEFAULT_YEAR } from '@/data/search/search.params'
 import { SLUG_TO_QUESTION_TEXT } from '@/data/search/eval-questions'
 
 export const Route = createFileRoute('/schedule')({ component: SchedulePage })
@@ -100,7 +101,7 @@ function layoutBlocksForDay(dayBlocks: ScheduleBlock[]): LayoutBlock[] {
   if (dayBlocks.length === 0) return []
 
   const sorted = [...dayBlocks].sort(
-    (a, b) => a.startMin - b.startMin || (b.endMin - b.startMin) - (a.endMin - a.startMin),
+    (a, b) => a.startMin - b.startMin || b.endMin - b.startMin - (a.endMin - a.startMin),
   )
 
   const columnEnds: number[] = []
@@ -171,7 +172,8 @@ function detectConflicts(blocks: ScheduleBlock[]): Conflict[] {
   const seen = new Set<string>()
   for (let i = 0; i < blocks.length; i++) {
     for (let j = i + 1; j < blocks.length; j++) {
-      const a = blocks[i]!, b = blocks[j]!
+      const a = blocks[i]!,
+        b = blocks[j]!
       if (a.day !== b.day || a.code === b.code) continue
       if (a.startMin < b.endMin && a.endMin > b.startMin) {
         const key = [a.code, b.code].sort().join('|') + '|' + a.day
@@ -179,7 +181,12 @@ function detectConflicts(blocks: ScheduleBlock[]): Conflict[] {
         seen.add(key)
         const overlapStart = Math.max(a.startMin, b.startMin)
         const overlapEnd = Math.min(a.endMin, b.endMin)
-        conflicts.push({ courseA: a.code, courseB: b.code, day: a.day, overlapMin: overlapEnd - overlapStart })
+        conflicts.push({
+          courseA: a.code,
+          courseB: b.code,
+          day: a.day,
+          overlapMin: overlapEnd - overlapStart,
+        })
       }
     }
   }
@@ -202,13 +209,12 @@ function CourseBrowser({
   planId,
   academicYear,
   quarter,
-  onCourseAdded,
 }: {
   planId: string | null
   academicYear: number
   quarter: string
-  onCourseAdded: () => void
 }) {
+  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PlanSearchResult[]>([])
@@ -249,12 +255,10 @@ function CourseBrowser({
     if (planId === null) return
     setAddingCode(course.code)
 
-    const actualYear = getActualYear(academicYear, quarter)
-
     void addPlanCourse({
       data: {
         planId,
-        actualYear,
+        actualYear: academicYear,
         quarter: quarter as 'Autumn' | 'Winter' | 'Spring' | 'Summer',
         courseCode: course.code,
         units: course.unitsMax,
@@ -262,7 +266,7 @@ function CourseBrowser({
     })
       .then(() => {
         setAddingCode(null)
-        onCourseAdded()
+        void queryClient.invalidateQueries({ queryKey: planQueryOptions.queryKey })
       })
       .catch(() => {
         setAddingCode(null)
@@ -307,7 +311,12 @@ function CourseBrowser({
           className="rounded-full p-0.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
           aria-label="Close course browser"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="h-3.5 w-3.5"
+          >
             <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
           </svg>
         </button>
@@ -333,7 +342,7 @@ function CourseBrowser({
             placeholder="CS 106A, machine learning..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="w-full rounded-lg border border-slate-200 py-1.5 pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#8C1515] focus:ring-1 focus:ring-[#8C1515] focus:outline-none"
+            className="w-full rounded-lg border border-slate-200 py-1.5 pr-3 pl-8 text-xs text-slate-900 placeholder:text-slate-400 focus:border-[#8C1515] focus:ring-1 focus:ring-[#8C1515] focus:outline-none"
           />
         </div>
       </div>
@@ -463,6 +472,8 @@ function RatingDisplay({ value }: { value: number | null }) {
 type PlanCourse = { code: string; dbId: string; units: number; quarter: string; actualYear: number }
 
 function SchedulePage() {
+  const queryClient = useQueryClient()
+
   // Navigation state: academic year start + quarter index
   const [academicYear, setAcademicYear] = useState(() => {
     const now = new Date()
@@ -478,12 +489,8 @@ function SchedulePage() {
     return idx >= 0 ? idx : 0
   })
 
-  const [planCourses, setPlanCourses] = useState<PlanCourse[]>([])
   const [blocks, setBlocks] = useState<ScheduleBlock[]>([])
   const [enrichedCourses, setEnrichedCourses] = useState<EnrichedCourse[]>([])
-  const [loading, setLoading] = useState(true)
-  const [planId, setPlanId] = useState<string | null>(null)
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [sortBy, setSortBy] = useState<SortOption>('name')
   const [removingId, setRemovingId] = useState<string | null>(null)
 
@@ -507,36 +514,30 @@ function SchedulePage() {
     }
   }
 
-  // Load plan
-  useEffect(() => {
-    setLoading(true)
-    getUserPlan()
-      .then((data) => {
-        if (!data) {
-          setLoading(false)
-          return
-        }
-        setPlanId(data.planId)
-        const courses: PlanCourse[] = []
-        for (const [key, list] of Object.entries(data.planned)) {
-          const dashIdx = key.indexOf('-')
-          const yearOffset = parseInt(key.slice(0, dashIdx), 10)
-          const q = key.slice(dashIdx + 1)
-          const actualYear = data.startYear + yearOffset
-          for (const c of list) {
-            courses.push({ code: c.code, dbId: c.dbId, units: c.units, quarter: q, actualYear })
-          }
-        }
-        setPlanCourses(courses)
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-  }, [refreshTrigger])
+  // Load plan via shared query (synced with plan.tsx)
+  const { data: planData, isPending: loading } = useQuery(planQueryOptions)
+  const planId = planData?.planId ?? null
 
-  // Filter courses for current quarter + year
+  const planCourses = useMemo<PlanCourse[]>(() => {
+    if (!planData) return []
+    const courses: PlanCourse[] = []
+    for (const [key, list] of Object.entries(planData.planned)) {
+      const dashIdx = key.indexOf('-')
+      const yearOffset = parseInt(key.slice(0, dashIdx), 10)
+      const q = key.slice(dashIdx + 1)
+      const actualYear = planData.startYear + yearOffset
+      for (const c of list) {
+        courses.push({ code: c.code, dbId: c.dbId, units: c.units, quarter: q, actualYear })
+      }
+    }
+    return courses
+  }, [planData])
+
+  // Filter courses for current quarter + year.
+  // The plan page stores all quarters of an academic year with the same year (the start year),
+  // so we match on academicYear directly, not the calendar year of the quarter.
   const coursesInQuarter = useMemo(() => {
-    const targetYear = getActualYear(academicYear, quarter)
-    return planCourses.filter((c) => c.quarter === quarter && c.actualYear === targetYear)
+    return planCourses.filter((c) => c.quarter === quarter && c.actualYear === academicYear)
   }, [planCourses, quarter, academicYear])
 
   const coursesKey = useMemo(
@@ -557,6 +558,7 @@ function SchedulePage() {
       return
     }
     const id = ++resolveIdRef.current
+    const yearStr = `${academicYear}-${academicYear + 1}`
 
     void Promise.allSettled(
       coursesInQuarter.map((c, i) => {
@@ -567,7 +569,7 @@ function SchedulePage() {
           codeNumber: parseInt(numMatch?.[1] ?? '0', 10),
           codeSuffix: numMatch?.[2] != null && numMatch[2] !== '' ? numMatch[2] : null,
         })
-        return getCourseByCode({ data: { courseCodeSlug: slug, year: DEFAULT_YEAR } }).then((result) => ({
+        return getCourseByCode({ data: { courseCodeSlug: slug, year: yearStr } }).then((result) => ({
           planCourse: c,
           result,
           colorIdx: i,
@@ -583,8 +585,7 @@ function SchedulePage() {
           if (settled.status !== 'fulfilled' || !settled.value.result) continue
           const { planCourse: c, result, colorIdx } = settled.value
           const sections = (result.sections ?? []).filter(
-            (s) =>
-              s.termQuarter === quarter && !s.cancelled && (s.unitsMin != null || s.unitsMax != null),
+            (s) => s.termQuarter === quarter && !s.cancelled && (s.unitsMin != null || s.unitsMax != null),
           )
           const sec = sections[0]
 
@@ -650,7 +651,9 @@ function SchedulePage() {
           const dayList = [...new Set(courseBlocks.map((b) => b.day))].join(', ')
           const firstBlock = courseBlocks[0]
           const timeStr =
-            firstBlock !== undefined ? `${formatTime(firstBlock.startMin)}–${formatTime(firstBlock.endMin)}` : ''
+            firstBlock !== undefined
+              ? `${formatTime(firstBlock.startMin)}–${formatTime(firstBlock.endMin)}`
+              : ''
           const timing = dayList && timeStr ? `${dayList} · ${timeStr}` : 'No schedule data'
 
           newEnriched.push({
@@ -693,7 +696,7 @@ function SchedulePage() {
         setEnrichedCourses(newEnriched)
       })
       .catch(() => {})
-  }, [coursesKey, quarter]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [coursesKey, quarter, academicYear]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const layoutByDay = useMemo(() => {
     const map = new Map<DayKey, LayoutBlock[]>()
@@ -707,10 +710,7 @@ function SchedulePage() {
 
   const sortedCourses = useMemo(() => sortCourses(enrichedCourses, sortBy), [enrichedCourses, sortBy])
 
-  const totalUnits = useMemo(
-    () => coursesInQuarter.reduce((sum, c) => sum + c.units, 0),
-    [coursesInQuarter],
-  )
+  const totalUnits = useMemo(() => coursesInQuarter.reduce((sum, c) => sum + c.units, 0), [coursesInQuarter])
 
   const totalHours = useMemo(() => {
     const hoursValues = enrichedCourses.filter((c) => c.medianHours !== null).map((c) => c.medianHours!)
@@ -723,7 +723,7 @@ function SchedulePage() {
     void removePlanCourse({ data: { courseDbId: dbId } })
       .then(() => {
         setRemovingId(null)
-        setRefreshTrigger((n) => n + 1)
+        void queryClient.invalidateQueries({ queryKey: planQueryOptions.queryKey })
       })
       .catch(() => {
         setRemovingId(null)
@@ -746,13 +746,13 @@ function SchedulePage() {
           <div className="flex items-center gap-3">
             {/* Year + quarter navigation */}
             <div className="flex items-center gap-1 rounded-full bg-slate-800 px-3 py-1.5 text-sm text-white">
-              <button type="button" onClick={goPrev} className="px-1 hover:text-slate-300 transition">
+              <button type="button" onClick={goPrev} className="px-1 transition hover:text-slate-300">
                 &larr;
               </button>
               <span className="min-w-[140px] text-center font-medium">
                 {quarter} {formatAcademicYear(academicYear)}
               </span>
-              <button type="button" onClick={goNext} className="px-1 hover:text-slate-300 transition">
+              <button type="button" onClick={goNext} className="px-1 transition hover:text-slate-300">
                 &rarr;
               </button>
             </div>
@@ -779,23 +779,15 @@ function SchedulePage() {
             >
               <div className="flex items-baseline justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">
-                    Courses
-                  </p>
-                  <p className="mt-1 text-base font-semibold text-slate-900">
-                    {coursesInQuarter.length}
-                  </p>
+                  <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">Courses</p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">{coursesInQuarter.length}</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">
-                    Units
-                  </p>
+                  <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">Units</p>
                   <p className="mt-1 text-base font-semibold text-slate-900">{totalUnits}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">
-                    Hrs/wk
-                  </p>
+                  <p className="text-xs font-semibold tracking-[0.2em] text-slate-500 uppercase">Hrs/wk</p>
                   <p className="mt-1 text-base font-semibold text-slate-900">
                     {totalHours !== null ? `${totalHours.toFixed(1)}` : '—'}
                   </p>
@@ -806,7 +798,7 @@ function SchedulePage() {
             {/* Conflict warnings */}
             {conflicts.length > 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-                <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wide">
+                <p className="text-[11px] font-semibold tracking-wide text-amber-700 uppercase">
                   Schedule conflicts
                 </p>
                 <ul className="mt-1.5 space-y-1">
@@ -823,7 +815,9 @@ function SchedulePage() {
             {/* Sort controls */}
             {enrichedCourses.length > 1 && (
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Sort by</span>
+                <span className="text-[10px] font-medium tracking-wider text-slate-400 uppercase">
+                  Sort by
+                </span>
                 <div className="flex gap-1">
                   {SORT_OPTIONS.map((opt) => (
                     <button
@@ -868,26 +862,26 @@ function SchedulePage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
                             <span
-                              className="inline-block h-2 w-2 rounded-full shrink-0"
+                              className="inline-block h-2 w-2 shrink-0 rounded-full"
                               style={{ backgroundColor: color.text }}
                             />
                             <Link
                               to="/course/$courseId"
                               params={{ courseId }}
-                              className="text-xs font-semibold text-slate-800 hover:text-[#8C1515] transition"
+                              className="text-xs font-semibold text-slate-800 transition hover:text-[#8C1515]"
                             >
                               {course.code}
                             </Link>
                             <span className="text-[10px] text-slate-400">{course.units}u</span>
                           </div>
                           {course.title && (
-                            <p className="mt-0.5 text-[11px] leading-tight text-slate-600 truncate">
+                            <p className="mt-0.5 truncate text-[11px] leading-tight text-slate-600">
                               {course.title}
                             </p>
                           )}
                           <p className="mt-0.5 text-[10px] text-slate-400">{course.timing}</p>
                           {course.instructors.length > 0 && (
-                            <p className="mt-0.5 text-[10px] text-slate-400 truncate">
+                            <p className="mt-0.5 truncate text-[10px] text-slate-400">
                               {course.instructors.join(', ')}
                             </p>
                           )}
@@ -903,7 +897,12 @@ function SchedulePage() {
                           {isRemoving ? (
                             <div className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-slate-500" />
                           ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="h-3.5 w-3.5"
+                            >
                               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
                             </svg>
                           )}
@@ -940,7 +939,9 @@ function SchedulePage() {
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-white/50 px-4 py-8 text-center">
-                <p className="text-sm text-slate-500">No courses planned for {quarter} {getActualYear(academicYear, quarter)}.</p>
+                <p className="text-sm text-slate-500">
+                  No courses planned for {quarter} {getActualYear(academicYear, quarter)}.
+                </p>
                 <Link
                   to="/plan"
                   className="mt-2 inline-block text-sm font-medium text-[#8C1515] underline-offset-2 hover:underline"
@@ -950,12 +951,7 @@ function SchedulePage() {
               </div>
             )}
 
-            <CourseBrowser
-              planId={planId}
-              academicYear={academicYear}
-              quarter={quarter}
-              onCourseAdded={() => setRefreshTrigger((n) => n + 1)}
-            />
+            <CourseBrowser planId={planId} academicYear={academicYear} quarter={quarter} />
           </section>
 
           {/* Calendar */}
@@ -1030,9 +1026,7 @@ function SchedulePage() {
                             }}
                           >
                             <div className="flex h-full flex-col overflow-hidden px-1.5 py-1 text-[10px]">
-                              <p className="font-semibold leading-tight tracking-[0.08em]">
-                                {block.code}
-                              </p>
+                              <p className="leading-tight font-semibold tracking-[0.08em]">{block.code}</p>
                               <p className="mt-0.5 text-[9px] leading-tight text-slate-600">
                                 {formatTime(block.startMin)}–{formatTime(block.endMin)}
                                 {block.location != null ? ` · ${block.location}` : ''}

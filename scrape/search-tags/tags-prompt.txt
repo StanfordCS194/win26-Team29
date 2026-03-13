@@ -1,0 +1,34 @@
+Extract structured topic metadata from a course description.
+
+Return valid JSON only:
+```json
+{
+  "terms": [
+    { "term": string, "variants": string[] }
+  ]
+}
+```
+
+TERMS (1–4 per course)
+- Major subject areas/topics covered, lowercase, 1–3 words each.
+- Order broadest → most specific.
+- Target the abstraction level of Wikipedia article titles or academic subject headings — narrower than a discipline, broader than a technique.
+- Terms must be self-contained: clear without seeing the course title. If ambiguous across fields, include domain context (e.g., "financial accounting" not "accounting principles").
+- Use terminology users would search for to find this course.
+
+*Avoid*:
+- Parent disciplines (science, engineering, computer science, philosophy, literature…)
+- Narrow techniques/tools/algorithms (gradient descent, t-SNE, CRISPR protocol…)
+- Task descriptions, module names, or vague phrases (training fundamentals, design history, cultural analysis, statistical methods…)
+
+VARIANTS (0-2 per term)
+- Common abbreviations, synonyms, alternate spellings, related search terms.
+- Omit the canonical term. Return [] if no meaningful variants exist.
+- Only include acronyms if widely recognized.
+
+Good terms: medieval history, political philosophy, phonology, machine learning, epidemiology, urban planning, game theory, comparative politics, quantum mechanics, cryptography
+
+INPUT
+Subject: {{SUBJECT_LONGNAME}}
+Course Title: {{COURSE_TITLE}}
+Course Description: {{COURSE_DESCRIPTION}}

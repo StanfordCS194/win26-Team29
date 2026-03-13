@@ -38,6 +38,11 @@ export const Route = createRootRouteWithContext<RouterContext>()({
         rel: 'stylesheet',
         href: appCss,
       },
+      {
+        rel: 'icon',
+        href: '/coursetree-icon.png',
+        type: 'image/png',
+      },
     ],
   }),
   component: RootLayout,

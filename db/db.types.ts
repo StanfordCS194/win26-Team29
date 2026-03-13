@@ -65,6 +65,14 @@ export interface AcademicCareers {
   id: Generated<number>
 }
 
+export interface CourseReactions {
+  id: Generated<string>
+  user_id: string
+  course_code: string
+  reaction: 'like' | 'dislike'
+  created_at: Generated<Temporal.Instant>
+}
+
 export interface AcademicGroups {
   code: string
   id: Generated<number>
@@ -631,6 +639,13 @@ export interface LearningObjectives {
   requirement_code: string
 }
 
+export interface OfferingSearchTags {
+  course_offering_id: number
+  id: Generated<number>
+  term: string
+  variants: string[]
+}
+
 export interface PlanLikes {
   created_at: Generated<Temporal.Instant>
   id: Generated<string>
@@ -688,6 +703,7 @@ export interface Plans {
   notes: string | null
   slug: Generated<string>
   user_id: string
+  way_overrides: Generated<Json>
 }
 
 export interface PlanStashCourses {
@@ -996,6 +1012,7 @@ export interface DB {
   'extensions.hypopg_list_indexes': ExtensionsHypopgListIndexes
   'extensions.pg_stat_statements': ExtensionsPgStatStatements
   'extensions.pg_stat_statements_info': ExtensionsPgStatStatementsInfo
+  course_reactions: CourseReactions
   final_exam_options: FinalExamOptions
   friendships: Friendships
   gers: Gers
@@ -1003,6 +1020,7 @@ export interface DB {
   instructor_roles: InstructorRoles
   instructors: Instructors
   learning_objectives: LearningObjectives
+  offering_search_tags: OfferingSearchTags
   plan_likes: PlanLikes
   plan_quarter_commitment_times: PlanQuarterCommitmentTimes
   plan_quarter_commitments: PlanQuarterCommitments

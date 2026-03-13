@@ -54,6 +54,15 @@ export interface CourseEnrollmentTrendsMv {
   cumulative_num_enrolled: number
 }
 
+export interface CourseCodeEnrollmentTrendsMv {
+  subject_id: number
+  code_number: number
+  code_suffix: string | null
+  year: string
+  cumulative_num_sections: number
+  cumulative_num_enrolled: number
+}
+
 export interface SectionDayCountsMv {
   section_id: number
   num_days: number
@@ -74,6 +83,7 @@ export type DB = GeneratedDB & {
   section_instructor_sunets_mv: SectionInstructorSunetsMv
   crosslistings_mv: CrosslistingsMv
   course_enrollment_trends_mv: CourseEnrollmentTrendsMv
+  course_code_enrollment_trends_mv: CourseCodeEnrollmentTrendsMv
   section_day_counts_mv: SectionDayCountsMv
   subject_embedding_centroids_mv: SubjectEmbeddingCentroidsMv
 }

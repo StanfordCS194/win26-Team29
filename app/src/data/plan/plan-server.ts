@@ -2,6 +2,65 @@ import { createServerFn } from '@tanstack/react-start'
 import { sql } from 'kysely'
 import { z } from 'zod'
 
+/**
+ * Given a list of display-format course codes (e.g. "CS 106A"),
+ * returns a map of code → GER strings array from the course offerings MV.
+ * Also returns subject_code for each course so callers can detect PWR/COLLEGE by subject.
+ */
+export const getCoursesGers = createServerFn({ method: 'GET' })
+  .inputValidator(z.object({ courseCodes: z.array(z.string()), year: z.string().optional() }))
+  .handler(
+    async ({
+      data,
+    }): Promise<Record<string, { gers: string[]; subjectCode: string; codeNumber: number }>> => {
+      if (data.courseCodes.length === 0) return {}
+      try {
+        const { getServerDb } = await import('@/lib/server-db')
+        const { DEFAULT_YEAR } = await import('@/data/search/search.params')
+        const db = getServerDb()
+        const year = data.year ?? DEFAULT_YEAR
+
+        const parsed = data.courseCodes
+          .map((code) => parseCourseCode(code))
+          .filter((p): p is NonNullable<typeof p> => p !== null)
+
+        if (parsed.length === 0) return {}
+
+        const rows = await db
+          .selectFrom('course_offerings_full_mv')
+          .select(['subject_code', 'code_number', 'code_suffix', 'gers'])
+          .where('year', '=', year)
+          .where((eb) =>
+            eb.or(
+              parsed.map((p) =>
+                eb.and([
+                  eb('subject_code', '=', p.subjectCode),
+                  eb('code_number', '=', p.codeNumber),
+                  p.codeSuffix != null ? eb('code_suffix', '=', p.codeSuffix) : eb('code_suffix', 'is', null),
+                ]),
+              ),
+            ),
+          )
+          .execute()
+
+        const result: Record<string, { gers: string[]; subjectCode: string; codeNumber: number }> = {}
+        for (const row of rows) {
+          const suffix = row.code_suffix != null && row.code_suffix !== '' ? String(row.code_suffix) : ''
+          const code = `${row.subject_code} ${row.code_number}${suffix}`
+          result[code] = {
+            gers: (row.gers as string[]) ?? [],
+            subjectCode: row.subject_code,
+            codeNumber: row.code_number,
+          }
+        }
+        return result
+      } catch (err) {
+        console.error('[getCoursesGers] error:', err)
+        return {}
+      }
+    },
+  )
+
 export type PlanCourseData = { dbId: string; code: string; units: number }
 
 export type PlanSearchResult = {
@@ -74,6 +133,7 @@ export type PlanData = {
   startYear: number
   planned: Record<string, PlanCourseData[]>
   globalStash: PlanCourseData[]
+  wayOverrides: Record<string, string>
 }
 
 // Parses "CS 106A" → { subjectCode: "CS", codeNumber: 106, codeSuffix: "A" | null }
@@ -119,6 +179,26 @@ export const getUserPlan = createServerFn({ method: 'GET' }).handler(async (): P
 
   const planId = plan.id
 
+  // Fetch way_overrides safely — column may not exist until migration 003 is applied
+  let wayOverrides: Record<string, string> = {}
+  try {
+    const overridesRow = await db
+      .selectFrom('plans')
+      .select(['way_overrides'])
+      .where('id', '=', planId)
+      .executeTakeFirst()
+    const raw = overridesRow?.way_overrides
+    if (raw != null) {
+      // postgres-js returns JSONB as a parsed object, but guard against string form too
+      const parsed = typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        wayOverrides = parsed as Record<string, string>
+      }
+    }
+  } catch {
+    // Column doesn't exist yet — migration 003 pending, fall back to empty overrides
+  }
+
   // Load planned courses (not stashed)
   const courseRows = await db
     .selectFrom('plan_quarter_courses as pqc')
@@ -163,7 +243,7 @@ export const getUserPlan = createServerFn({ method: 'GET' }).handler(async (): P
     return { dbId: String(row.stashDbId), code: `${row.subject_code} ${row.code_number}${suffix}`, units: 0 }
   })
 
-  return { planId, startYear, planned, globalStash }
+  return { planId, startYear, planned, globalStash, wayOverrides }
 })
 
 export const addPlanCourse = createServerFn({ method: 'POST' })
@@ -443,4 +523,35 @@ export const resetPlan = createServerFn({ method: 'POST' })
     })
 
     return result
+  })
+
+/** Persists the user's WAYS attribution overrides (courseCode → wayCode). */
+export const updateWayOverrides = createServerFn({ method: 'POST' })
+  .inputValidator(
+    z.object({
+      planId: z.string().uuid(),
+      wayOverrides: z.record(z.string(), z.string()),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { getSupabaseServerClient } = await import('@/lib/supabase.server')
+    const supabase = getSupabaseServerClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { getServerDb } = await import('@/lib/server-db')
+    const db = getServerDb()
+
+    try {
+      await db
+        .updateTable('plans')
+        .set({ way_overrides: sql`${JSON.stringify(data.wayOverrides)}::jsonb` })
+        .where('id', '=', data.planId)
+        .where('user_id', '=', user.id)
+        .execute()
+    } catch {
+      // Column doesn't exist yet — migration 003 pending, silently ignore
+    }
   })
