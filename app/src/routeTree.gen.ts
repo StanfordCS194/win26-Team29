@@ -9,14 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SocialRouteImport } from './routes/social'
 import { Route as ScheduleRouteImport } from './routes/schedule'
 import { Route as PlanRouteImport } from './routes/plan'
 import { Route as CoursesRouteImport } from './routes/courses'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProfileUserIdRouteImport } from './routes/profile.$userId'
 import { Route as InstructorSunetRouteImport } from './routes/instructor.$sunet'
 import { Route as CourseCourseIdRouteImport } from './routes/course.$courseId'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 
+const SocialRoute = SocialRouteImport.update({
+  id: '/social',
+  path: '/social',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ScheduleRoute = ScheduleRouteImport.update({
   id: '/schedule',
   path: '/schedule',
@@ -35,6 +42,11 @@ const CoursesRoute = CoursesRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileUserIdRoute = ProfileUserIdRouteImport.update({
+  id: '/profile/$userId',
+  path: '/profile/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InstructorSunetRoute = InstructorSunetRouteImport.update({
@@ -58,18 +70,22 @@ export interface FileRoutesByFullPath {
   '/courses': typeof CoursesRoute
   '/plan': typeof PlanRoute
   '/schedule': typeof ScheduleRoute
+  '/social': typeof SocialRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/course/$courseId': typeof CourseCourseIdRoute
   '/instructor/$sunet': typeof InstructorSunetRoute
+  '/profile/$userId': typeof ProfileUserIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/courses': typeof CoursesRoute
   '/plan': typeof PlanRoute
   '/schedule': typeof ScheduleRoute
+  '/social': typeof SocialRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/course/$courseId': typeof CourseCourseIdRoute
   '/instructor/$sunet': typeof InstructorSunetRoute
+  '/profile/$userId': typeof ProfileUserIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -77,9 +93,11 @@ export interface FileRoutesById {
   '/courses': typeof CoursesRoute
   '/plan': typeof PlanRoute
   '/schedule': typeof ScheduleRoute
+  '/social': typeof SocialRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/course/$courseId': typeof CourseCourseIdRoute
   '/instructor/$sunet': typeof InstructorSunetRoute
+  '/profile/$userId': typeof ProfileUserIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -88,27 +106,33 @@ export interface FileRouteTypes {
     | '/courses'
     | '/plan'
     | '/schedule'
+    | '/social'
     | '/auth/callback'
     | '/course/$courseId'
     | '/instructor/$sunet'
+    | '/profile/$userId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/courses'
     | '/plan'
     | '/schedule'
+    | '/social'
     | '/auth/callback'
     | '/course/$courseId'
     | '/instructor/$sunet'
+    | '/profile/$userId'
   id:
     | '__root__'
     | '/'
     | '/courses'
     | '/plan'
     | '/schedule'
+    | '/social'
     | '/auth/callback'
     | '/course/$courseId'
     | '/instructor/$sunet'
+    | '/profile/$userId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -116,13 +140,22 @@ export interface RootRouteChildren {
   CoursesRoute: typeof CoursesRoute
   PlanRoute: typeof PlanRoute
   ScheduleRoute: typeof ScheduleRoute
+  SocialRoute: typeof SocialRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   CourseCourseIdRoute: typeof CourseCourseIdRoute
   InstructorSunetRoute: typeof InstructorSunetRoute
+  ProfileUserIdRoute: typeof ProfileUserIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/social': {
+      id: '/social'
+      path: '/social'
+      fullPath: '/social'
+      preLoaderRoute: typeof SocialRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/schedule': {
       id: '/schedule'
       path: '/schedule'
@@ -149,6 +182,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile/$userId': {
+      id: '/profile/$userId'
+      path: '/profile/$userId'
+      fullPath: '/profile/$userId'
+      preLoaderRoute: typeof ProfileUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/instructor/$sunet': {
@@ -180,9 +220,11 @@ const rootRouteChildren: RootRouteChildren = {
   CoursesRoute: CoursesRoute,
   PlanRoute: PlanRoute,
   ScheduleRoute: ScheduleRoute,
+  SocialRoute: SocialRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   CourseCourseIdRoute: CourseCourseIdRoute,
   InstructorSunetRoute: InstructorSunetRoute,
+  ProfileUserIdRoute: ProfileUserIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

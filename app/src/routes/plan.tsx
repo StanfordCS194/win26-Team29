@@ -10,9 +10,11 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { useEffect, useRef, useState } from 'react'
-import { GripVertical, Plus, X } from 'lucide-react'
-import { createFileRoute } from '@tanstack/react-router'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { GripVertical, Plus, Trash2, X, Check } from 'lucide-react'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { toCourseCodeSlug } from '@/lib/course-code'
 import { Button } from '@/components/ui/button'
 import { parseTranscriptPDF } from '@/lib/parse-transcript'
 import {
@@ -22,7 +24,12 @@ import {
   addStashCourse,
   removeStashCourse,
   resetPlan,
+  searchCoursesForPlan,
+  getCoursesGers,
+  updateWayOverrides,
+  type PlanSearchResult,
 } from '@/data/plan/plan-server'
+import { planQueryOptions } from '@/data/plan/plan-query-options'
 
 export const Route = createFileRoute('/plan')({ component: PlanPage })
 
@@ -48,6 +55,7 @@ function PlanGrid({
   getTermUnits,
   getYearUnits,
   removeFromPlanned,
+  addToPlanned: _addToPlanned,
 }: {
   startYear: number
   planSpan: number
@@ -55,6 +63,7 @@ function PlanGrid({
   getTermUnits: (courses: PlannedCourse[]) => number
   getYearUnits: (yi: number) => number
   removeFromPlanned: (yi: number, term: TermKey, code: string) => void
+  addToPlanned: (yi: number, term: TermKey, course: PlannedCourse) => void
 }) {
   const gridColsClass =
     planSpan === 1
@@ -107,7 +116,7 @@ function PlanGrid({
                       </div>
                       <DroppableZone
                         id={plannedDropId(yi, term)}
-                        className="flex min-h-[1.75rem] flex-wrap gap-1"
+                        className="flex min-h-[1.75rem] flex-wrap gap-1.5"
                       >
                         {courses.map((c) => (
                           <CourseBox
@@ -137,33 +146,8 @@ function absoluteQuarterKey(actualYear: number, term: TermKey) {
   return `${actualYear}-${term}`
 }
 
-// Initial planned courses (Year 1 only for demo), keyed by actual year
 const DEFAULT_START_YEAR = 2024
-const INITIAL_PLANNED: Record<string, PlannedCourse[]> = {
-  '2024-Autumn': [
-    { code: 'PWR 1', title: 'Writing & Rhetoric', units: 4 },
-    { code: 'MATH 51', title: 'Linear Algebra & Multivariable Calculus', units: 5 },
-    { code: 'CS 106A', title: 'Programming Methodology', units: 5 },
-    { code: 'ESF 10', title: 'Education as Self-Fashioning', units: 4 },
-  ],
-  '2024-Winter': [
-    { code: 'CS 106B', title: 'Programming Abstractions', units: 5 },
-    { code: 'MATH 52', title: 'Integral Calculus of Several Variables', units: 5 },
-    { code: 'PWR 2', title: 'Writing & Rhetoric 2', units: 4 },
-  ],
-  '2024-Spring': [
-    { code: 'CS 103', title: 'Mathematical Foundations of Computing', units: 5 },
-    { code: 'CS 107', title: 'Computer Systems', units: 5 },
-    { code: 'PHIL 80', title: 'Mind, Matter, and Meaning', units: 4 },
-  ],
-}
-
-// Sample courses for global stash / search (mock results)
-const SAMPLE_SEARCH_COURSES: PlannedCourse[] = [
-  { code: 'CS 109', title: 'Probability for Computer Scientists', units: 5 },
-  { code: 'CS 161', title: 'Design and Analysis of Algorithms', units: 5 },
-  { code: 'ECON 1', title: 'Principles of Economics', units: 5 },
-]
+const INITIAL_PLANNED: Record<string, PlannedCourse[]> = {}
 
 // Drag-and-drop: payload and drop id helpers
 type DragSource =
@@ -174,6 +158,26 @@ function plannedDropId(yearIndex: number, term: TermKey) {
   return `planned-${yearIndex}-${term}`
 }
 const GLOBAL_STASH_DROP_ID = 'global-stash'
+const DELETE_DROP_ID = 'delete-course'
+
+function DeleteDropZone({ isDragging }: { isDragging: boolean }) {
+  const { setNodeRef, isOver } = useDroppable({ id: DELETE_DROP_ID })
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex items-center justify-center gap-2 rounded-xl border-2 border-dashed px-3 py-3 text-[11px] font-medium transition-all duration-150 ${
+        isDragging
+          ? isOver
+            ? 'scale-105 border-red-400 bg-red-50 text-red-500 shadow-md'
+            : 'border-red-300 bg-red-50/60 text-red-400'
+          : 'border-slate-200 bg-slate-50/50 text-slate-400'
+      }`}
+    >
+      <Trash2 className={`transition-transform duration-150 ${isOver ? 'size-4 scale-110' : 'size-3.5'}`} />
+      <span>{isOver ? 'Release to remove' : isDragging ? 'Drop to remove' : 'Drag here to remove'}</span>
+    </div>
+  )
+}
 
 function CourseBox({
   id,
@@ -194,6 +198,19 @@ function CourseBox({
     id,
     data: { course, source },
   })
+  const navigate = useNavigate()
+
+  function handleDoubleClick() {
+    const parts = course.code.match(/^([A-Za-z]+(?:\s[A-Za-z]+)?)\s+(\d+)([A-Za-z]*)$/)
+    if (!parts) return
+    const slug = toCourseCodeSlug({
+      subjectCode: parts[1]!,
+      codeNumber: parseInt(parts[2]!, 10),
+      codeSuffix: parts[3] || null,
+    })
+    void navigate({ to: '/course/$courseId', params: { courseId: slug } })
+  }
+
   const base =
     'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium shadow-sm transition'
   const variantClass =
@@ -212,7 +229,13 @@ function CourseBox({
       >
         <GripVertical className="size-3 text-slate-400" />
       </span>
-      <span className="tracking-wide">{course.code}</span>
+      <span
+        className="cursor-pointer tracking-wide"
+        onDoubleClick={handleDoubleClick}
+        title="Double-click to view course details"
+      >
+        {course.code}
+      </span>
       <span className="text-[10px] text-slate-500">({course.units})</span>
       {variant === 'stash' && onMoveToPlanned && (
         <button
@@ -264,7 +287,319 @@ function DroppableZone({
   )
 }
 
+// ── WAYS requirement definitions ─────────────────────────────────────────────
+
+const WAYS_REQUIREMENTS = [
+  { code: 'WAY-A-II', label: 'A-II', title: 'Aesthetic & Interpretive Inquiry', required: 6 },
+  { code: 'WAY-AQR', label: 'AQR', title: 'Applied Quantitative Reasoning', required: 3 },
+  { code: 'WAY-CE', label: 'CE', title: 'Creative Expression', required: 2 },
+  { code: 'WAY-EDP', label: 'EDP', title: 'Engaging Diversity', required: 3 },
+  { code: 'WAY-ER', label: 'ER', title: 'Ethical Reasoning', required: 3 },
+  { code: 'WAY-FR', label: 'FR', title: 'Formal Reasoning', required: 3 },
+  { code: 'WAY-SI', label: 'SI', title: 'Social Inquiry', required: 6 },
+  { code: 'WAY-SMA', label: 'SMA', title: 'Science, Math & Application', required: 6 },
+] as const
+
+type GerEntry = { gers: string[]; subjectCode: string; codeNumber: number }
+
+function RequirementsPanel({
+  totalUnits,
+  coursesGers,
+  planned,
+  planId,
+  savedWayOverrides,
+  onWayOverridesChange,
+}: {
+  totalUnits: number
+  coursesGers: Record<string, GerEntry>
+  planned: Record<string, PlannedCourse[]>
+  planId: string | null
+  savedWayOverrides: Record<string, string>
+  onWayOverridesChange: (overrides: Record<string, string>) => void
+}) {
+  // Default greedy attribution: each course goes to the first WAYS (in list order) it qualifies for.
+  const defaultAttribution = useMemo(() => {
+    const result: Record<string, string> = {}
+    const seen = new Set<string>()
+    for (const courses of Object.values(planned)) {
+      for (const c of courses) {
+        if (seen.has(c.code)) continue
+        seen.add(c.code)
+        const entry = coursesGers[c.code]
+        if (entry == null) continue
+        const firstWay = WAYS_REQUIREMENTS.find((w) => entry.gers.includes(w.code))
+        if (firstWay) result[c.code] = firstWay.code
+      }
+    }
+    return result
+  }, [planned, coursesGers])
+
+  // User overrides: courseCode → wayCode chosen by the user (seeded from server data)
+  const [userOverrides, setUserOverrides] = useState<Record<string, string>>(savedWayOverrides)
+
+  // When the server data arrives (async load), sync it in once
+  const didSeedRef = useRef(false)
+  useEffect(() => {
+    if (didSeedRef.current) return
+    if (Object.keys(savedWayOverrides).length > 0) {
+      didSeedRef.current = true
+      setUserOverrides(savedWayOverrides)
+    }
+  }, [savedWayOverrides])
+
+  // Set of all currently planned course codes — used to prune stale overrides
+  const allPlannedCodesSet = useMemo(() => {
+    const s = new Set<string>()
+    for (const courses of Object.values(planned)) {
+      for (const c of courses) s.add(c.code)
+    }
+    return s
+  }, [planned])
+
+  // Auto-remove overrides for courses no longer in the plan and persist the change
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function persistOverrides(next: Record<string, string>) {
+    onWayOverridesChange(next)
+    if (planId === null) return
+    if (saveTimerRef.current !== null) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      void updateWayOverrides({ data: { planId, wayOverrides: next } })
+    }, 600)
+  }
+
+  useEffect(() => {
+    setUserOverrides((prev) => {
+      const pruned = Object.fromEntries(Object.entries(prev).filter(([code]) => allPlannedCodesSet.has(code)))
+      if (Object.keys(pruned).length === Object.keys(prev).length) return prev
+      persistOverrides(pruned)
+      return pruned
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allPlannedCodesSet])
+
+  // Effective attribution = defaults merged with valid user overrides
+  const courseAttribution = useMemo(() => {
+    const result: Record<string, string> = { ...defaultAttribution }
+    for (const [code, wayCode] of Object.entries(userOverrides)) {
+      const entry = coursesGers[code]
+      if (defaultAttribution[code] !== undefined && entry?.gers.includes(wayCode)) {
+        result[code] = wayCode
+      }
+    }
+    return result
+  }, [defaultAttribution, userOverrides, coursesGers])
+
+  // All courses qualifying for each WAY (for display — may exceed unit threshold)
+  const waysQualifying = useMemo(() => {
+    const map: Record<string, { code: string; units: number }[]> = {}
+    for (const w of WAYS_REQUIREMENTS) map[w.code] = []
+    const seen = new Set<string>()
+    for (const courses of Object.values(planned)) {
+      for (const c of courses) {
+        if (seen.has(c.code)) continue
+        seen.add(c.code)
+        const entry = coursesGers[c.code]
+        if (entry == null) continue
+        for (const w of WAYS_REQUIREMENTS) {
+          if (entry.gers.includes(w.code)) map[w.code]!.push({ code: c.code, units: c.units })
+        }
+      }
+    }
+    return map
+  }, [planned, coursesGers])
+
+  // Units per WAY = sum of units from courses attributed to that WAY
+  const waysEarned = useMemo(() => {
+    const unitsByCode = new Map<string, number>()
+    for (const courses of Object.values(planned)) {
+      for (const c of courses) {
+        if (!unitsByCode.has(c.code)) unitsByCode.set(c.code, c.units)
+      }
+    }
+    const totals: Record<string, number> = {}
+    for (const [code, wayCode] of Object.entries(courseAttribution)) {
+      totals[wayCode] = (totals[wayCode] ?? 0) + (unitsByCode.get(code) ?? 0)
+    }
+    return totals
+  }, [courseAttribution, planned])
+
+  // PWR 1: any planned course with code matching PWR 1XX; PWR 2: PWR 2XX
+  const allPlannedCodes = useMemo(
+    () =>
+      Object.values(planned)
+        .flat()
+        .map((c) => c.code),
+    [planned],
+  )
+  const hasPwr1 = allPlannedCodes.some((code) => /^PWR\s+1/i.test(code))
+  const hasPwr2 = allPlannedCodes.some((code) => /^PWR\s+2/i.test(code))
+
+  // COLLEGE: subject_code = 'COLLEGE'
+  const collegeCount = useMemo(
+    () => Object.values(coursesGers).filter((e) => e.subjectCode === 'COLLEGE').length,
+    [coursesGers],
+  )
+
+  const unitsPercent = Math.min((totalUnits / 180) * 100, 100)
+  const waysCompleted = WAYS_REQUIREMENTS.filter((w) => (waysEarned[w.code] ?? 0) >= w.required).length
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <h2 className="text-sm font-semibold tracking-[0.18em] text-slate-500 uppercase">Requirements</h2>
+
+      {/* Units */}
+      <div className="mt-3 rounded-xl bg-slate-50 p-2.5">
+        <div className="flex items-baseline justify-between">
+          <p className="text-xs font-semibold text-slate-700">Units</p>
+          <p
+            className={`text-xs font-semibold tabular-nums ${totalUnits >= 180 ? 'text-emerald-600' : 'text-slate-600'}`}
+          >
+            {totalUnits} / 180
+          </p>
+        </div>
+        <div className="mt-1.5 h-1.5 w-full rounded-full bg-slate-200">
+          <div
+            className={`h-1.5 rounded-full transition-all ${totalUnits >= 180 ? 'bg-emerald-500' : 'bg-primary'}`}
+            style={{ width: `${unitsPercent}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Gen Ed */}
+      <div className="mt-2 rounded-xl bg-slate-50 p-2.5">
+        <div className="flex items-baseline justify-between">
+          <p className="text-xs font-semibold text-slate-700">Gen Ed</p>
+          <p className="text-[10px] text-slate-400">{waysCompleted}/8 WAYS</p>
+        </div>
+
+        {/* WAYS — tracked by units; courses listed under every WAY they qualify for */}
+        <div className="mt-2 space-y-1.5">
+          {WAYS_REQUIREMENTS.map((w) => {
+            const qualifying = waysQualifying[w.code] ?? []
+            const earned = waysEarned[w.code] ?? 0
+            const done = earned >= w.required
+            const pct = Math.min((earned / w.required) * 100, 100)
+            return (
+              <div key={w.code} title={`${w.title}: ${earned}/${w.required} units`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <div
+                      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition ${
+                        done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-red-300 bg-white'
+                      }`}
+                    >
+                      {done && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                    </div>
+                    <span className={`text-[11px] font-medium ${done ? 'text-slate-700' : 'text-red-500'}`}>
+                      {w.label}
+                    </span>
+                  </div>
+                  <span className={`text-[10px] tabular-nums ${done ? 'text-emerald-600' : 'text-red-400'}`}>
+                    {earned}/{w.required}u
+                  </span>
+                </div>
+                {!done && earned > 0 && (
+                  <div className="mt-0.5 ml-5.5 h-1 w-full rounded-full bg-red-100">
+                    <div
+                      className="h-1 rounded-full bg-red-400/70 transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                )}
+                {qualifying.length > 0 && (
+                  <div className="mt-0.5 ml-5.5 flex flex-wrap gap-0.5">
+                    {qualifying.map((c) => {
+                      const isActive = courseAttribution[c.code] === w.code
+                      const qualifiesElsewhere = Object.values(coursesGers[c.code]?.gers ?? []).some(
+                        (g) => g !== w.code && WAYS_REQUIREMENTS.some((wr) => wr.code === g),
+                      )
+                      return (
+                        <button
+                          key={c.code}
+                          type="button"
+                          disabled={isActive}
+                          onClick={() => {
+                            const next = { ...userOverrides, [c.code]: w.code }
+                            setUserOverrides(next)
+                            persistOverrides(next)
+                          }}
+                          title={
+                            isActive
+                              ? `${c.code} counts here (${c.units}u)`
+                              : `Click to count ${c.code} here instead (${c.units}u)`
+                          }
+                          className={`rounded px-1 py-0.5 text-[9px] tabular-nums transition ${
+                            isActive
+                              ? done
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-red-50 text-red-600'
+                              : qualifiesElsewhere
+                                ? 'cursor-pointer bg-slate-100 text-slate-300 hover:bg-slate-200 hover:text-slate-500'
+                                : 'bg-slate-100 text-slate-400'
+                          }`}
+                        >
+                          {c.code}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* PWR */}
+        <div className="mt-2.5 border-t border-slate-200/70 pt-2">
+          <p className="mb-1 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">PWR</p>
+          <div className="flex gap-2">
+            {[
+              { label: 'PWR 1', done: hasPwr1 },
+              { label: 'PWR 2', done: hasPwr2 },
+            ].map(({ label, done }) => (
+              <div key={label} className="flex items-center gap-1" title={label}>
+                <div
+                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition ${
+                    done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 bg-white'
+                  }`}
+                >
+                  {done && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                </div>
+                <span className={`text-[11px] ${done ? 'text-slate-700' : 'text-slate-400'}`}>{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* COLLEGE */}
+        <div className="mt-2 border-t border-slate-200/70 pt-2">
+          <div className="flex items-center justify-between">
+            <p className="text-[10px] font-semibold tracking-wide text-slate-500 uppercase">COLLEGE</p>
+            <p
+              className={`text-[11px] font-semibold tabular-nums ${collegeCount >= 2 ? 'text-emerald-600' : 'text-slate-500'}`}
+            >
+              {collegeCount} / 2
+            </p>
+          </div>
+          <div className="mt-1 flex gap-1">
+            {[0, 1].map((i) => (
+              <div
+                key={i}
+                className={`h-1.5 flex-1 rounded-full transition-all ${
+                  i < collegeCount ? 'bg-emerald-500' : 'bg-slate-200'
+                }`}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function PlanPage() {
+  const queryClient = useQueryClient()
   const [startYear, setStartYear] = useState(DEFAULT_START_YEAR)
   const [planned, setPlanned] = useState<Record<string, PlannedCourse[]>>(INITIAL_PLANNED)
   const [globalStash, setGlobalStash] = useState<PlannedCourse[]>([])
@@ -276,6 +611,7 @@ function PlanPage() {
   const [mounted, setMounted] = useState(false)
   const [planId, setPlanId] = useState<string | null>(null)
   const [planSpan, setPlanSpan] = useState(() => getStoredPlanSpan())
+  const [wayOverrides, setWayOverrides] = useState<Record<string, string>>({})
 
   useEffect(() => {
     setMounted(true)
@@ -285,6 +621,9 @@ function PlanPage() {
       .then((data) => {
         if (!data) return
         setPlanId(data.planId)
+        if (Object.keys(data.wayOverrides).length > 0) {
+          setWayOverrides(data.wayOverrides)
+        }
         // Only hydrate from DB if it has data; keep INITIAL_PLANNED otherwise
         if (Object.keys(data.planned).length > 0) {
           setStartYear(data.startYear)
@@ -365,6 +704,7 @@ function PlanPage() {
               }),
             ),
           )
+          void queryClient.invalidateQueries({ queryKey: planQueryOptions.queryKey })
         } catch (dbErr) {
           console.error('[plan] resetPlan error:', dbErr)
         }
@@ -395,6 +735,32 @@ function PlanPage() {
     return TERMS.reduce((sum, term) => sum + getTermUnits(getPlanned(yearIndex, term)), 0)
   }
 
+  const totalUnits = useMemo(
+    () =>
+      Object.values(planned)
+        .flat()
+        .reduce((sum, c) => sum + c.units, 0),
+    [planned],
+  )
+
+  const allPlannedCodes = useMemo(
+    () => [
+      ...new Set(
+        Object.values(planned)
+          .flat()
+          .map((c) => c.code),
+      ),
+    ],
+    [planned],
+  )
+
+  const { data: coursesGers = {} } = useQuery({
+    queryKey: ['courses-gers', allPlannedCodes],
+    queryFn: () => getCoursesGers({ data: { courseCodes: allPlannedCodes } }),
+    staleTime: 1000 * 60 * 10,
+    enabled: allPlannedCodes.length > 0,
+  })
+
   function addToGlobalStash(course: PlannedCourse) {
     setGlobalStash((prev) => [...prev, course])
     if (planId !== null) {
@@ -403,6 +769,7 @@ function PlanPage() {
           setGlobalStash((prev) =>
             prev.map((c) => (c.code === course.code && c.dbId === undefined ? { ...c, dbId: res.dbId } : c)),
           )
+          void queryClient.invalidateQueries({ queryKey: planQueryOptions.queryKey })
         })
         .catch((_err: unknown) => console.error('[plan] addStashCourse error:', _err))
     }
@@ -412,9 +779,9 @@ function PlanPage() {
     const course = globalStash.find((c) => c.code === code)
     setGlobalStash((prev) => prev.filter((c) => c.code !== code))
     if (course?.dbId !== undefined) {
-      removeStashCourse({ data: { stashDbId: course.dbId } }).catch((_err: unknown) =>
-        console.error('[plan] removeStashCourse error:', _err),
-      )
+      removeStashCourse({ data: { stashDbId: course.dbId } })
+        .then(() => void queryClient.invalidateQueries({ queryKey: planQueryOptions.queryKey }))
+        .catch((_err: unknown) => console.error('[plan] removeStashCourse error:', _err))
     }
   }
 
@@ -457,6 +824,7 @@ function PlanPage() {
               c.code === course.code && c.dbId === undefined ? { ...c, dbId: res.dbId } : c,
             ),
           }))
+          void queryClient.invalidateQueries({ queryKey: planQueryOptions.queryKey })
         })
         .catch((_err: unknown) => console.error('[plan] addPlanCourse error:', _err))
     }
@@ -470,20 +838,34 @@ function PlanPage() {
       [key]: (prev[key] ?? []).filter((c) => c.code !== code),
     }))
     if (course?.dbId !== undefined) {
-      removePlanCourse({ data: { courseDbId: course.dbId } }).catch((_err: unknown) =>
-        console.error('[plan] removePlanCourse error:', _err),
-      )
+      removePlanCourse({ data: { courseDbId: course.dbId } })
+        .then(() => void queryClient.invalidateQueries({ queryKey: planQueryOptions.queryKey }))
+        .catch((_err: unknown) => console.error('[plan] removePlanCourse error:', _err))
     }
   }
 
-  // Mock search results (in real app would come from API)
-  const searchResults = searchQuery.trim()
-    ? SAMPLE_SEARCH_COURSES.filter(
-        (c) =>
-          c.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          c.title.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    : []
+  const [searchResults, setSearchResults] = useState<PlanSearchResult[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (!q) {
+      setSearchResults([])
+      return
+    }
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    searchTimerRef.current = setTimeout(() => {
+      setSearchLoading(true)
+      searchCoursesForPlan({ data: { query: q } })
+        .then(setSearchResults)
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearchLoading(false))
+    }, 300)
+    return () => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+    }
+  }, [searchQuery])
 
   const [activeId, setActiveId] = useState<string | null>(null)
   const sensors = useSensors(
@@ -503,6 +885,17 @@ function PlanPage() {
     if (!data?.course) return
     const { course, source } = data
     const overId = over.id as string
+
+    if (overId === DELETE_DROP_ID) {
+      if (source.type === 'planned') {
+        removeFromPlanned(source.yearIndex, source.term, course.code)
+      } else if (source.type === 'stash') {
+        removeFromQuarterStash(source.yearIndex, source.term, course.code)
+      } else if (source.type === 'global') {
+        removeFromGlobalStash(course.code)
+      }
+      return
+    }
 
     if (overId === GLOBAL_STASH_DROP_ID) {
       if (source.type === 'planned') {
@@ -582,26 +975,36 @@ function PlanPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary/20 focus:outline-none"
                 />
-                {searchResults.length > 0 && (
+                {searchLoading && <p className="mt-2 text-xs text-slate-400">Searching…</p>}
+                {!searchLoading && searchResults.length > 0 && (
                   <ul className="mt-2 space-y-1">
                     {searchResults.map((c) => (
                       <li
                         key={c.code}
-                        className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1 text-xs"
+                        className="flex flex-col gap-1 rounded-lg bg-slate-50 px-2 py-1.5 text-xs"
                       >
-                        <span className="font-medium text-slate-800">{c.code}</span>
-                        <Button
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-medium text-slate-800">{c.code}</span>
+                          <span className="text-[10px] text-slate-400">
+                            {c.unitsMin === c.unitsMax ? c.unitsMin : `${c.unitsMin}–${c.unitsMax}`} units
+                          </span>
+                        </div>
+                        <p className="truncate text-[10px] text-slate-500">{c.title}</p>
+                        <button
                           type="button"
-                          variant="default"
-                          size="xs"
-                          onClick={() => addToGlobalStash(c)}
-                          className="h-6 px-2 text-[10px]"
+                          onClick={() =>
+                            addToGlobalStash({ code: c.code, title: c.title, units: c.unitsMax })
+                          }
+                          className="mt-0.5 w-full rounded bg-[#8C1515] px-2 py-0.5 text-[10px] text-white hover:bg-[#7A1212]"
                         >
-                          Stash
-                        </Button>
+                          + Stash
+                        </button>
                       </li>
                     ))}
                   </ul>
+                )}
+                {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+                  <p className="mt-2 text-xs text-slate-400">No courses found.</p>
                 )}
               </div>
               <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
@@ -624,12 +1027,12 @@ function PlanPage() {
                         course={c}
                         source={{ type: 'global' }}
                         variant="global"
-                        onRemove={() => removeFromGlobalStash(c.code)}
                       />
                     ))
                   )}
                 </DroppableZone>
               </div>
+              <DeleteDropZone isDragging={activeId !== null} />
             </div>
           </aside>
 
@@ -712,41 +1115,22 @@ function PlanPage() {
               getTermUnits={getTermUnits}
               getYearUnits={getYearUnits}
               removeFromPlanned={removeFromPlanned}
+              addToPlanned={addToPlanned}
             />
           </main>
 
           {/* Right: Requirements + Notes */}
           <aside className="hidden w-64 shrink-0 xl:block">
             <div className="sticky top-[var(--header-height)] space-y-3 pt-1">
-              <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <h2 className="text-sm font-semibold tracking-[0.18em] text-slate-500 uppercase">
-                  Requirements
-                </h2>
-                <p className="mt-1.5 text-sm text-slate-600">
-                  Track major, minor, and university requirements as you plan.
-                </p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-1">
-                  <div className="rounded-xl bg-slate-50 p-2.5 text-xs text-slate-700">
-                    <p className="font-semibold">Major</p>
-                    <p className="mt-1 text-slate-500">0 / XX units planned</p>
-                  </div>
-                  <div className="rounded-xl bg-slate-50 p-2.5 text-xs text-slate-700">
-                    <p className="font-semibold">WIM / Writing</p>
-                    <p className="mt-1 text-slate-500">0 / XX courses planned</p>
-                  </div>
-                  <div className="rounded-xl bg-slate-50 p-2.5 text-xs text-slate-700">
-                    <p className="font-semibold">Gen Ed</p>
-                    <p className="mt-1 text-slate-500">WAYS, PWR, COLLEGE overview</p>
-                  </div>
-                </div>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-                <h2 className="text-sm font-semibold tracking-[0.18em] text-slate-500 uppercase">Notes</h2>
-                <p className="mt-1.5 text-sm text-slate-600">Leave reminders for future you.</p>
-                <div className="mt-2 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-2.5 text-xs text-slate-500">
-                  Example: CS 221 pairs well with a lighter humanities course.
-                </div>
-              </div>
+              <RequirementsPanel
+                totalUnits={totalUnits}
+                coursesGers={coursesGers}
+                planned={planned}
+                planId={planId}
+                savedWayOverrides={wayOverrides}
+                onWayOverridesChange={setWayOverrides}
+              />
+              <PlanNotes />
             </div>
           </aside>
         </div>
@@ -761,5 +1145,35 @@ function PlanPage() {
         ) : null}
       </DragOverlay>
     </DndContext>
+  )
+}
+
+// ── Notes panel ───────────────────────────────────────────────────────────────
+
+const NOTES_STORAGE_KEY = 'plan-notes'
+
+function PlanNotes() {
+  const [value, setValue] = useState<string>(() => {
+    if (typeof window === 'undefined') return ''
+    return localStorage.getItem(NOTES_STORAGE_KEY) ?? ''
+  })
+
+  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const next = e.target.value
+    setValue(next)
+    localStorage.setItem(NOTES_STORAGE_KEY, next)
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      <h2 className="text-sm font-semibold tracking-[0.18em] text-slate-500 uppercase">Notes</h2>
+      <textarea
+        className="mt-2 w-full resize-none rounded-lg border border-slate-200 bg-slate-50/70 p-2 text-xs text-slate-700 transition placeholder:text-slate-400 focus:border-slate-300 focus:bg-white focus:ring-1 focus:ring-slate-300 focus:outline-none"
+        rows={6}
+        placeholder={'e.g. WAY A-II covered through exception'}
+        value={value}
+        onChange={handleChange}
+      />
+    </div>
   )
 }

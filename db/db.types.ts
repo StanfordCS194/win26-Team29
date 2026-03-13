@@ -65,6 +65,14 @@ export interface AcademicCareers {
   id: Generated<number>
 }
 
+export interface CourseReactions {
+  id: Generated<string>
+  user_id: string
+  course_code: string
+  reaction: 'like' | 'dislike'
+  created_at: Generated<Temporal.Instant>
+}
+
 export interface AcademicGroups {
   code: string
   id: Generated<number>
@@ -695,6 +703,7 @@ export interface Plans {
   notes: string | null
   slug: Generated<string>
   user_id: string
+  way_overrides: Generated<Json>
 }
 
 export interface PlanStashCourses {
@@ -1003,6 +1012,7 @@ export interface DB {
   'extensions.hypopg_list_indexes': ExtensionsHypopgListIndexes
   'extensions.pg_stat_statements': ExtensionsPgStatStatements
   'extensions.pg_stat_statements_info': ExtensionsPgStatStatementsInfo
+  course_reactions: CourseReactions
   final_exam_options: FinalExamOptions
   friendships: Friendships
   gers: Gers

@@ -878,11 +878,21 @@ export const searchCourses = createServerFn({ method: 'GET' })
 
       // Parsed quarters override the filter's include list unless includeMode is 'and',
       // in which case both sets are merged (all must match).
-      const mergedQuartersInclude = (
+      const rawQuartersInclude = (
         parsed.quarters.length > 0 && data.quartersIncludeMode !== 'and'
           ? parsed.quarters
           : [...new Set([...data.quarters, ...parsed.quarters])]
       ) as QuarterEnum[]
+
+      // Selecting all 4 quarters in OR mode is semantically identical to no filter —
+      // treat it that way so courses offered in fewer quarters aren't excluded.
+      const ALL_QUARTERS_SET = new Set<string>(['Autumn', 'Winter', 'Spring', 'Summer'])
+      const mergedQuartersInclude =
+        data.quartersIncludeMode !== 'and' &&
+        rawQuartersInclude.length === ALL_QUARTERS_SET.size &&
+        rawQuartersInclude.every((q) => ALL_QUARTERS_SET.has(q))
+          ? ([] as QuarterEnum[])
+          : rawQuartersInclude
 
       // Set filter helpers
       const hasQuarters = mergedQuartersInclude.length > 0 || data.quartersExclude.length > 0

@@ -5,6 +5,7 @@
     "": {
       "name": "courses",
       "dependencies": {
+        "pdfjs-dist": "^5.5.207",
         "sharp": "^0.34.5",
       },
       "devDependencies": {

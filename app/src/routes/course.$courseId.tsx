@@ -19,6 +19,10 @@ import {
 import { formatCourseCodeForDisplay } from '@/lib/course-code'
 import { renderDescriptionWithLinks } from '@/components/courses/render-description-links'
 import { getCurrentQuarter, getNextQuarter } from '@/lib/quarter-utils'
+import { getUserPlan, addPlanCourse, removePlanCourse } from '@/data/plan/plan-server'
+import { getCourseReaction, setCourseReaction } from '@/data/reactions/reactions-server'
+import type { ReactionType } from '@/data/reactions/reactions-server'
+import { WeeklyCalendar } from '@/components/WeeklyCalendar'
 
 const PREFETCH_START_YEAR = parseInt(DEFAULT_YEAR.split('-')[0]!, 10)
 const PREFETCH_YEARS = [
@@ -122,9 +126,21 @@ function InstructorRow({
   )
 }
 
+const INSTRUCTOR_VISIBLE_LIMIT = 4
+
 function CourseDetailsCard({ course }: { course: SearchCourseResult }) {
   const instructorsByQuarter = getInstructorsByQuarter(course.sections ?? [])
   const qualityMap = course.instructorQualityBySunet
+  const [expandedQuarters, setExpandedQuarters] = useState<Set<string>>(new Set())
+
+  function toggleQuarter(quarter: string) {
+    setExpandedQuarters((prev) => {
+      const next = new Set(prev)
+      if (next.has(quarter)) next.delete(quarter)
+      else next.add(quarter)
+      return next
+    })
+  }
 
   return (
     <div>
@@ -132,20 +148,41 @@ function CourseDetailsCard({ course }: { course: SearchCourseResult }) {
         <p className="text-sm text-slate-500">—</p>
       ) : (
         <div className="space-y-2">
-          {Array.from(instructorsByQuarter.entries()).map(([quarter, instructors]) => (
-            <div key={quarter} className="text-sm text-slate-600">
-              <div className="font-semibold text-slate-800">{quarter}</div>
-              {instructors.length ? (
-                <div className="mt-0.5 space-y-0.5 pl-3">
-                  {instructors.map((inst) => (
-                    <InstructorRow key={inst.sunet || inst.name} instructor={inst} qualityMap={qualityMap} />
-                  ))}
-                </div>
-              ) : (
-                <span className="ml-1.5">—</span>
-              )}
-            </div>
-          ))}
+          {Array.from(instructorsByQuarter.entries()).map(([quarter, instructors]) => {
+            const isExpanded = expandedQuarters.has(quarter)
+            const hasOverflow = instructors.length > INSTRUCTOR_VISIBLE_LIMIT
+            const visible =
+              hasOverflow && !isExpanded ? instructors.slice(0, INSTRUCTOR_VISIBLE_LIMIT) : instructors
+            const hiddenCount = instructors.length - INSTRUCTOR_VISIBLE_LIMIT
+
+            return (
+              <div key={quarter} className="text-sm text-slate-600">
+                <div className="font-semibold text-slate-800">{quarter}</div>
+                {instructors.length ? (
+                  <div className="mt-0.5 space-y-0.5 pl-3">
+                    {visible.map((inst) => (
+                      <InstructorRow
+                        key={inst.sunet || inst.name}
+                        instructor={inst}
+                        qualityMap={qualityMap}
+                      />
+                    ))}
+                    {hasOverflow && (
+                      <button
+                        type="button"
+                        onClick={() => toggleQuarter(quarter)}
+                        className="mt-0.5 text-[11px] text-primary/70 hover:text-primary hover:underline"
+                      >
+                        {isExpanded ? 'See less' : `+${hiddenCount} more`}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <span className="ml-1.5">—</span>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -658,9 +695,101 @@ function ClassPage() {
     [subjects],
   )
 
+  const [calendarKey, setCalendarKey] = useState(0)
+  const [calendarSlot, setCalendarSlot] = useState<{
+    quarter: string
+    planYear: number
+    isCourseAdded: boolean
+  }>({
+    quarter: 'Autumn',
+    planYear: new Date().getFullYear(),
+    isCourseAdded: false,
+  })
+
+  const courseCodeStr = course
+    ? `${course.subject_code} ${course.code_number}${course.code_suffix ?? ''}`
+    : ''
+
+  // ── Reactions ──────────────────────────────────────────────────────────────
+  const [reactionData, setReactionData] = useState<{
+    userReaction: ReactionType
+    likes: number
+    dislikes: number
+  } | null>(null)
+  const [reactionPending, setReactionPending] = useState(false)
+
+  useEffect(() => {
+    if (!courseCodeStr) return
+    void getCourseReaction({ data: { courseCode: courseCodeStr } }).then(setReactionData)
+  }, [courseCodeStr])
+
+  async function handleReaction(reaction: 'like' | 'dislike') {
+    if (reactionPending || !courseCodeStr) return
+    setReactionPending(true)
+    try {
+      const next: ReactionType = reactionData?.userReaction === reaction ? null : reaction
+      const updated = await setCourseReaction({ data: { courseCode: courseCodeStr, reaction: next } })
+      setReactionData(updated)
+    } catch {
+      // not authenticated — ignore
+    } finally {
+      setReactionPending(false)
+    }
+  }
+
+  const likePercent =
+    reactionData && reactionData.likes + reactionData.dislikes >= 10
+      ? Math.round((reactionData.likes / (reactionData.likes + reactionData.dislikes)) * 100)
+      : null
+
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [courseCodeSlug])
+
+  async function handleAddToQuarter(quarter: string, planYear?: number) {
+    if (!course) return
+    try {
+      const plan = await getUserPlan()
+      if (!plan) return
+      const actualYear = planYear ?? plan.startYear
+      await addPlanCourse({
+        data: {
+          planId: plan.planId,
+          actualYear,
+          quarter: quarter as 'Autumn' | 'Winter' | 'Spring' | 'Summer',
+          courseCode: courseCodeStr,
+          units: course.units_max,
+        },
+      })
+      setCalendarKey((k) => k + 1)
+    } catch (err) {
+      console.error('[plan] addPlanCourse error:', err)
+    }
+  }
+
+  async function handleRemoveFromQuarter(quarter: string, planYear?: number) {
+    if (!course) return
+    try {
+      const plan = await getUserPlan()
+      if (!plan) return
+      const yearOffset = planYear != null ? planYear - plan.startYear : null
+      for (const [key, courses] of Object.entries(plan.planned)) {
+        const dashIdx = key.indexOf('-')
+        const offset = parseInt(key.slice(0, dashIdx), 10)
+        const q = key.slice(dashIdx + 1)
+        if (q !== quarter) continue
+        if (yearOffset !== null && offset !== yearOffset) continue
+        const match = courses.find((c) => c.code === courseCodeStr)
+        if (match) {
+          await removePlanCourse({ data: { courseDbId: match.dbId } })
+          setCalendarKey((k) => k + 1)
+          break
+        }
+      }
+    } catch (err) {
+      console.error('[plan] removePlanCourse error:', err)
+    }
+  }
 
   if (!isPending && (course === null || course === undefined)) {
     return (
@@ -678,101 +807,187 @@ function ClassPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-sky-50">
-      <main className="mx-auto w-full max-w-4xl flex-grow px-4 pt-8 pb-14">
-        <div className="flex flex-col gap-4">
-          <div className="rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex min-w-0 flex-col gap-1">
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <h1 className="text-2xl leading-snug font-bold text-slate-900 md:text-3xl">{courseCode}</h1>
-                  {isPending ? (
-                    <div className="h-6 w-48 animate-pulse rounded bg-slate-200" />
+    <div className="relative min-h-screen bg-sky-50">
+      <div className="mx-auto flex max-w-6xl items-start gap-6 px-4 pt-8 pb-14">
+        <main className="min-w-0 flex-1">
+          <div className="flex flex-col gap-4">
+            <div className="rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 flex-col gap-1">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <h1 className="text-2xl leading-snug font-bold text-slate-900 md:text-3xl">
+                      {courseCode}
+                    </h1>
+                    {isPending ? (
+                      <div className="h-6 w-48 animate-pulse rounded bg-slate-200" />
+                    ) : (
+                      <h2 className="text-xl font-normal text-slate-700 md:text-2xl">
+                        {course?.title ?? '—'}
+                      </h2>
+                    )}
+                  </div>
+                  {!isPending && course && (
+                    <p className="flex flex-wrap text-sm text-slate-400">
+                      {[
+                        course.units_min === course.units_max
+                          ? `${course.units_min} units`
+                          : `${course.units_min} - ${course.units_max} units`,
+                        course.gers?.length ? `GERs: ${course.gers.join(', ')}` : null,
+                        course.grading_option || null,
+                      ]
+                        .filter(Boolean)
+                        .map((item, i, arr) => (
+                          <span key={i} className="whitespace-nowrap">
+                            {item}
+                            {i < arr.length - 1 && (
+                              <span className="mx-1.5 inline-block h-[3px] w-[3px] rounded-full bg-slate-300 align-middle" />
+                            )}
+                          </span>
+                        ))}
+                    </p>
+                  )}
+                  {!isPending &&
+                  course != null &&
+                  typeof course.description === 'string' &&
+                  course.description.trim().length > 0 ? (
+                    <DescriptionClamp
+                      text={course.description}
+                      expanded={descriptionExpanded}
+                      onToggle={() => setDescriptionExpanded((prev) => !prev)}
+                      maxHeight={192}
+                      className="mt-1 text-sm leading-relaxed text-slate-600"
+                      renderText={(t) => renderDescriptionWithLinks(t, validSubjects, DEFAULT_YEAR)}
+                    />
                   ) : (
-                    <h2 className="text-xl font-normal text-slate-700 md:text-2xl">{course?.title ?? '—'}</h2>
+                    !isPending &&
+                    course && <p className="mt-1 text-sm text-slate-500">No description available.</p>
                   )}
                 </div>
-                {!isPending && course && (
-                  <p className="flex flex-wrap text-sm text-slate-400">
-                    {[
-                      course.units_min === course.units_max
-                        ? `${course.units_min} units`
-                        : `${course.units_min} - ${course.units_max} units`,
-                      course.gers?.length ? `GERs: ${course.gers.join(', ')}` : null,
-                      course.grading_option || null,
-                    ]
-                      .filter(Boolean)
-                      .map((item, i, arr) => (
-                        <span key={i} className="whitespace-nowrap">
-                          {item}
-                          {i < arr.length - 1 && (
-                            <span className="mx-1.5 inline-block h-[3px] w-[3px] rounded-full bg-slate-300 align-middle" />
-                          )}
-                        </span>
-                      ))}
-                  </p>
-                )}
-                {!isPending &&
-                course != null &&
-                typeof course.description === 'string' &&
-                course.description.trim().length > 0 ? (
-                  <DescriptionClamp
-                    text={course.description}
-                    expanded={descriptionExpanded}
-                    onToggle={() => setDescriptionExpanded((prev) => !prev)}
-                    maxHeight={192}
-                    className="mt-1 text-sm leading-relaxed text-slate-600"
-                    renderText={(t) => renderDescriptionWithLinks(t, validSubjects, DEFAULT_YEAR)}
-                  />
-                ) : (
-                  !isPending &&
-                  course && <p className="mt-1 text-sm text-slate-500">No description available.</p>
-                )}
-              </div>
-              <div className="flex shrink-0 flex-col gap-3 sm:min-w-[200px]">
-                <div className="flex items-center gap-2">
-                  <button className="flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-hover">
-                    Add to Plan
-                  </button>
-                  <button
-                    type="button"
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
-                    aria-label="Like"
-                  >
-                    <ThumbsUp className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
-                    aria-label="Dislike"
-                  >
-                    <ThumbsDown className="h-4 w-4" />
-                  </button>
+                <div className="flex shrink-0 flex-col gap-3 sm:min-w-[200px]">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (calendarSlot.isCourseAdded) {
+                          void handleRemoveFromQuarter(calendarSlot.quarter, calendarSlot.planYear)
+                        } else {
+                          void handleAddToQuarter(calendarSlot.quarter, calendarSlot.planYear)
+                        }
+                      }}
+                      className={`flex items-center justify-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors ${
+                        calendarSlot.isCourseAdded
+                          ? 'bg-slate-500 hover:bg-slate-600'
+                          : 'bg-primary hover:bg-primary-hover'
+                      }`}
+                    >
+                      {calendarSlot.isCourseAdded
+                        ? `Remove from ${calendarSlot.quarter}`
+                        : `Add to ${calendarSlot.quarter}`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleReaction('like')}
+                      disabled={reactionPending}
+                      className={`flex h-9 w-9 items-center justify-center rounded-full border shadow-sm transition-colors disabled:opacity-60 ${
+                        reactionData?.userReaction === 'like'
+                          ? 'border-emerald-400 bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                          : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                      aria-label="Like"
+                    >
+                      <ThumbsUp className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleReaction('dislike')}
+                      disabled={reactionPending}
+                      className={`flex h-9 w-9 items-center justify-center rounded-full border shadow-sm transition-colors disabled:opacity-60 ${
+                        reactionData?.userReaction === 'dislike'
+                          ? 'border-red-300 bg-red-50 text-red-500 hover:bg-red-100'
+                          : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                      aria-label="Dislike"
+                    >
+                      <ThumbsDown className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {reactionData !== null && reactionData.likes + reactionData.dislikes >= 10 && (
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-emerald-400 transition-all duration-300"
+                          style={{ width: `${likePercent}%` }}
+                        />
+                      </div>
+                      <span className="shrink-0 text-xs font-medium text-slate-500">
+                        {likePercent}% liked
+                      </span>
+                    </div>
+                  )}
+                  {course && !isIndividualInstructionCourse(course.sections) && (
+                    <CourseDetailsCard key={courseCodeSlug} course={course} />
+                  )}
                 </div>
-                {course && !isIndividualInstructionCourse(course.sections) && (
-                  <CourseDetailsCard key={courseCodeSlug} course={course} />
-                )}
               </div>
             </div>
+
+            {!isPending && course && (
+              <EvalDistributionSection
+                course={course}
+                courseCodeSlug={courseCodeSlug}
+                hideInstructorSelector={isIndividualInstructionCourse(course.sections)}
+              />
+            )}
+
+            {!isPending && course && (
+              <TextReviewsSection
+                course={course}
+                courseCodeSlug={courseCodeSlug}
+                hideInstructorSelector={isIndividualInstructionCourse(course.sections)}
+              />
+            )}
           </div>
+        </main>
 
-          {!isPending && course && (
-            <EvalDistributionSection
-              course={course}
-              courseCodeSlug={courseCodeSlug}
-              hideInstructorSelector={isIndividualInstructionCourse(course.sections)}
+        {/* Weekly calendar sidebar — right */}
+        <aside className="hidden w-[320px] shrink-0 lg:block">
+          <div className="sticky top-8">
+            <WeeklyCalendar
+              year={DEFAULT_YEAR}
+              courseCode={courseCodeStr || undefined}
+              onSlotChange={(quarter, planYear, isCourseAdded) => {
+                setCalendarSlot({ quarter, planYear, isCourseAdded })
+              }}
+              onAddToQuarter={
+                course
+                  ? (quarter, planYear) => {
+                      void handleAddToQuarter(quarter, planYear)
+                    }
+                  : undefined
+              }
+              onRemoveFromQuarter={
+                course
+                  ? (quarter, planYear) => {
+                      void handleRemoveFromQuarter(quarter, planYear)
+                    }
+                  : undefined
+              }
+              availableQuarters={
+                course
+                  ? [
+                      ...new Set(
+                        (course.sections ?? [])
+                          .filter((s) => s.cancelled !== true && s.termQuarter !== '')
+                          .map((s) => s.termQuarter),
+                      ),
+                    ]
+                  : undefined
+              }
+              refreshTrigger={calendarKey}
             />
-          )}
-
-          {!isPending && course && (
-            <TextReviewsSection
-              course={course}
-              courseCodeSlug={courseCodeSlug}
-              hideInstructorSelector={isIndividualInstructionCourse(course.sections)}
-            />
-          )}
-        </div>
-      </main>
+          </div>
+        </aside>
+      </div>
     </div>
   )
 }
