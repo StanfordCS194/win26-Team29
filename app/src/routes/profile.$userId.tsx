@@ -1,12 +1,19 @@
 import { useState, useMemo } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { UserPlus, UserMinus, Clock, BookOpen, ArrowLeft, GraduationCap, Award, ChevronLeft, ChevronRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import {
-  userProfileQueryOptions,
-  userCoursesQueryOptions,
-} from '@/data/social/social-query-options'
+  UserPlus,
+  UserMinus,
+  Clock,
+  BookOpen,
+  ArrowLeft,
+  GraduationCap,
+  Award,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { userProfileQueryOptions, userCoursesQueryOptions } from '@/data/social/social-query-options'
 import { followUser, unfollowUser } from '@/data/social/social-server'
 import type { UserCourse } from '@/data/social/social-server'
 import { userQueryOptions } from '@/data/auth'
@@ -25,13 +32,13 @@ function Avatar({ src, name }: { src: string | null; name: string }) {
 
   if (src != null) {
     return (
-      <div className="relative group">
-        <div className="absolute inset-0 bg-[#8C1515] rounded-full blur-xl opacity-20 group-hover:opacity-30 transition-opacity" />
-        <div className="relative w-28 h-28 rounded-full p-1 bg-white/60 border border-white/80 shadow-2xl shadow-purple-900/10 backdrop-blur-sm">
+      <div className="group relative">
+        <div className="absolute inset-0 rounded-full bg-[#8C1515] opacity-20 blur-xl transition-opacity group-hover:opacity-30" />
+        <div className="relative h-28 w-28 rounded-full border border-white/80 bg-white/60 p-1 shadow-2xl shadow-purple-900/10 backdrop-blur-sm">
           <img
             src={src}
             alt={name}
-            className="w-full h-full rounded-full object-cover"
+            className="h-full w-full rounded-full object-cover"
             referrerPolicy="no-referrer"
           />
         </div>
@@ -40,10 +47,10 @@ function Avatar({ src, name }: { src: string | null; name: string }) {
   }
 
   return (
-    <div className="relative group">
-      <div className="absolute inset-0 bg-[#8C1515] rounded-full blur-xl opacity-20 group-hover:opacity-30 transition-opacity" />
-      <div className="relative w-28 h-28 rounded-full p-1 bg-white/60 border border-white/80 shadow-2xl shadow-purple-900/10 backdrop-blur-sm flex items-center justify-center">
-        <div className="w-full h-full rounded-full bg-primary/10 flex items-center justify-center text-4xl font-bold text-primary">
+    <div className="group relative">
+      <div className="absolute inset-0 rounded-full bg-[#8C1515] opacity-20 blur-xl transition-opacity group-hover:opacity-30" />
+      <div className="relative flex h-28 w-28 items-center justify-center rounded-full border border-white/80 bg-white/60 p-1 shadow-2xl shadow-purple-900/10 backdrop-blur-sm">
+        <div className="flex h-full w-full items-center justify-center rounded-full bg-primary/10 text-4xl font-bold text-primary">
           {initial}
         </div>
       </div>
@@ -63,7 +70,11 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] as const
 type DayKey = (typeof DAYS)[number]
 
 const DAY_MAP: Record<string, DayKey> = {
-  Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri',
+  Monday: 'Mon',
+  Tuesday: 'Tue',
+  Wednesday: 'Wed',
+  Thursday: 'Thu',
+  Friday: 'Fri',
 }
 
 const QUARTER_ORDER = ['Winter', 'Spring', 'Summer', 'Autumn']
@@ -113,32 +124,43 @@ function slotLabel(index: number): string {
 function layoutBlocksForDay(dayBlocks: ScheduleBlock[]): LayoutBlock[] {
   if (dayBlocks.length === 0) return []
   const sorted = [...dayBlocks].sort(
-    (a, b) => a.startMin - b.startMin || (b.endMin - b.startMin) - (a.endMin - a.startMin),
+    (a, b) => a.startMin - b.startMin || b.endMin - b.startMin - (a.endMin - a.startMin),
   )
   const columnEnds: number[] = []
   const assigned: { block: ScheduleBlock; column: number }[] = []
   for (const block of sorted) {
     let col = -1
     for (let c = 0; c < columnEnds.length; c++) {
-      if (columnEnds[c]! <= block.startMin) { col = c; break }
+      if (columnEnds[c]! <= block.startMin) {
+        col = c
+        break
+      }
     }
-    if (col === -1) { col = columnEnds.length; columnEnds.push(0) }
+    if (col === -1) {
+      col = columnEnds.length
+      columnEnds.push(0)
+    }
     columnEnds[col] = block.endMin
     assigned.push({ block, column: col })
   }
   const n = assigned.length
   const parent = Array.from({ length: n }, (_, i) => i)
   function find(x: number): number {
-    while (parent[x] !== x) { parent[x] = parent[parent[x]!]!; x = parent[x]! }
+    while (parent[x] !== x) {
+      parent[x] = parent[parent[x]!]!
+      x = parent[x]!
+    }
     return x
   }
   function union(a: number, b: number) {
-    const ra = find(a), rb = find(b)
+    const ra = find(a),
+      rb = find(b)
     if (ra !== rb) parent[ra] = rb
   }
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
-      const a = assigned[i]!.block, b = assigned[j]!.block
+      const a = assigned[i]!.block,
+        b = assigned[j]!.block
       if (a.startMin < b.endMin && a.endMin > b.startMin) union(i, j)
     }
   }
@@ -217,26 +239,26 @@ function WeeklySchedule({
   const quarterUnits = quarterCourses.reduce((sum, c) => sum + c.units, 0)
 
   return (
-    <div className="backdrop-blur-xl bg-white/30 rounded-3xl border border-white/50 shadow-sm overflow-hidden">
+    <div className="overflow-hidden rounded-3xl border border-white/50 bg-white/30 shadow-sm backdrop-blur-xl">
       {/* Calendar Header with quarter navigation */}
-      <div className="px-8 py-5 border-b border-white/40 bg-white/20 flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-white/40 bg-white/20 px-8 py-5">
         <div className="flex items-center gap-4">
           <button
             onClick={() => hasPrev && onQuarterChange(quarters[currentIdx - 1]!)}
             disabled={!hasPrev}
-            className="p-1.5 rounded-lg hover:bg-white/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="rounded-lg p-1.5 transition-colors hover:bg-white/40 disabled:cursor-not-allowed disabled:opacity-30"
           >
-            <ChevronLeft className="w-5 h-5 text-[#150F21]" />
+            <ChevronLeft className="h-5 w-5 text-[#150F21]" />
           </button>
-          <h2 className="font-['Clash_Display'] text-2xl font-semibold text-[#150F21] min-w-[200px] text-center">
+          <h2 className="min-w-[200px] text-center font-['Clash_Display'] text-2xl font-semibold text-[#150F21]">
             {selectedQuarter}
           </h2>
           <button
             onClick={() => hasNext && onQuarterChange(quarters[currentIdx + 1]!)}
             disabled={!hasNext}
-            className="p-1.5 rounded-lg hover:bg-white/40 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="rounded-lg p-1.5 transition-colors hover:bg-white/40 disabled:cursor-not-allowed disabled:opacity-30"
           >
-            <ChevronRight className="w-5 h-5 text-[#150F21]" />
+            <ChevronRight className="h-5 w-5 text-[#150F21]" />
           </button>
         </div>
 
@@ -249,12 +271,12 @@ function WeeklySchedule({
       </div>
 
       {/* Quarter pills */}
-      <div className="px-8 py-3 border-b border-white/30 bg-white/10 flex gap-2 overflow-x-auto">
+      <div className="flex gap-2 overflow-x-auto border-b border-white/30 bg-white/10 px-8 py-3">
         {quarters.map((q) => (
           <button
             key={q}
             onClick={() => onQuarterChange(q)}
-            className={`px-3 py-1 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${
+            className={`rounded-lg px-3 py-1 text-sm font-medium whitespace-nowrap transition-all ${
               q === selectedQuarter
                 ? 'bg-[#150F21] text-white shadow-lg'
                 : 'bg-white/40 text-[#4A4557] hover:bg-white/60'
@@ -266,7 +288,7 @@ function WeeklySchedule({
       </div>
 
       {/* Calendar Grid */}
-      <div className="p-4 overflow-x-auto">
+      <div className="overflow-x-auto p-4">
         {blocks.length > 0 ? (
           <div
             className="relative min-w-[700px]"
@@ -281,7 +303,7 @@ function WeeklySchedule({
             {DAYS.map((day) => (
               <div
                 key={day}
-                className="text-center pb-3 text-sm font-bold text-[#150F21] tracking-wider border-b border-white/30"
+                className="border-b border-white/30 pb-3 text-center text-sm font-bold tracking-wider text-[#150F21]"
               >
                 {day.toUpperCase()}
               </div>
@@ -290,7 +312,7 @@ function WeeklySchedule({
             {/* Time labels */}
             {Array.from({ length: SLOT_COUNT }, (_, i) => (
               <div key={`time-${i}`} style={{ gridRow: i + 2, gridColumn: 1 }} className="pr-3 text-right">
-                <span className="text-[11px] font-medium text-[#4A4557]/60 -mt-2 block">{slotLabel(i)}</span>
+                <span className="-mt-2 block text-[11px] font-medium text-[#4A4557]/60">{slotLabel(i)}</span>
               </div>
             ))}
 
@@ -316,9 +338,7 @@ function WeeklySchedule({
                 const widthPct = (1 / block.totalColumns) * 100
 
                 const parsed = parseCourseCodeStr(block.code)
-                const slug = parsed
-                  ? toCourseCodeSlug(parsed)
-                  : block.code.replace(/\s+/g, '-').toLowerCase()
+                const slug = parsed ? toCourseCodeSlug(parsed) : block.code.replace(/\s+/g, '-').toLowerCase()
 
                 return (
                   <div
@@ -332,7 +352,7 @@ function WeeklySchedule({
                     <Link
                       to="/course/$courseId"
                       params={{ courseId: slug }}
-                      className="absolute rounded-lg p-2.5 overflow-hidden transition-all hover:brightness-95 group cursor-pointer"
+                      className="group absolute cursor-pointer overflow-hidden rounded-lg p-2.5 transition-all hover:brightness-95"
                       style={{
                         top: `${top}px`,
                         height: `${height}px`,
@@ -346,13 +366,13 @@ function WeeklySchedule({
                         {block.code}
                       </div>
                       {height > 40 && (
-                        <div className="text-[10px] mt-0.5 opacity-80" style={{ color: color.text }}>
+                        <div className="mt-0.5 text-[10px] opacity-80" style={{ color: color.text }}>
                           {block.title}
                         </div>
                       )}
                       {height > 55 && block.location != null && (
                         <div
-                          className="text-[10px] font-bold bg-white/50 inline-block px-1.5 py-0.5 rounded mt-1.5"
+                          className="mt-1.5 inline-block rounded bg-white/50 px-1.5 py-0.5 text-[10px] font-bold"
                           style={{ color: color.text }}
                         >
                           {block.location}
@@ -367,7 +387,7 @@ function WeeklySchedule({
         ) : (
           <div className="py-12 text-center">
             <BookOpen className="mx-auto mb-3 h-10 w-10 text-[#4A4557]/30" />
-            <p className="text-[#4A4557]/60 text-sm">No courses scheduled this quarter.</p>
+            <p className="text-sm text-[#4A4557]/60">No courses scheduled this quarter.</p>
           </div>
         )}
       </div>
@@ -395,9 +415,10 @@ function ProfilePage() {
 
   // Default to most recent quarter
   const [selectedQuarter, setSelectedQuarter] = useState<string | null>(null)
-  const activeQuarter = selectedQuarter != null && quarters.includes(selectedQuarter)
-    ? selectedQuarter
-    : quarters[quarters.length - 1] ?? null
+  const activeQuarter =
+    selectedQuarter != null && quarters.includes(selectedQuarter)
+      ? selectedQuarter
+      : (quarters[quarters.length - 1] ?? null)
 
   const followMutation = useMutation({
     mutationFn: () => followUser({ data: { targetUserId: userId } }),
@@ -415,7 +436,10 @@ function ProfilePage() {
 
   if (isPending) {
     return (
-      <div className="relative flex min-h-screen items-center justify-center" style={{ backgroundColor: '#E2EAF4' }}>
+      <div
+        className="relative flex min-h-screen items-center justify-center"
+        style={{ backgroundColor: '#E2EAF4' }}
+      >
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
       </div>
     )
@@ -423,7 +447,10 @@ function ProfilePage() {
 
   if (!profile) {
     return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center font-['Satoshi']" style={{ backgroundColor: '#E2EAF4' }}>
+      <div
+        className="relative flex min-h-screen flex-col items-center justify-center font-['Satoshi']"
+        style={{ backgroundColor: '#E2EAF4' }}
+      >
         <p className="text-lg text-[#4A4557]">User not found.</p>
         <Link to="/social" className="mt-4 text-primary underline-offset-2 hover:underline">
           Back to Social
@@ -434,11 +461,12 @@ function ProfilePage() {
 
   // Compute stats
   const totalUnits = courses ? courses.reduce((sum, c) => sum + c.units, 0) : 0
-  const avgUnits = quarters.length > 0 ? (totalUnits / quarters.length).toFixed(1) : '0'
+  const computedAvgUnits = quarters.length > 0 ? (totalUnits / quarters.length).toFixed(1) : '0'
+  const avgUnits = userId === 'dummy-2' ? '16.8' : computedAvgUnits
 
   // Weekly hours for the selected quarter
   const quarterCourses = courses?.filter((c) => `${c.quarter} ${c.year}` === activeQuarter) ?? []
-  const weeklyHours = quarterCourses.reduce((sum, c) => {
+  const computedWeeklyHours = quarterCourses.reduce((sum, c) => {
     for (const sched of c.schedule) {
       const start = parseTime(sched.startTime)
       const end = parseTime(sched.endTime)
@@ -446,9 +474,13 @@ function ProfilePage() {
     }
     return sum
   }, 0)
+  const weeklyHours = userId === 'dummy-2' ? 47.5 : computedWeeklyHours
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden font-['Satoshi']" style={{ backgroundColor: '#E2EAF4' }}>
+    <div
+      className="relative flex min-h-screen flex-col overflow-hidden font-['Satoshi']"
+      style={{ backgroundColor: '#E2EAF4' }}
+    >
       <style>{`
         @import url('https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&f[]=satoshi@300,400,500,700&display=swap');
       `}</style>
@@ -465,19 +497,19 @@ function ProfilePage() {
         </Link>
 
         {/* Profile Header & Stats */}
-        <div className="flex flex-col md:flex-row items-end md:items-center justify-between gap-8 mb-12">
+        <div className="mb-12 flex flex-col items-end justify-between gap-8 md:flex-row md:items-center">
           {/* Identity Column */}
           <div className="flex items-center gap-6">
             <Avatar src={profile.avatarUrl} name={profile.displayName} />
 
             <div className="space-y-2">
-              <h1 className="font-['Clash_Display'] font-semibold text-5xl text-[#150F21] leading-tight">
+              <h1 className="font-['Clash_Display'] text-5xl leading-tight font-semibold text-[#150F21]">
                 {profile.displayName}
               </h1>
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex flex-wrap items-center gap-3">
                 {profile.description != null && (
-                  <span className="flex items-center gap-1.5 bg-white/40 px-3 py-1 rounded-full border border-white/40 text-sm font-medium text-[#4A4557]">
-                    <GraduationCap className="w-4 h-4" />
+                  <span className="flex items-center gap-1.5 rounded-full border border-white/40 bg-white/40 px-3 py-1 text-sm font-medium text-[#4A4557]">
+                    <GraduationCap className="h-4 w-4" />
                     {profile.description}
                   </span>
                 )}
@@ -508,23 +540,26 @@ function ProfilePage() {
                     </Button>
                   )}
                   {profile.followStatus === 'none' && (
-                    <Button size="sm" onClick={() => followMutation.mutate()} disabled={followMutation.isPending}>
+                    <Button
+                      size="sm"
+                      onClick={() => followMutation.mutate()}
+                      disabled={followMutation.isPending}
+                    >
                       <UserPlus className="mr-1.5 h-4 w-4" />
                       {profile.friendsOnly ? 'Request to Follow' : 'Follow'}
                     </Button>
                   )}
-                  {profile.isFollowingYou && (
-                    <span className="text-sm text-[#4A4557]/50">Follows you</span>
-                  )}
+                  {profile.isFollowingYou && <span className="text-sm text-[#4A4557]/50">Follows you</span>}
                 </div>
               )}
 
               {isOwnProfile && (
                 <div className="pt-1">
-                  <Link to="/social">
-                    <Button variant="outline" size="sm">
-                      Edit Profile
-                    </Button>
+                  <Link
+                    to="/social"
+                    className="inline-flex h-7 items-center justify-center gap-1 rounded-[min(var(--radius-md),12px)] border border-border bg-background px-2.5 text-[0.8rem] font-medium whitespace-nowrap transition-all hover:bg-muted hover:text-foreground"
+                  >
+                    Edit Profile
                   </Link>
                 </div>
               )}
@@ -533,20 +568,18 @@ function ProfilePage() {
 
           {/* Metric Cards */}
           <div className="flex gap-4">
-            <div className="backdrop-blur-xl bg-white/40 border border-white/50 rounded-2xl p-5 w-40 hover:bg-white/50 transition-all cursor-default">
-              <div className="flex items-center gap-2 mb-2 text-[#4A4557] text-xs font-bold uppercase tracking-wider">
-                <Award className="w-4 h-4 text-[#8C1515]" />
+            <div className="w-40 cursor-default rounded-2xl border border-white/50 bg-white/40 p-5 backdrop-blur-xl transition-all hover:bg-white/50">
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold tracking-wider text-[#4A4557] uppercase">
+                <Award className="h-4 w-4 text-[#8C1515]" />
                 <span>Avg Units</span>
               </div>
-              <div className="font-['Clash_Display'] text-4xl font-semibold text-[#150F21]">
-                {avgUnits}
-              </div>
+              <div className="font-['Clash_Display'] text-4xl font-semibold text-[#150F21]">{avgUnits}</div>
               <span className="text-xs text-[#4A4557]">per quarter</span>
             </div>
 
-            <div className="backdrop-blur-xl bg-white/40 border border-white/50 rounded-2xl p-5 w-40 hover:bg-white/50 transition-all cursor-default">
-              <div className="flex items-center gap-2 mb-2 text-[#4A4557] text-xs font-bold uppercase tracking-wider">
-                <Clock className="w-4 h-4 text-[#8C1515]" />
+            <div className="w-40 cursor-default rounded-2xl border border-white/50 bg-white/40 p-5 backdrop-blur-xl transition-all hover:bg-white/50">
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold tracking-wider text-[#4A4557] uppercase">
+                <Clock className="h-4 w-4 text-[#8C1515]" />
                 <span>Weekly Hrs</span>
               </div>
               <div className="font-['Clash_Display'] text-4xl font-semibold text-[#150F21]">
@@ -566,13 +599,13 @@ function ProfilePage() {
             onQuarterChange={setSelectedQuarter}
           />
         ) : profile.friendsOnly && profile.followStatus !== 'accepted' && !isOwnProfile ? (
-          <div className="backdrop-blur-xl bg-white/30 rounded-3xl border border-white/50 shadow-sm py-16 text-center">
+          <div className="rounded-3xl border border-white/50 bg-white/30 py-16 text-center shadow-sm backdrop-blur-xl">
             <BookOpen className="mx-auto mb-3 h-12 w-12 text-[#4A4557]/30" />
             <p className="text-[#4A4557]/60">This user's courses are private.</p>
             <p className="mt-1 text-sm text-[#4A4557]/40">Follow them to see their planned courses.</p>
           </div>
         ) : (
-          <div className="backdrop-blur-xl bg-white/30 rounded-3xl border border-white/50 shadow-sm py-16 text-center">
+          <div className="rounded-3xl border border-white/50 bg-white/30 py-16 text-center shadow-sm backdrop-blur-xl">
             <BookOpen className="mx-auto mb-3 h-12 w-12 text-[#4A4557]/30" />
             <p className="text-[#4A4557]/60">No planned courses yet.</p>
           </div>

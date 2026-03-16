@@ -12,7 +12,7 @@ import {
 } from '@dnd-kit/core'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { GripVertical, Plus, Trash2, X, Check } from 'lucide-react'
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toCourseCodeSlug } from '@/lib/course-code'
 import { Button } from '@/components/ui/button'
@@ -30,6 +30,7 @@ import {
   type PlanSearchResult,
 } from '@/data/plan/plan-server'
 import { planQueryOptions } from '@/data/plan/plan-query-options'
+import { userQueryOptions } from '@/data/auth'
 
 export const Route = createFileRoute('/plan')({ component: PlanPage })
 
@@ -600,6 +601,7 @@ function RequirementsPanel({
 
 function PlanPage() {
   const queryClient = useQueryClient()
+  const { data: authUser } = useQuery(userQueryOptions)
   const [startYear, setStartYear] = useState(DEFAULT_START_YEAR)
   const [planned, setPlanned] = useState<Record<string, PlannedCourse[]>>(INITIAL_PLANNED)
   const [globalStash, setGlobalStash] = useState<PlannedCourse[]>([])
@@ -956,6 +958,25 @@ function PlanPage() {
   })()
 
   if (!mounted) return <div className="min-h-[calc(100vh-var(--header-height))] bg-sky-50" />
+
+  if (authUser == null) {
+    return (
+      <div className="flex min-h-[calc(100vh-var(--header-height))] items-center justify-center bg-sky-50">
+        <div className="rounded-2xl border border-slate-200 bg-white px-8 py-10 text-center shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-800">Sign in to use your 4-Year Plan</h2>
+          <p className="mt-2 text-sm text-slate-500">
+            You need a Stanford account to save and manage your course plan.
+          </p>
+          <Link
+            to="/"
+            className="mt-4 inline-block rounded-lg bg-[#8C1515] px-6 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#7A1212]"
+          >
+            Sign in with Stanford
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>

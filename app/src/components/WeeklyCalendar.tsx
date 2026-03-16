@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getUserPlan } from '@/data/plan/plan-server'
 import { getCourseByCode } from '@/data/search/search'
 import { parseCourseCodeSlug, toCourseCodeSlug } from '@/lib/course-code'
+import { getCurrentQuarter } from '@/lib/quarter-utils'
 import { courseClassmatesQueryOptions } from '@/data/social/social-query-options'
 import { userQueryOptions } from '@/data/auth'
 
@@ -43,11 +44,11 @@ function buildAllSlots(startYear: number, span: number): PlanSlot[] {
 function guessCurrentSlot(): { quarter: QuarterKey; planYear: number } {
   const now = new Date()
   const year = now.getFullYear()
-  const month = now.getMonth()
-  if (month >= 9) return { quarter: 'Autumn', planYear: year }
-  if (month >= 6) return { quarter: 'Summer', planYear: year - 1 }
-  if (month >= 3) return { quarter: 'Spring', planYear: year - 1 }
-  return { quarter: 'Winter', planYear: year - 1 }
+  const quarter = getCurrentQuarter() as QuarterKey
+  // planYear = the Autumn calendar year of the academic year
+  // Autumn belongs to the current calendar year; Winter/Spring/Summer belong to the previous
+  const planYear = quarter === 'Autumn' ? year : year - 1
+  return { quarter, planYear }
 }
 
 const START_MIN = 8 * 60
@@ -258,7 +259,6 @@ export function WeeklyCalendar({
   year: _year,
   onAddToQuarter,
   onRemoveFromQuarter,
-  onSlotChange,
   availableQuarters,
   courseCode,
   refreshTrigger,
@@ -266,7 +266,6 @@ export function WeeklyCalendar({
   year?: string
   onAddToQuarter?: (quarter: string, planYear: number) => void
   onRemoveFromQuarter?: (quarter: string, planYear: number) => void
-  onSlotChange?: (quarter: string, planYear: number, isCourseAdded: boolean) => void
   availableQuarters?: string[]
   courseCode?: string
   refreshTrigger?: number
@@ -282,7 +281,14 @@ export function WeeklyCalendar({
   // ── All navigable quarter-slots across the plan ──────────────────
   const allSlots = useMemo((): PlanSlot[] => {
     if (planStartYear === null) return []
-    return buildAllSlots(planStartYear, getStoredPlanSpan())
+    // Ensure the current quarter is always reachable by starting from the
+    // earlier of the plan start year and the current academic year start.
+    const currentPlanYear = guessCurrentSlot().planYear
+    const effectiveStart = Math.min(planStartYear, currentPlanYear)
+    const span = getStoredPlanSpan()
+    // Extend span if needed to cover the plan's original range
+    const effectiveSpan = Math.max(span, planStartYear - effectiveStart + span)
+    return buildAllSlots(effectiveStart, effectiveSpan)
   }, [planStartYear])
 
   // Auto-jump to the current academic quarter the first time slots load
@@ -295,7 +301,9 @@ export function WeeklyCalendar({
     if (idx >= 0) setSlotIdx(idx)
   }, [allSlots])
 
-  const currentSlot: PlanSlot = allSlots[slotIdx] ?? guessCurrentSlot()
+  // Memoize currentSlot so it's referentially stable even when allSlots is empty
+  const fallbackSlot = useMemo(() => guessCurrentSlot(), [])
+  const currentSlot: PlanSlot = allSlots[slotIdx] ?? fallbackSlot
   const quarter = currentSlot.quarter
   const academicYear = `${currentSlot.planYear}-${currentSlot.planYear + 1}`
 
@@ -328,7 +336,7 @@ export function WeeklyCalendar({
     return () => {
       cancelled = true
     }
-  }, [refreshTrigger])
+  }, [refreshTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Courses in current quarter ───────────────────────────────────
   // planYear is the Autumn calendar year of the academic year (all 4 quarters share it)
@@ -348,17 +356,12 @@ export function WeeklyCalendar({
   const isCurrentCourseInPlan =
     courseCode != null && courseCode !== '' ? coursesInQuarter.some((c) => c.code === courseCode) : false
 
-  // Notify parent of current slot and whether the course is in it
-  useEffect(() => {
-    onSlotChange?.(currentSlot.quarter, currentSlot.planYear, isCurrentCourseInPlan)
-  }, [currentSlot.quarter, currentSlot.planYear, isCurrentCourseInPlan, onSlotChange])
-
   // ── Resolve schedule blocks for planned courses ──────────────────
   const resolveIdRef = useRef(0)
 
   useEffect(() => {
     if (coursesInQuarter.length === 0) {
-      setPlanBlocks([])
+      setPlanBlocks((prev) => (prev.length === 0 ? prev : []))
       return
     }
     const id = ++resolveIdRef.current
@@ -380,7 +383,7 @@ export function WeeklyCalendar({
 
   useEffect(() => {
     if (courseCode == null || courseCode === '' || isCurrentCourseInPlan) {
-      setPreviewBlocks([])
+      setPreviewBlocks((prev) => (prev.length === 0 ? prev : []))
       return
     }
     const id = ++previewIdRef.current

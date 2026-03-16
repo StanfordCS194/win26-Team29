@@ -105,36 +105,86 @@ const USER_COURSES: Record<string, UserCourse[]> = {
   'dummy-1': [
     // Autumn 2025
     {
-      courseCode: 'CS 106A', title: 'Programming Methodology',
-      quarter: 'Autumn', year: 2025, units: 5,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '10:30', endTime: '11:50', location: 'Bishop Aud' }],
+      courseCode: 'CS 106A',
+      title: 'Programming Methodology',
+      quarter: 'Autumn',
+      year: 2025,
+      units: 5,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '10:30',
+          endTime: '11:50',
+          location: 'Bishop Aud',
+        },
+      ],
     },
     {
-      courseCode: 'MATH 51', title: 'Linear Algebra',
-      quarter: 'Autumn', year: 2025, units: 5,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '9:00', endTime: '10:20', location: 'Hewlett 200' }],
+      courseCode: 'MATH 51',
+      title: 'Linear Algebra',
+      quarter: 'Autumn',
+      year: 2025,
+      units: 5,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '9:00',
+          endTime: '10:20',
+          location: 'Hewlett 200',
+        },
+      ],
     },
     // Winter 2026
     {
-      courseCode: 'CS 106B', title: 'Programming Abstractions',
-      quarter: 'Winter', year: 2026, units: 5,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '10:30', endTime: '11:50', location: 'Hewlett 200' }],
+      courseCode: 'CS 106B',
+      title: 'Programming Abstractions',
+      quarter: 'Winter',
+      year: 2026,
+      units: 5,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '10:30',
+          endTime: '11:50',
+          location: 'Hewlett 200',
+        },
+      ],
     },
     {
-      courseCode: 'PHYSICS 41', title: 'Mechanics',
-      quarter: 'Winter', year: 2026, units: 4,
-      schedule: [{ days: ['Tuesday', 'Thursday'], startTime: '9:30', endTime: '10:50', location: 'Hewlett 201' }],
+      courseCode: 'PHYSICS 41',
+      title: 'Mechanics',
+      quarter: 'Winter',
+      year: 2026,
+      units: 4,
+      schedule: [
+        { days: ['Tuesday', 'Thursday'], startTime: '9:30', endTime: '10:50', location: 'Hewlett 201' },
+      ],
     },
     // Spring 2026
     {
-      courseCode: 'CS 107', title: 'Computer Org & Systems',
-      quarter: 'Spring', year: 2026, units: 5,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '10:30', endTime: '11:50', location: 'Gates B01' }],
+      courseCode: 'CS 107',
+      title: 'Computer Org & Systems',
+      quarter: 'Spring',
+      year: 2026,
+      units: 5,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '10:30',
+          endTime: '11:50',
+          location: 'Gates B01',
+        },
+      ],
     },
     {
-      courseCode: 'MATH 52', title: 'Integral Calculus',
-      quarter: 'Spring', year: 2026, units: 5,
-      schedule: [{ days: ['Tuesday', 'Thursday'], startTime: '9:00', endTime: '10:20', location: '380-380C' }],
+      courseCode: 'MATH 52',
+      title: 'Integral Calculus',
+      quarter: 'Spring',
+      year: 2026,
+      units: 5,
+      schedule: [
+        { days: ['Tuesday', 'Thursday'], startTime: '9:00', endTime: '10:20', location: '380-380C' },
+      ],
     },
   ],
 
@@ -142,41 +192,106 @@ const USER_COURSES: Record<string, UserCourse[]> = {
   'dummy-2': [
     // Autumn 2025
     {
-      courseCode: 'MATH 51', title: 'Linear Algebra',
-      quarter: 'Autumn', year: 2025, units: 5,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '9:00', endTime: '10:20', location: 'Hewlett 200' }],
+      courseCode: 'MATH 51',
+      title: 'Linear Algebra',
+      quarter: 'Autumn',
+      year: 2025,
+      units: 5,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '9:00',
+          endTime: '10:20',
+          location: 'Hewlett 200',
+        },
+      ],
     },
     {
-      courseCode: 'CS 106A', title: 'Programming Methodology',
-      quarter: 'Autumn', year: 2025, units: 5,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '10:30', endTime: '11:50', location: 'Bishop Aud' }],
+      courseCode: 'CS 106A',
+      title: 'Programming Methodology',
+      quarter: 'Autumn',
+      year: 2025,
+      units: 5,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '10:30',
+          endTime: '11:50',
+          location: 'Bishop Aud',
+        },
+      ],
     },
     // Winter 2026
     {
-      courseCode: 'CS 106B', title: 'Programming Abstractions',
-      quarter: 'Winter', year: 2026, units: 5,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '10:30', endTime: '11:50', location: 'Hewlett 200' }],
+      courseCode: 'CS 106B',
+      title: 'Programming Abstractions',
+      quarter: 'Winter',
+      year: 2026,
+      units: 5,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '10:30',
+          endTime: '11:50',
+          location: 'Hewlett 200',
+        },
+      ],
     },
     {
-      courseCode: 'MATH 52', title: 'Integral Calculus',
-      quarter: 'Winter', year: 2026, units: 5,
-      schedule: [{ days: ['Tuesday', 'Thursday'], startTime: '9:00', endTime: '10:20', location: '380-380C' }],
+      courseCode: 'MATH 52',
+      title: 'Integral Calculus',
+      quarter: 'Winter',
+      year: 2026,
+      units: 5,
+      schedule: [
+        { days: ['Tuesday', 'Thursday'], startTime: '9:00', endTime: '10:20', location: '380-380C' },
+      ],
     },
     {
-      courseCode: 'ECON 50', title: 'Economic Analysis',
-      quarter: 'Winter', year: 2026, units: 5,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '13:00', endTime: '14:20', location: 'Landau 102' }],
+      courseCode: 'ECON 50',
+      title: 'Economic Analysis',
+      quarter: 'Winter',
+      year: 2026,
+      units: 5,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '13:00',
+          endTime: '14:20',
+          location: 'Landau 102',
+        },
+      ],
     },
     // Spring 2026
     {
-      courseCode: 'MATH 53', title: 'Differential Equations',
-      quarter: 'Spring', year: 2026, units: 5,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '9:00', endTime: '10:20', location: '380-380D' }],
+      courseCode: 'MATH 53',
+      title: 'Differential Equations',
+      quarter: 'Spring',
+      year: 2026,
+      units: 5,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '9:00',
+          endTime: '10:20',
+          location: '380-380D',
+        },
+      ],
     },
     {
-      courseCode: 'CS 161', title: 'Design & Analysis of Algorithms',
-      quarter: 'Spring', year: 2026, units: 4,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '11:00', endTime: '12:20', location: 'NVIDIA Aud' }],
+      courseCode: 'CS 161',
+      title: 'Design & Analysis of Algorithms',
+      quarter: 'Spring',
+      year: 2026,
+      units: 4,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '11:00',
+          endTime: '12:20',
+          location: 'NVIDIA Aud',
+        },
+      ],
     },
   ],
 
@@ -184,54 +299,112 @@ const USER_COURSES: Record<string, UserCourse[]> = {
   'dummy-3': [
     // Autumn 2025
     {
-      courseCode: 'CS 106B', title: 'Programming Abstractions',
-      quarter: 'Autumn', year: 2025, units: 5,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '10:30', endTime: '11:50', location: 'Hewlett 200' }],
+      courseCode: 'CS 106B',
+      title: 'Programming Abstractions',
+      quarter: 'Autumn',
+      year: 2025,
+      units: 5,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '10:30',
+          endTime: '11:50',
+          location: 'Hewlett 200',
+        },
+      ],
     },
     {
-      courseCode: 'MATH 52', title: 'Integral Calculus',
-      quarter: 'Autumn', year: 2025, units: 5,
-      schedule: [{ days: ['Tuesday', 'Thursday'], startTime: '9:00', endTime: '10:20', location: '380-380C' }],
+      courseCode: 'MATH 52',
+      title: 'Integral Calculus',
+      quarter: 'Autumn',
+      year: 2025,
+      units: 5,
+      schedule: [
+        { days: ['Tuesday', 'Thursday'], startTime: '9:00', endTime: '10:20', location: '380-380C' },
+      ],
     },
     // Winter 2026
     {
-      courseCode: 'CS 107', title: 'Computer Org & Systems',
-      quarter: 'Winter', year: 2026, units: 5,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '10:30', endTime: '11:50', location: 'Gates B01' }],
+      courseCode: 'CS 107',
+      title: 'Computer Org & Systems',
+      quarter: 'Winter',
+      year: 2026,
+      units: 5,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '10:30',
+          endTime: '11:50',
+          location: 'Gates B01',
+        },
+      ],
     },
     {
-      courseCode: 'MATH 51', title: 'Linear Algebra',
-      quarter: 'Winter', year: 2026, units: 5,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '9:00', endTime: '10:20', location: 'Hewlett 200' }],
+      courseCode: 'MATH 51',
+      title: 'Linear Algebra',
+      quarter: 'Winter',
+      year: 2026,
+      units: 5,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '9:00',
+          endTime: '10:20',
+          location: 'Hewlett 200',
+        },
+      ],
     },
     {
-      courseCode: 'DANCE 43', title: 'Liquid Flow',
-      quarter: 'Winter', year: 2026, units: 1,
-      schedule: [{ days: ['Tuesday', 'Thursday'], startTime: '11:00', endTime: '12:20', location: 'Roble Gym' }],
+      courseCode: 'DANCE 43',
+      title: 'Liquid Flow',
+      quarter: 'Winter',
+      year: 2026,
+      units: 1,
+      schedule: [
+        { days: ['Tuesday', 'Thursday'], startTime: '11:00', endTime: '12:20', location: 'Roble Gym' },
+      ],
     },
     // Spring 2026
     {
-      courseCode: 'CS 109', title: 'Probability for Computer Scientists',
-      quarter: 'Spring', year: 2026, units: 5,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '9:00', endTime: '10:20', location: 'Hewlett 200' }],
+      courseCode: 'CS 109',
+      title: 'Probability for Computer Scientists',
+      quarter: 'Spring',
+      year: 2026,
+      units: 5,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '9:00',
+          endTime: '10:20',
+          location: 'Hewlett 200',
+        },
+      ],
     },
     {
-      courseCode: 'CS 161', title: 'Design & Analysis of Algorithms',
-      quarter: 'Spring', year: 2026, units: 4,
-      schedule: [{ days: ['Monday', 'Wednesday', 'Friday'], startTime: '11:00', endTime: '12:20', location: 'NVIDIA Aud' }],
+      courseCode: 'CS 161',
+      title: 'Design & Analysis of Algorithms',
+      quarter: 'Spring',
+      year: 2026,
+      units: 4,
+      schedule: [
+        {
+          days: ['Monday', 'Wednesday', 'Friday'],
+          startTime: '11:00',
+          endTime: '12:20',
+          location: 'NVIDIA Aud',
+        },
+      ],
     },
   ],
 }
 
 // ── Derived data ───────────────────────────────────────────────────────────
 
-// Build feed from the course data: recent additions from users you follow.
-// Only Alice (dummy-1) and Bob (dummy-2) have followStatus 'accepted'.
+// Build feed dynamically from current follow state
 function buildFeed(): FeedEntry[] {
   const followed = DUMMY_USERS.filter((u) => u.followStatus === 'accepted')
   const entries: FeedEntry[] = []
 
-  // Use each course's quarter to create plausible "addedAt" dates
   const quarterDates: Record<string, string> = {
     'Autumn 2025': '2025-09',
     'Winter 2026': '2026-01',
@@ -242,7 +415,6 @@ function buildFeed(): FeedEntry[] {
     const courses = USER_COURSES[user.id] ?? []
     for (const course of courses) {
       const monthPrefix = quarterDates[`${course.quarter} ${course.year}`] ?? '2026-01'
-      // Stagger dates so feed has variety
       const day = String(10 + entries.length).padStart(2, '0')
       entries.push({
         userId: user.id,
@@ -256,11 +428,8 @@ function buildFeed(): FeedEntry[] {
     }
   }
 
-  // Sort newest first
   return entries.sort((a, b) => b.addedAt.localeCompare(a.addedAt))
 }
-
-const DUMMY_FEED = buildFeed()
 
 // Build classmates dynamically: find all dummy users who have a given course in a given quarter
 function findClassmates(
@@ -293,10 +462,21 @@ function findClassmates(
   return result
 }
 
-// Follow requests: David Kim follows you but you don't follow back
-const DUMMY_FOLLOW_REQUESTS = DUMMY_USERS
-  .filter((u) => u.isFollowingYou && u.followStatus === 'none')
-  .map((u) => ({ userId: u.id, displayName: u.displayName, avatarUrl: u.avatarUrl }))
+// Derive follow requests dynamically
+function getDummyFollowRequests() {
+  return DUMMY_USERS.filter((u) => u.isFollowingYou && u.followStatus === 'none').map((u) => ({
+    userId: u.id,
+    displayName: u.displayName,
+    avatarUrl: u.avatarUrl,
+  }))
+}
+
+// ── In-memory profile overrides (persists for the server session) ─────────
+
+const profileOverrides: Record<
+  string,
+  { displayName?: string; description?: string; friendsOnly?: boolean }
+> = {}
 
 // ── Server functions ───────────────────────────────────────────────────────
 
@@ -314,15 +494,19 @@ export const getOwnProfile = createServerFn({ method: 'GET' }).handler(
       (typeof rawMeta?.avatar_url === 'string' && rawMeta.avatar_url) ||
       (typeof rawMeta?.picture === 'string' && rawMeta.picture) ||
       null
-    const displayName =
-      (typeof rawMeta?.full_name === 'string' ? rawMeta.full_name : null) ?? user.email?.split('@')[0] ?? 'User'
+    const defaultDisplayName =
+      (typeof rawMeta?.full_name === 'string' ? rawMeta.full_name : null) ??
+      user.email?.split('@')[0] ??
+      'User'
+
+    const overrides = profileOverrides[user.id]
 
     return {
       id: user.id,
-      displayName,
-      description: null,
+      displayName: overrides?.displayName ?? defaultDisplayName,
+      description: overrides?.description ?? null,
       avatarUrl,
-      friendsOnly: false,
+      friendsOnly: overrides?.friendsOnly ?? false,
     }
   },
 )
@@ -335,36 +519,62 @@ export const updateProfile = createServerFn({ method: 'POST' })
       friendsOnly: z.boolean().optional(),
     }),
   )
-  .handler(async () => {
-    // No-op with dummy data
+  .handler(async ({ data }) => {
+    const { getSupabaseServerClient } = await import('@/lib/supabase.server')
+    const supabase = getSupabaseServerClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+
+    const existing = profileOverrides[user.id] ?? {}
+    profileOverrides[user.id] = {
+      ...existing,
+      ...(data.displayName !== undefined ? { displayName: data.displayName } : {}),
+      ...(data.description !== undefined ? { description: data.description } : {}),
+      ...(data.friendsOnly !== undefined ? { friendsOnly: data.friendsOnly } : {}),
+    }
   })
 
 export const followUser = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ targetUserId: z.string() }))
-  .handler(async () => {
-    return { status: 'accepted' }
+  .handler(async ({ data }) => {
+    const user = DUMMY_USERS.find((u) => u.id === data.targetUserId)
+    if (user) {
+      user.followStatus = user.friendsOnly ? 'pending' : 'accepted'
+    }
+    return { status: user?.followStatus ?? 'accepted' }
   })
 
 export const unfollowUser = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ targetUserId: z.string() }))
-  .handler(async () => {
-    // No-op
+  .handler(async ({ data }) => {
+    const user = DUMMY_USERS.find((u) => u.id === data.targetUserId)
+    if (user) {
+      user.followStatus = 'none'
+    }
   })
 
 export const acceptFollowRequest = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ requesterId: z.string() }))
-  .handler(async () => {
-    // No-op
+  .handler(async ({ data }) => {
+    const user = DUMMY_USERS.find((u) => u.id === data.requesterId)
+    if (user) {
+      user.followStatus = 'accepted'
+    }
   })
 
 export const rejectFollowRequest = createServerFn({ method: 'POST' })
   .inputValidator(z.object({ requesterId: z.string() }))
-  .handler(async () => {
-    // No-op
+  .handler(async ({ data }) => {
+    const user = DUMMY_USERS.find((u) => u.id === data.requesterId)
+    if (user) {
+      user.isFollowingYou = false
+    }
   })
 
 export const getFollowRequests = createServerFn({ method: 'GET' }).handler(async () => {
-  return DUMMY_FOLLOW_REQUESTS
+  return getDummyFollowRequests()
 })
 
 export const getFollowing = createServerFn({ method: 'GET' })
@@ -398,14 +608,20 @@ export const searchUsers = createServerFn({ method: 'GET' })
 
 export const getUserProfile = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ userId: z.string() }))
-  .handler(async ({ data }): Promise<(UserProfileWithFollow & { followersCount: number; followingCount: number }) | null> => {
-    const found = DUMMY_USERS.find((u) => u.id === data.userId)
-    if (!found) return null
-    // Derive counts from dummy data
-    const followersCount = DUMMY_USERS.filter((u) => u.id !== found.id).length // simplified
-    const followingCount = DUMMY_USERS.filter((u) => u.id !== found.id && u.followStatus === 'accepted').length
-    return { ...found, followersCount, followingCount }
-  })
+  .handler(
+    async ({
+      data,
+    }): Promise<(UserProfileWithFollow & { followersCount: number; followingCount: number }) | null> => {
+      const found = DUMMY_USERS.find((u) => u.id === data.userId)
+      if (!found) return null
+      // Derive counts from dummy data
+      const followersCount = DUMMY_USERS.filter((u) => u.id !== found.id).length // simplified
+      const followingCount = DUMMY_USERS.filter(
+        (u) => u.id !== found.id && u.followStatus === 'accepted',
+      ).length
+      return { ...found, followersCount, followingCount }
+    },
+  )
 
 export const getUserCourses = createServerFn({ method: 'GET' })
   .inputValidator(z.object({ userId: z.string() }))
@@ -428,5 +644,5 @@ export const getCourseClassmates = createServerFn({ method: 'GET' })
   })
 
 export const getSocialFeed = createServerFn({ method: 'GET' }).handler(async (): Promise<FeedEntry[]> => {
-  return DUMMY_FEED
+  return buildFeed()
 })

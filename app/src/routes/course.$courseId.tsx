@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { ChevronDown, Search, ThumbsDown, ThumbsUp } from 'lucide-react'
@@ -20,6 +20,7 @@ import { formatCourseCodeForDisplay } from '@/lib/course-code'
 import { renderDescriptionWithLinks } from '@/components/courses/render-description-links'
 import { getCurrentQuarter, getNextQuarter } from '@/lib/quarter-utils'
 import { getUserPlan, addPlanCourse, removePlanCourse } from '@/data/plan/plan-server'
+import { PLAN_QUERY_KEY } from '@/data/plan/plan-query-options'
 import { getCourseReaction, setCourseReaction } from '@/data/reactions/reactions-server'
 import type { ReactionType } from '@/data/reactions/reactions-server'
 import { WeeklyCalendar } from '@/components/WeeklyCalendar'
@@ -695,16 +696,8 @@ function ClassPage() {
     [subjects],
   )
 
+  const queryClient = useQueryClient()
   const [calendarKey, setCalendarKey] = useState(0)
-  const [calendarSlot, setCalendarSlot] = useState<{
-    quarter: string
-    planYear: number
-    isCourseAdded: boolean
-  }>({
-    quarter: 'Autumn',
-    planYear: new Date().getFullYear(),
-    isCourseAdded: false,
-  })
 
   const courseCodeStr = course
     ? `${course.subject_code} ${course.code_number}${course.code_suffix ?? ''}`
@@ -762,6 +755,7 @@ function ClassPage() {
         },
       })
       setCalendarKey((k) => k + 1)
+      void queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY })
     } catch (err) {
       console.error('[plan] addPlanCourse error:', err)
     }
@@ -783,6 +777,7 @@ function ClassPage() {
         if (match) {
           await removePlanCourse({ data: { courseDbId: match.dbId } })
           setCalendarKey((k) => k + 1)
+          void queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY })
           break
         }
       }
@@ -867,25 +862,6 @@ function ClassPage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        if (calendarSlot.isCourseAdded) {
-                          void handleRemoveFromQuarter(calendarSlot.quarter, calendarSlot.planYear)
-                        } else {
-                          void handleAddToQuarter(calendarSlot.quarter, calendarSlot.planYear)
-                        }
-                      }}
-                      className={`flex items-center justify-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold text-white shadow-sm transition-colors ${
-                        calendarSlot.isCourseAdded
-                          ? 'bg-slate-500 hover:bg-slate-600'
-                          : 'bg-primary hover:bg-primary-hover'
-                      }`}
-                    >
-                      {calendarSlot.isCourseAdded
-                        ? `Remove from ${calendarSlot.quarter}`
-                        : `Add to ${calendarSlot.quarter}`}
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => void handleReaction('like')}
                       disabled={reactionPending}
                       className={`flex h-9 w-9 items-center justify-center rounded-full border shadow-sm transition-colors disabled:opacity-60 ${
@@ -955,9 +931,6 @@ function ClassPage() {
             <WeeklyCalendar
               year={DEFAULT_YEAR}
               courseCode={courseCodeStr || undefined}
-              onSlotChange={(quarter, planYear, isCourseAdded) => {
-                setCalendarSlot({ quarter, planYear, isCourseAdded })
-              }}
               onAddToQuarter={
                 course
                   ? (quarter, planYear) => {
