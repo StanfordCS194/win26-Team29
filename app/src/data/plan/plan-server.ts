@@ -218,7 +218,12 @@ export const getUserPlan = createServerFn({ method: 'GET' }).handler(async (): P
     .execute()
 
   const years = courseRows.map((r) => Number(r.year))
-  const startYear = years.length > 0 ? Math.min(...years) : new Date().getFullYear()
+  // Default to current academic year start (Autumn year).
+  // Before September 22, the academic year started the previous calendar year.
+  const now = new Date()
+  const mmdd = (now.getMonth() + 1) * 100 + now.getDate()
+  const defaultStartYear = mmdd >= 922 ? now.getFullYear() : now.getFullYear() - 1
+  const startYear = years.length > 0 ? Math.min(...years) : defaultStartYear
 
   const planned: Record<string, PlanCourseData[]> = {}
   for (const row of courseRows) {

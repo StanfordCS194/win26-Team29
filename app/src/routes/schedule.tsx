@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { addPlanCourse, removePlanCourse, searchCoursesForPlan } from '@/data/plan/plan-server'
 import type { PlanSearchResult } from '@/data/plan/plan-server'
 import { planQueryOptions } from '@/data/plan/plan-query-options'
+import { userQueryOptions } from '@/data/auth'
 import { getCourseByCode } from '@/data/search/search'
 import { toCourseCodeSlug } from '@/lib/course-code'
 import { getCurrentQuarter } from '@/lib/quarter-utils'
@@ -516,6 +517,7 @@ function SchedulePage() {
 
   // Load plan via shared query (synced with plan.tsx)
   const { data: planData, isPending: loading } = useQuery(planQueryOptions)
+  const { data: authUser } = useQuery(userQueryOptions)
   const planId = planData?.planId ?? null
 
   const planCourses = useMemo<PlanCourse[]>(() => {
@@ -939,15 +941,29 @@ function SchedulePage() {
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-slate-300 bg-white/50 px-4 py-8 text-center">
-                <p className="text-sm text-slate-500">
-                  No courses planned for {quarter} {getActualYear(academicYear, quarter)}.
-                </p>
-                <Link
-                  to="/plan"
-                  className="mt-2 inline-block text-sm font-medium text-[#8C1515] underline-offset-2 hover:underline"
-                >
-                  Add courses in your plan
-                </Link>
+                {authUser == null ? (
+                  <>
+                    <p className="text-sm text-slate-500">Sign in to manage your schedule.</p>
+                    <Link
+                      to="/"
+                      className="mt-2 inline-block text-sm font-medium text-[#8C1515] underline-offset-2 hover:underline"
+                    >
+                      Sign in with Stanford
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-slate-500">
+                      No courses planned for {quarter} {getActualYear(academicYear, quarter)}.
+                    </p>
+                    <Link
+                      to="/plan"
+                      className="mt-2 inline-block text-sm font-medium text-[#8C1515] underline-offset-2 hover:underline"
+                    >
+                      Add courses in your plan
+                    </Link>
+                  </>
+                )}
               </div>
             )}
 

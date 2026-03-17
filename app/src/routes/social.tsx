@@ -347,8 +347,7 @@ function ProfileSettings() {
   }, [profile])
 
   const saveMutation = useMutation({
-    mutationFn: () =>
-      updateProfile({ data: { displayName, description, friendsOnly } }),
+    mutationFn: () => updateProfile({ data: { displayName, description, friendsOnly } }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['social', 'own-profile'] })
       setEditing(false)
@@ -363,7 +362,9 @@ function ProfileSettings() {
         <Avatar src={profile.avatarUrl} name={profile.displayName} size="lg" />
         <div className="min-w-0 flex-1">
           <h2 className="text-lg font-semibold text-[#150F21]">{profile.displayName}</h2>
-          {profile.description != null && <p className="mt-0.5 text-sm text-[#4A4557]/70">{profile.description}</p>}
+          {profile.description != null && (
+            <p className="mt-0.5 text-sm text-[#4A4557]/70">{profile.description}</p>
+          )}
           {profile.friendsOnly && (
             <span className="mt-1 inline-block rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">
               Approval required to follow
@@ -417,7 +418,12 @@ function ProfileSettings() {
         <span className="text-sm text-[#150F21]">Require approval for new followers</span>
       </label>
       <div className="flex gap-2">
-        <Button variant="default" size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => saveMutation.mutate()}
+          disabled={saveMutation.isPending}
+        >
           {saveMutation.isPending ? 'Saving...' : 'Save'}
         </Button>
         <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
@@ -433,14 +439,11 @@ function PeopleSearch() {
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const queryClient = useQueryClient()
 
-  const handleSearch = useCallback(
-    (value: string) => {
-      setQuery(value)
-      const id = setTimeout(() => setDebouncedQuery(value.trim()), 300)
-      return () => clearTimeout(id)
-    },
-    [],
-  )
+  const handleSearch = useCallback((value: string) => {
+    setQuery(value)
+    const id = setTimeout(() => setDebouncedQuery(value.trim()), 300)
+    return () => clearTimeout(id)
+  }, [])
 
   const { data: results, isPending } = useQuery(userSearchQueryOptions(debouncedQuery))
 
@@ -561,12 +564,14 @@ function SocialPage() {
       <div className="pointer-events-none absolute top-0 right-0 h-[800px] w-[800px] rounded-full bg-gradient-to-bl from-purple-300/30 via-blue-300/20 to-transparent blur-3xl" />
 
       <div className="relative z-10 mx-auto w-full max-w-2xl px-4 pt-24 pb-14">
-        <h1 className="mb-6 font-['Clash_Display'] text-5xl font-semibold tracking-tight text-[#150F21]">Social</h1>
+        <h1 className="mb-6 font-['Clash_Display'] text-5xl font-semibold tracking-tight text-[#150F21]">
+          Social
+        </h1>
 
-        <PeopleSearch />
+        <ProfileSettings />
 
         <div className="mt-8">
-          <ProfileSettings />
+          <PeopleSearch />
         </div>
 
         <div className="mt-8 flex gap-1 rounded-xl bg-white/30 p-1 backdrop-blur-sm">
