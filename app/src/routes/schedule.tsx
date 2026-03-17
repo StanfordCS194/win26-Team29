@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 import { addPlanCourse, removePlanCourse, searchCoursesForPlan } from '@/data/plan/plan-server'
 import type { PlanSearchResult } from '@/data/plan/plan-server'
 import { planQueryOptions } from '@/data/plan/plan-query-options'
@@ -10,7 +11,23 @@ import { toCourseCodeSlug } from '@/lib/course-code'
 import { getCurrentQuarter } from '@/lib/quarter-utils'
 import { SLUG_TO_QUESTION_TEXT } from '@/data/search/eval-questions'
 
-export const Route = createFileRoute('/schedule')({ component: SchedulePage })
+function getCurrentAcademicStartYear(): number {
+  const now = new Date()
+  const month = now.getMonth()
+  const date = now.getDate()
+  const onOrAfterAug25 = month > 7 || (month === 7 && date >= 25)
+  return onOrAfterAug25 ? now.getFullYear() : now.getFullYear() - 1
+}
+
+const scheduleSearchSchema = z.object({
+  year: z.coerce.number().int().optional().catch(undefined),
+  quarter: z.enum(['Autumn', 'Winter', 'Spring', 'Summer']).optional().catch(undefined),
+})
+
+export const Route = createFileRoute('/schedule')({
+  validateSearch: scheduleSearchSchema,
+  component: SchedulePage,
+})
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'] as const
 type DayKey = (typeof DAYS)[number]
@@ -474,44 +491,32 @@ type PlanCourse = { code: string; dbId: string; units: number; quarter: string; 
 
 function SchedulePage() {
   const queryClient = useQueryClient()
-
-  // Navigation state: academic year start + quarter index
-  const [academicYear, setAcademicYear] = useState(() => {
-    const now = new Date()
-    const year = now.getFullYear()
-    const month = now.getMonth()
-    const date = now.getDate()
-    const onOrAfterAug25 = month > 7 || (month === 7 && date >= 25)
-    return onOrAfterAug25 ? year : year - 1
-  })
-  const [quarterIdx, setQuarterIdx] = useState(() => {
-    const current = getCurrentQuarter()
-    const idx = QUARTERS.indexOf(current as (typeof QUARTERS)[number])
-    return idx >= 0 ? idx : 0
-  })
+  const navigate = useNavigate({ from: '/schedule' })
+  const { year: yearParam, quarter: quarterParam } = Route.useSearch()
+  const academicYear = yearParam ?? getCurrentAcademicStartYear()
+  const quarter = quarterParam ?? getCurrentQuarter()
+  const quarterIdx = QUARTERS.indexOf(quarter)
 
   const [blocks, setBlocks] = useState<ScheduleBlock[]>([])
   const [enrichedCourses, setEnrichedCourses] = useState<EnrichedCourse[]>([])
   const [sortBy, setSortBy] = useState<SortOption>('name')
   const [removingId, setRemovingId] = useState<string | null>(null)
 
-  const quarter = QUARTERS[quarterIdx]!
-
   // Navigate quarters with year rollover
   const goNext = () => {
     if (quarterIdx < QUARTERS.length - 1) {
-      setQuarterIdx(quarterIdx + 1)
+      void navigate({ search: (prev) => ({ ...prev, quarter: QUARTERS[quarterIdx + 1]! }) })
     } else {
-      setAcademicYear(academicYear + 1)
-      setQuarterIdx(0)
+      void navigate({ search: (prev) => ({ ...prev, year: academicYear + 1, quarter: QUARTERS[0]! }) })
     }
   }
   const goPrev = () => {
     if (quarterIdx > 0) {
-      setQuarterIdx(quarterIdx - 1)
+      void navigate({ search: (prev) => ({ ...prev, quarter: QUARTERS[quarterIdx - 1]! }) })
     } else {
-      setAcademicYear(academicYear - 1)
-      setQuarterIdx(QUARTERS.length - 1)
+      void navigate({
+        search: (prev) => ({ ...prev, year: academicYear - 1, quarter: QUARTERS[QUARTERS.length - 1]! }),
+      })
     }
   }
 
