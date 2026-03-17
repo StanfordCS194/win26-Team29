@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -11,10 +11,12 @@ import {
   Award,
   ChevronLeft,
   ChevronRight,
+  Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { userProfileQueryOptions, userCoursesQueryOptions } from '@/data/social/social-query-options'
-import { followUser, unfollowUser } from '@/data/social/social-server'
+import { followUser, unfollowUser, updateProfile } from '@/data/social/social-server'
 import type { UserCourse } from '@/data/social/social-server'
 import { userQueryOptions } from '@/data/auth'
 import { toCourseCodeSlug } from '@/lib/course-code'
@@ -203,14 +205,6 @@ function buildScheduleBlocks(courses: UserCourse[], quarterFilter: string): Sche
   return blocks
 }
 
-function sortQuarters(quarters: string[]): string[] {
-  return [...quarters].sort((a, b) => {
-    const [qA, yA] = a.split(' ')
-    const [qB, yB] = b.split(' ')
-    return Number(yA) - Number(yB) || QUARTER_ORDER.indexOf(qA!) - QUARTER_ORDER.indexOf(qB!)
-  })
-}
-
 // ── Calendar component ──────────────────────────────────────────────────
 
 function WeeklySchedule({
@@ -270,126 +264,102 @@ function WeeklySchedule({
         </div>
       </div>
 
-      {/* Quarter pills */}
-      <div className="flex gap-2 overflow-x-auto border-b border-white/30 bg-white/10 px-8 py-3">
-        {quarters.map((q) => (
-          <button
-            key={q}
-            onClick={() => onQuarterChange(q)}
-            className={`rounded-lg px-3 py-1 text-sm font-medium whitespace-nowrap transition-all ${
-              q === selectedQuarter
-                ? 'bg-[#150F21] text-white shadow-lg'
-                : 'bg-white/40 text-[#4A4557] hover:bg-white/60'
-            }`}
-          >
-            {q}
-          </button>
-        ))}
-      </div>
-
       {/* Calendar Grid */}
       <div className="overflow-x-auto p-4">
-        {blocks.length > 0 ? (
-          <div
-            className="relative min-w-[700px]"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '64px repeat(5, minmax(0, 1fr))',
-              gridTemplateRows: `auto repeat(${SLOT_COUNT}, ${ROW_HEIGHT}px)`,
-            }}
-          >
-            {/* Day headers */}
-            <div />
-            {DAYS.map((day) => (
+        <div
+          className="relative min-w-[700px]"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '64px repeat(5, minmax(0, 1fr))',
+            gridTemplateRows: `auto repeat(${SLOT_COUNT}, ${ROW_HEIGHT}px)`,
+          }}
+        >
+          {/* Day headers */}
+          <div />
+          {DAYS.map((day) => (
+            <div
+              key={day}
+              className="border-b border-white/30 pb-3 text-center text-sm font-bold tracking-wider text-[#150F21]"
+            >
+              {day.toUpperCase()}
+            </div>
+          ))}
+
+          {/* Time labels */}
+          {Array.from({ length: SLOT_COUNT }, (_, i) => (
+            <div key={`time-${i}`} style={{ gridRow: i + 2, gridColumn: 1 }} className="pr-3 text-right">
+              <span className="-mt-2 block text-[11px] font-medium text-[#4A4557]/60">{slotLabel(i)}</span>
+            </div>
+          ))}
+
+          {/* Grid lines */}
+          {Array.from({ length: SLOT_COUNT }, (_, i) =>
+            DAYS.map((day, di) => (
               <div
-                key={day}
-                className="border-b border-white/30 pb-3 text-center text-sm font-bold tracking-wider text-[#150F21]"
-              >
-                {day.toUpperCase()}
-              </div>
-            ))}
+                key={`grid-${day}-${i}`}
+                style={{ gridRow: i + 2, gridColumn: di + 2 }}
+                className="border-t border-dashed border-[#150F21]/8"
+              />
+            )),
+          )}
 
-            {/* Time labels */}
-            {Array.from({ length: SLOT_COUNT }, (_, i) => (
-              <div key={`time-${i}`} style={{ gridRow: i + 2, gridColumn: 1 }} className="pr-3 text-right">
-                <span className="-mt-2 block text-[11px] font-medium text-[#4A4557]/60">{slotLabel(i)}</span>
-              </div>
-            ))}
+          {/* Course blocks */}
+          {DAYS.map((day, di) => {
+            const dayBlocks = blocksByDay.get(day) ?? []
+            return dayBlocks.map((block, bi) => {
+              const top = ((block.startMin - START_MIN) / SLOT_MINUTES) * ROW_HEIGHT
+              const height = ((block.endMin - block.startMin) / SLOT_MINUTES) * ROW_HEIGHT
+              const color = BLOCK_COLORS[block.colorIdx % BLOCK_COLORS.length]!
+              const leftPct = (block.column / block.totalColumns) * 100
+              const widthPct = (1 / block.totalColumns) * 100
 
-            {/* Grid lines */}
-            {Array.from({ length: SLOT_COUNT }, (_, i) =>
-              DAYS.map((day, di) => (
+              const parsed = parseCourseCodeStr(block.code)
+              const slug = parsed ? toCourseCodeSlug(parsed) : block.code.replace(/\s+/g, '-').toLowerCase()
+
+              return (
                 <div
-                  key={`grid-${day}-${i}`}
-                  style={{ gridRow: i + 2, gridColumn: di + 2 }}
-                  className="border-t border-dashed border-[#150F21]/8"
-                />
-              )),
-            )}
-
-            {/* Course blocks */}
-            {DAYS.map((day, di) => {
-              const dayBlocks = blocksByDay.get(day) ?? []
-              return dayBlocks.map((block, bi) => {
-                const top = ((block.startMin - START_MIN) / SLOT_MINUTES) * ROW_HEIGHT
-                const height = ((block.endMin - block.startMin) / SLOT_MINUTES) * ROW_HEIGHT
-                const color = BLOCK_COLORS[block.colorIdx % BLOCK_COLORS.length]!
-                const leftPct = (block.column / block.totalColumns) * 100
-                const widthPct = (1 / block.totalColumns) * 100
-
-                const parsed = parseCourseCodeStr(block.code)
-                const slug = parsed ? toCourseCodeSlug(parsed) : block.code.replace(/\s+/g, '-').toLowerCase()
-
-                return (
-                  <div
-                    key={`${block.code}-${day}-${bi}`}
+                  key={`${block.code}-${day}-${bi}`}
+                  style={{
+                    gridRow: '2 / -1',
+                    gridColumn: di + 2,
+                    position: 'relative',
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <Link
+                    to="/course/$courseId"
+                    params={{ courseId: slug }}
+                    className="group absolute flex flex-col items-start justify-center overflow-hidden rounded-lg px-2 py-1 transition-all hover:brightness-95"
                     style={{
-                      gridRow: '2 / -1',
-                      gridColumn: di + 2,
-                      position: 'relative',
+                      top: `${top}px`,
+                      height: `${height}px`,
+                      left: `calc(${leftPct}% + 2px)`,
+                      width: `calc(${widthPct}% - 4px)`,
+                      backgroundColor: color.bg,
+                      borderLeft: `4px solid ${color.border}`,
+                      pointerEvents: 'auto',
                     }}
                   >
-                    <Link
-                      to="/course/$courseId"
-                      params={{ courseId: slug }}
-                      className="group absolute cursor-pointer overflow-hidden rounded-lg p-2.5 transition-all hover:brightness-95"
-                      style={{
-                        top: `${top}px`,
-                        height: `${height}px`,
-                        left: `calc(${leftPct}% + 2px)`,
-                        width: `calc(${widthPct}% - 4px)`,
-                        backgroundColor: color.bg,
-                        borderLeft: `4px solid ${color.border}`,
-                      }}
+                    <div
+                      className="text-xs leading-tight font-bold group-hover:underline"
+                      style={{ color: color.text }}
                     >
-                      <div className="text-xs font-bold group-hover:underline" style={{ color: color.text }}>
-                        {block.code}
+                      {block.code}
+                    </div>
+                    {height > 55 && block.location != null && (
+                      <div
+                        className="mt-1 inline-block rounded bg-white/50 px-1.5 py-0.5 text-[10px] font-bold"
+                        style={{ color: color.text }}
+                      >
+                        {block.location}
                       </div>
-                      {height > 40 && (
-                        <div className="mt-0.5 text-[10px] opacity-80" style={{ color: color.text }}>
-                          {block.title}
-                        </div>
-                      )}
-                      {height > 55 && block.location != null && (
-                        <div
-                          className="mt-1.5 inline-block rounded bg-white/50 px-1.5 py-0.5 text-[10px] font-bold"
-                          style={{ color: color.text }}
-                        >
-                          {block.location}
-                        </div>
-                      )}
-                    </Link>
-                  </div>
-                )
-              })
-            })}
-          </div>
-        ) : (
-          <div className="py-12 text-center">
-            <BookOpen className="mx-auto mb-3 h-10 w-10 text-[#4A4557]/30" />
-            <p className="text-sm text-[#4A4557]/60">No courses scheduled this quarter.</p>
-          </div>
-        )}
+                    )}
+                  </Link>
+                </div>
+              )
+            })
+          })}
+        </div>
       </div>
     </div>
   )
@@ -406,11 +376,50 @@ function ProfilePage() {
 
   const isOwnProfile = authUser?.id === userId
 
-  // Derive sorted quarters from course data
+  // ── Inline edit state ──
+  const [editing, setEditing] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editFriendsOnly, setEditFriendsOnly] = useState(false)
+
+  const startEdit = useCallback(() => {
+    if (profile) {
+      setEditName(profile.displayName)
+      setEditDescription(profile.description ?? '')
+      setEditFriendsOnly(profile.friendsOnly)
+    }
+    setEditing(true)
+  }, [profile])
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      updateProfile({
+        data: { displayName: editName, description: editDescription, friendsOnly: editFriendsOnly },
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['social'] })
+      setEditing(false)
+    },
+  })
+
+  // Derive all quarters spanning the full year range of the user's courses
   const quarters = useMemo(() => {
-    if (!courses) return []
-    const unique = [...new Set(courses.map((c) => `${c.quarter} ${c.year}`))]
-    return sortQuarters(unique)
+    if (!courses || courses.length === 0) {
+      // Default to current academic year when no courses exist
+      const now = new Date()
+      const year = now.getFullYear()
+      return QUARTER_ORDER.map((q) => `${q} ${year}`)
+    }
+    const years = courses.map((c) => c.year)
+    const minYear = Math.min(...years)
+    const maxYear = Math.max(...years)
+    const all: string[] = []
+    for (let y = minYear; y <= maxYear; y++) {
+      for (const q of QUARTER_ORDER) {
+        all.push(`${q} ${y}`)
+      }
+    }
+    return all
   }, [courses])
 
   // Default to most recent quarter
@@ -459,22 +468,10 @@ function ProfilePage() {
     )
   }
 
-  // Compute stats
-  const totalUnits = courses ? courses.reduce((sum, c) => sum + c.units, 0) : 0
-  const computedAvgUnits = quarters.length > 0 ? (totalUnits / quarters.length).toFixed(1) : '0'
-  const avgUnits = userId === 'dummy-2' ? '16.8' : computedAvgUnits
-
-  // Weekly hours for the selected quarter
+  // Compute stats for the selected quarter
   const quarterCourses = courses?.filter((c) => `${c.quarter} ${c.year}` === activeQuarter) ?? []
-  const computedWeeklyHours = quarterCourses.reduce((sum, c) => {
-    for (const sched of c.schedule) {
-      const start = parseTime(sched.startTime)
-      const end = parseTime(sched.endTime)
-      sum += ((end - start) / 60) * sched.days.length
-    }
-    return sum
-  }, 0)
-  const weeklyHours = userId === 'dummy-2' ? 47.5 : computedWeeklyHours
+  const quarterUnits = quarterCourses.reduce((sum, c) => sum + c.units, 0)
+  const weeklyHours = quarterCourses.reduce((sum, c) => sum + (c.averageHoursPerWeek ?? 0), 0)
 
   return (
     <div
@@ -553,14 +550,12 @@ function ProfilePage() {
                 </div>
               )}
 
-              {isOwnProfile && (
+              {isOwnProfile && !editing && (
                 <div className="pt-1">
-                  <Link
-                    to="/social"
-                    className="inline-flex h-7 items-center justify-center gap-1 rounded-[min(var(--radius-md),12px)] border border-border bg-background px-2.5 text-[0.8rem] font-medium whitespace-nowrap transition-all hover:bg-muted hover:text-foreground"
-                  >
+                  <Button variant="outline" size="sm" onClick={startEdit}>
+                    <Pencil className="mr-1.5 h-3.5 w-3.5" />
                     Edit Profile
-                  </Link>
+                  </Button>
                 </div>
               )}
             </div>
@@ -571,10 +566,12 @@ function ProfilePage() {
             <div className="w-40 cursor-default rounded-2xl border border-white/50 bg-white/40 p-5 backdrop-blur-xl transition-all hover:bg-white/50">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold tracking-wider text-[#4A4557] uppercase">
                 <Award className="h-4 w-4 text-[#8C1515]" />
-                <span>Avg Units</span>
+                <span>Units</span>
               </div>
-              <div className="font-['Clash_Display'] text-4xl font-semibold text-[#150F21]">{avgUnits}</div>
-              <span className="text-xs text-[#4A4557]">per quarter</span>
+              <div className="font-['Clash_Display'] text-4xl font-semibold text-[#150F21]">
+                {quarterUnits}
+              </div>
+              <span className="text-xs text-[#4A4557]">this quarter</span>
             </div>
 
             <div className="w-40 cursor-default rounded-2xl border border-white/50 bg-white/40 p-5 backdrop-blur-xl transition-all hover:bg-white/50">
@@ -585,10 +582,59 @@ function ProfilePage() {
               <div className="font-['Clash_Display'] text-4xl font-semibold text-[#150F21]">
                 {weeklyHours.toFixed(1)}
               </div>
-              <span className="text-xs text-[#4A4557]">class time</span>
+              <span className="text-xs text-[#4A4557]">avg per week</span>
             </div>
           </div>
         </div>
+
+        {/* Inline Edit Form */}
+        {isOwnProfile && editing && (
+          <div className="mb-12 space-y-4 rounded-2xl border border-white/50 bg-white/40 p-6 shadow-sm backdrop-blur-xl">
+            <h3 className="font-['Clash_Display'] text-lg font-semibold text-[#150F21]">Edit Profile</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="edit-name" className="mb-1 block text-sm font-medium text-[#150F21]">
+                  Display Name
+                </label>
+                <Input
+                  id="edit-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  maxLength={100}
+                />
+              </div>
+              <div>
+                <label htmlFor="edit-bio" className="mb-1 block text-sm font-medium text-[#150F21]">
+                  Bio
+                </label>
+                <Input
+                  id="edit-bio"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  placeholder="Tell people about yourself..."
+                  maxLength={500}
+                />
+              </div>
+            </div>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="checkbox"
+                checked={editFriendsOnly}
+                onChange={(e) => setEditFriendsOnly(e.target.checked)}
+                className="rounded border-[#4A4557]/30"
+              />
+              <span className="text-sm text-[#150F21]">Require approval for new followers</span>
+            </label>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+                {saveMutation.isPending ? 'Saving...' : 'Save Changes'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Calendar Section */}
         {courses && courses.length > 0 && activeQuarter ? (

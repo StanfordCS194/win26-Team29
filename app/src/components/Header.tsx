@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useRouter, useSearch } from '@tanstack/react-router'
-import { Loader2, LogOut, User } from 'lucide-react'
+import { Loader2, LogOut, User, UserCircle } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { signInWithGoogle, signOut, userQueryOptions } from '@/data/auth'
@@ -107,6 +107,12 @@ export default function Header() {
                 <DropdownMenuItem disabled className="text-muted-foreground">
                   {user.email}
                 </DropdownMenuItem>
+                <Link to="/profile/$userId" params={{ userId: user.id }}>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <UserCircle className="mr-2 size-4" />
+                    My Profile
+                  </DropdownMenuItem>
+                </Link>
                 <DropdownMenuItem
                   variant="destructive"
                   onClick={(e) => {
