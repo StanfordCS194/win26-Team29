@@ -363,14 +363,14 @@ function DroppableZone({
 // ── WAYS requirement definitions ─────────────────────────────────────────────
 
 const WAYS_REQUIREMENTS = [
-  { code: 'WAY-A-II', label: 'A-II', title: 'Aesthetic & Interpretive Inquiry', required: 6 },
-  { code: 'WAY-AQR', label: 'AQR', title: 'Applied Quantitative Reasoning', required: 3 },
-  { code: 'WAY-CE', label: 'CE', title: 'Creative Expression', required: 2 },
-  { code: 'WAY-EDP', label: 'EDP', title: 'Engaging Diversity', required: 3 },
-  { code: 'WAY-ER', label: 'ER', title: 'Ethical Reasoning', required: 3 },
-  { code: 'WAY-FR', label: 'FR', title: 'Formal Reasoning', required: 3 },
-  { code: 'WAY-SI', label: 'SI', title: 'Social Inquiry', required: 6 },
-  { code: 'WAY-SMA', label: 'SMA', title: 'Science, Math & Application', required: 6 },
+  { code: 'WAY-A-II', label: 'A-II', title: 'Aesthetic & Interpretive Inquiry', required: 2 },
+  { code: 'WAY-AQR', label: 'AQR', title: 'Applied Quantitative Reasoning', required: 1 },
+  { code: 'WAY-CE', label: 'CE', title: 'Creative Expression', required: 1 },
+  { code: 'WAY-EDP', label: 'EDP', title: 'Engaging Diversity', required: 1 },
+  { code: 'WAY-ER', label: 'ER', title: 'Ethical Reasoning', required: 1 },
+  { code: 'WAY-FR', label: 'FR', title: 'Formal Reasoning', required: 1 },
+  { code: 'WAY-SI', label: 'SI', title: 'Social Inquiry', required: 2 },
+  { code: 'WAY-SMA', label: 'SMA', title: 'Science, Math & Application', required: 2 },
 ] as const
 
 type GerEntry = { gers: string[]; subjectCode: string; codeNumber: number }
@@ -482,20 +482,14 @@ function RequirementsPanel({
     return map
   }, [planned, coursesGers])
 
-  // Units per WAY = sum of units from courses attributed to that WAY
+  // Courses per WAY = count of courses attributed to that WAY
   const waysEarned = useMemo(() => {
-    const unitsByCode = new Map<string, number>()
-    for (const courses of Object.values(planned)) {
-      for (const c of courses) {
-        if (!unitsByCode.has(c.code)) unitsByCode.set(c.code, c.units)
-      }
-    }
     const totals: Record<string, number> = {}
-    for (const [code, wayCode] of Object.entries(courseAttribution)) {
-      totals[wayCode] = (totals[wayCode] ?? 0) + (unitsByCode.get(code) ?? 0)
+    for (const wayCode of Object.values(courseAttribution)) {
+      totals[wayCode] = (totals[wayCode] ?? 0) + 1
     }
     return totals
-  }, [courseAttribution, planned])
+  }, [courseAttribution])
 
   // PWR 1: any planned course with code matching PWR 1XX; PWR 2: PWR 2XX
   const allPlannedCodes = useMemo(
@@ -554,7 +548,7 @@ function RequirementsPanel({
             const done = earned >= w.required
             const pct = Math.min((earned / w.required) * 100, 100)
             return (
-              <div key={w.code} title={`${w.title}: ${earned}/${w.required} units`}>
+              <div key={w.code} title={`${w.title}: ${earned}/${w.required} courses`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <div
@@ -569,7 +563,7 @@ function RequirementsPanel({
                     </span>
                   </div>
                   <span className={`text-[10px] tabular-nums ${done ? 'text-emerald-600' : 'text-red-400'}`}>
-                    {earned}/{w.required}u
+                    {earned}/{w.required}
                   </span>
                 </div>
                 {!done && earned > 0 && (
@@ -597,11 +591,7 @@ function RequirementsPanel({
                             setUserOverrides(next)
                             persistOverrides(next)
                           }}
-                          title={
-                            isActive
-                              ? `${c.code} counts here (${c.units}u)`
-                              : `Click to count ${c.code} here instead (${c.units}u)`
-                          }
+                          title={isActive ? `${c.code} counts here` : `Click to count ${c.code} here instead`}
                           className={`rounded px-1 py-0.5 text-[9px] tabular-nums transition ${
                             isActive
                               ? done
