@@ -150,6 +150,7 @@ export function parsedCourseToUploadCourseOffering(
       max_units_repeat: parsed.administrativeInformation.maxUnitsRepeat,
       offer_number: parsed.administrativeInformation.offerNumber,
       repeatable: parsed.repeatable,
+      review_text: null,
       schedule_print: parsed.administrativeInformation.schedulePrint,
       subject_id,
       title: parsed.title,
