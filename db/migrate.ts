@@ -17,7 +17,12 @@ if (connectionString == null || connectionString === '') {
 
 const sql = postgres(connectionString, { max: 1 })
 
-const migrations = ['001_add_vector_embeddings.sql', '002_add_course_reactions.sql']
+const migrations = [
+  '001_add_vector_embeddings.sql',
+  '002_add_course_reactions.sql',
+  '003_add_way_overrides.sql',
+  '004_add_avatar_url_to_users.sql',
+]
 
 for (const file of migrations) {
   const filePath = join(import.meta.dir, 'migrations', file)

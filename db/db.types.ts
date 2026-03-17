@@ -936,6 +936,7 @@ export interface UserCourseCollections {
 }
 
 export interface Users {
+  avatar_url: string | null
   created_at: Generated<Temporal.Instant>
   description: string | null
   display_name: string
