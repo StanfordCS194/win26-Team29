@@ -20,11 +20,8 @@ function getCurrentAcademicStartYear(): number {
 }
 
 const scheduleSearchSchema = z.object({
-  year: z.coerce
-    .number()
-    .int()
-    .catch(() => getCurrentAcademicStartYear()),
-  quarter: z.enum(['Autumn', 'Winter', 'Spring', 'Summer']).catch(() => getCurrentQuarter()),
+  year: z.coerce.number().int().optional().catch(undefined),
+  quarter: z.enum(['Autumn', 'Winter', 'Spring', 'Summer']).optional().catch(undefined),
 })
 
 export const Route = createFileRoute('/schedule')({
@@ -495,7 +492,9 @@ type PlanCourse = { code: string; dbId: string; units: number; quarter: string; 
 function SchedulePage() {
   const queryClient = useQueryClient()
   const navigate = useNavigate({ from: '/schedule' })
-  const { year: academicYear, quarter } = Route.useSearch()
+  const { year: yearParam, quarter: quarterParam } = Route.useSearch()
+  const academicYear = yearParam ?? getCurrentAcademicStartYear()
+  const quarter = quarterParam ?? getCurrentQuarter()
   const quarterIdx = QUARTERS.indexOf(quarter)
 
   const [blocks, setBlocks] = useState<ScheduleBlock[]>([])
@@ -508,7 +507,7 @@ function SchedulePage() {
     if (quarterIdx < QUARTERS.length - 1) {
       void navigate({ search: (prev) => ({ ...prev, quarter: QUARTERS[quarterIdx + 1]! }) })
     } else {
-      void navigate({ search: (prev) => ({ ...prev, year: prev.year + 1, quarter: QUARTERS[0]! }) })
+      void navigate({ search: (prev) => ({ ...prev, year: academicYear + 1, quarter: QUARTERS[0]! }) })
     }
   }
   const goPrev = () => {
@@ -516,7 +515,7 @@ function SchedulePage() {
       void navigate({ search: (prev) => ({ ...prev, quarter: QUARTERS[quarterIdx - 1]! }) })
     } else {
       void navigate({
-        search: (prev) => ({ ...prev, year: prev.year - 1, quarter: QUARTERS[QUARTERS.length - 1]! }),
+        search: (prev) => ({ ...prev, year: academicYear - 1, quarter: QUARTERS[QUARTERS.length - 1]! }),
       })
     }
   }
