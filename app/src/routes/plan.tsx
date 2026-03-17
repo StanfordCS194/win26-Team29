@@ -174,6 +174,7 @@ const INITIAL_PLANNED: Record<string, PlannedCourse[]> = {}
 // Drag-and-drop: payload and drop id helpers
 type DragSource =
   | { type: 'global' }
+  | { type: 'search' }
   | { type: 'planned'; yearIndex: number; term: TermKey }
   | { type: 'stash'; yearIndex: number; term: TermKey }
 function plannedDropId(yearIndex: number, term: TermKey) {
@@ -198,6 +199,56 @@ function DeleteDropZone({ isDragging }: { isDragging: boolean }) {
       <Trash2 className={`transition-transform duration-150 ${isOver ? 'size-4 scale-110' : 'size-3.5'}`} />
       <span>{isOver ? 'Release to remove' : isDragging ? 'Drop to remove' : 'Drag here to remove'}</span>
     </div>
+  )
+}
+
+function DraggableSearchResult({ result }: { result: PlanSearchResult }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `search-${result.code}`,
+    data: {
+      course: { code: result.code, title: result.title, units: result.unitsMax },
+      source: { type: 'search' } satisfies DragSource,
+    },
+  })
+  const parts = result.code.match(/^([A-Za-z]+(?:\s[A-Za-z]+)?)\s+(\d+)([A-Za-z]*)$/)
+  const courseId = parts
+    ? toCourseCodeSlug({
+        subjectCode: parts[1]!,
+        codeNumber: parseInt(parts[2]!, 10),
+        codeSuffix: parts[3] || null,
+      })
+    : result.code.replace(' ', '').toLowerCase()
+
+  return (
+    <li
+      ref={setNodeRef}
+      className={`flex flex-col gap-1 rounded-lg bg-slate-50 px-2 py-1.5 text-xs ${isDragging ? 'opacity-50' : ''}`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          <span
+            {...listeners}
+            {...attributes}
+            className="-ml-0.5 cursor-grab touch-none p-0.5 text-slate-300 active:cursor-grabbing"
+            aria-hidden
+          >
+            <GripVertical className="size-3" />
+          </span>
+          <Link
+            to="/course/$courseId"
+            params={{ courseId }}
+            className="font-medium text-slate-800 transition hover:text-[#8C1515]"
+          >
+            {result.code}
+          </Link>
+        </div>
+        <span className="text-[10px] text-slate-400">
+          {result.unitsMin === result.unitsMax ? result.unitsMin : `${result.unitsMin}–${result.unitsMax}`}{' '}
+          units
+        </span>
+      </div>
+      <p className="truncate text-[10px] text-slate-500">{result.title}</p>
+    </li>
   )
 }
 
@@ -312,14 +363,14 @@ function DroppableZone({
 // ── WAYS requirement definitions ─────────────────────────────────────────────
 
 const WAYS_REQUIREMENTS = [
-  { code: 'WAY-A-II', label: 'A-II', title: 'Aesthetic & Interpretive Inquiry', required: 6 },
-  { code: 'WAY-AQR', label: 'AQR', title: 'Applied Quantitative Reasoning', required: 3 },
-  { code: 'WAY-CE', label: 'CE', title: 'Creative Expression', required: 2 },
-  { code: 'WAY-EDP', label: 'EDP', title: 'Engaging Diversity', required: 3 },
-  { code: 'WAY-ER', label: 'ER', title: 'Ethical Reasoning', required: 3 },
-  { code: 'WAY-FR', label: 'FR', title: 'Formal Reasoning', required: 3 },
-  { code: 'WAY-SI', label: 'SI', title: 'Social Inquiry', required: 6 },
-  { code: 'WAY-SMA', label: 'SMA', title: 'Science, Math & Application', required: 6 },
+  { code: 'WAY-A-II', label: 'A-II', title: 'Aesthetic & Interpretive Inquiry', required: 2 },
+  { code: 'WAY-AQR', label: 'AQR', title: 'Applied Quantitative Reasoning', required: 1 },
+  { code: 'WAY-CE', label: 'CE', title: 'Creative Expression', required: 1 },
+  { code: 'WAY-EDP', label: 'EDP', title: 'Engaging Diversity', required: 1 },
+  { code: 'WAY-ER', label: 'ER', title: 'Ethical Reasoning', required: 1 },
+  { code: 'WAY-FR', label: 'FR', title: 'Formal Reasoning', required: 1 },
+  { code: 'WAY-SI', label: 'SI', title: 'Social Inquiry', required: 2 },
+  { code: 'WAY-SMA', label: 'SMA', title: 'Science, Math & Application', required: 2 },
 ] as const
 
 type GerEntry = { gers: string[]; subjectCode: string; codeNumber: number }
@@ -431,20 +482,14 @@ function RequirementsPanel({
     return map
   }, [planned, coursesGers])
 
-  // Units per WAY = sum of units from courses attributed to that WAY
+  // Courses per WAY = count of courses attributed to that WAY
   const waysEarned = useMemo(() => {
-    const unitsByCode = new Map<string, number>()
-    for (const courses of Object.values(planned)) {
-      for (const c of courses) {
-        if (!unitsByCode.has(c.code)) unitsByCode.set(c.code, c.units)
-      }
-    }
     const totals: Record<string, number> = {}
-    for (const [code, wayCode] of Object.entries(courseAttribution)) {
-      totals[wayCode] = (totals[wayCode] ?? 0) + (unitsByCode.get(code) ?? 0)
+    for (const wayCode of Object.values(courseAttribution)) {
+      totals[wayCode] = (totals[wayCode] ?? 0) + 1
     }
     return totals
-  }, [courseAttribution, planned])
+  }, [courseAttribution])
 
   // PWR 1: any planned course with code matching PWR 1XX; PWR 2: PWR 2XX
   const allPlannedCodes = useMemo(
@@ -503,7 +548,7 @@ function RequirementsPanel({
             const done = earned >= w.required
             const pct = Math.min((earned / w.required) * 100, 100)
             return (
-              <div key={w.code} title={`${w.title}: ${earned}/${w.required} units`}>
+              <div key={w.code} title={`${w.title}: ${earned}/${w.required} courses`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <div
@@ -518,7 +563,7 @@ function RequirementsPanel({
                     </span>
                   </div>
                   <span className={`text-[10px] tabular-nums ${done ? 'text-emerald-600' : 'text-red-400'}`}>
-                    {earned}/{w.required}u
+                    {earned}/{w.required}
                   </span>
                 </div>
                 {!done && earned > 0 && (
@@ -546,11 +591,7 @@ function RequirementsPanel({
                             setUserOverrides(next)
                             persistOverrides(next)
                           }}
-                          title={
-                            isActive
-                              ? `${c.code} counts here (${c.units}u)`
-                              : `Click to count ${c.code} here instead (${c.units}u)`
-                          }
+                          title={isActive ? `${c.code} counts here` : `Click to count ${c.code} here instead`}
                           className={`rounded px-1 py-0.5 text-[9px] tabular-nums transition ${
                             isActive
                               ? done
@@ -869,7 +910,9 @@ function PlanPage() {
 
   const [searchResults, setSearchResults] = useState<PlanSearchResult[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
+  const [selectedIdx, setSelectedIdx] = useState(0)
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const selectedItemRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const q = searchQuery.trim()
@@ -881,7 +924,10 @@ function PlanPage() {
     searchTimerRef.current = setTimeout(() => {
       setSearchLoading(true)
       searchCoursesForPlan({ data: { query: q } })
-        .then(setSearchResults)
+        .then((results) => {
+          setSearchResults(results)
+          setSelectedIdx(0)
+        })
         .catch(() => setSearchResults([]))
         .finally(() => setSearchLoading(false))
     }, 300)
@@ -889,6 +935,10 @@ function PlanPage() {
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
     }
   }, [searchQuery])
+
+  useEffect(() => {
+    selectedItemRef.current?.scrollIntoView({ block: 'nearest' })
+  }, [selectedIdx])
 
   const [activeId, setActiveId] = useState<string | null>(null)
   const sensors = useSensors(
@@ -927,6 +977,8 @@ function PlanPage() {
       } else if (source.type === 'stash') {
         removeFromQuarterStash(source.yearIndex, source.term, course.code)
         addToGlobalStash(course)
+      } else if (source.type === 'search') {
+        addToGlobalStash(course)
       }
       return
     }
@@ -934,7 +986,9 @@ function PlanPage() {
     if (plannedMatch) {
       const y = Number(plannedMatch[1])
       const t = plannedMatch[2] as TermKey
-      if (source.type === 'global') {
+      if (source.type === 'search') {
+        addToPlanned(y, t, course)
+      } else if (source.type === 'global') {
         removeFromGlobalStash(course.code)
         addToPlanned(y, t, course)
       } else if (source.type === 'stash') {
@@ -965,6 +1019,9 @@ function PlanPage() {
 
   const activeCourse = (() => {
     if (activeId === null) return null
+    for (const c of searchResults)
+      if (`search-${c.code}` === activeId)
+        return { course: { code: c.code, title: c.title, units: c.unitsMax }, variant: 'global' as const }
     for (const c of globalStash)
       if (`global-${c.code}` === activeId) return { course: c, variant: 'global' as const }
     for (let yi = 0; yi < planSpan; yi++)
@@ -1015,33 +1072,33 @@ function PlanPage() {
                   placeholder="Course code or name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (searchResults.length === 0) return
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault()
+                      setSelectedIdx((i) => Math.min(i + 1, searchResults.length - 1))
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault()
+                      setSelectedIdx((i) => Math.max(i - 1, 0))
+                    } else if (e.key === 'Enter') {
+                      e.preventDefault()
+                      const c = searchResults[selectedIdx]!
+                      addToGlobalStash({ code: c.code, title: c.title, units: c.unitsMax })
+                    }
+                  }}
                   className="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:ring-1 focus:ring-primary/20 focus:outline-none"
                 />
                 {searchLoading && <p className="mt-2 text-xs text-slate-400">Searching…</p>}
                 {!searchLoading && searchResults.length > 0 && (
-                  <ul className="mt-2 space-y-1">
-                    {searchResults.map((c) => (
-                      <li
+                  <ul className="mt-2 max-h-64 space-y-1 overflow-y-auto">
+                    {searchResults.map((c, i) => (
+                      <div
                         key={c.code}
-                        className="flex flex-col gap-1 rounded-lg bg-slate-50 px-2 py-1.5 text-xs"
+                        ref={i === selectedIdx ? selectedItemRef : null}
+                        className={`rounded-lg outline-2 -outline-offset-2 outline-transparent ${i === selectedIdx ? 'outline-[#8C1515]' : ''}`}
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-medium text-slate-800">{c.code}</span>
-                          <span className="text-[10px] text-slate-400">
-                            {c.unitsMin === c.unitsMax ? c.unitsMin : `${c.unitsMin}–${c.unitsMax}`} units
-                          </span>
-                        </div>
-                        <p className="truncate text-[10px] text-slate-500">{c.title}</p>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            addToGlobalStash({ code: c.code, title: c.title, units: c.unitsMax })
-                          }
-                          className="mt-0.5 w-full rounded bg-[#8C1515] px-2 py-0.5 text-[10px] text-white hover:bg-[#7A1212]"
-                        >
-                          + Stash
-                        </button>
-                      </li>
+                        <DraggableSearchResult result={c} />
+                      </div>
                     ))}
                   </ul>
                 )}
