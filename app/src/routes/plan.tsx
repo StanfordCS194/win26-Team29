@@ -28,6 +28,7 @@ import {
   getCoursesGers,
   updateWayOverrides,
   type PlanSearchResult,
+  type GerEntry,
 } from '@/data/plan/plan-server'
 import { planQueryOptions } from '@/data/plan/plan-query-options'
 import { userQueryOptions } from '@/data/auth'
@@ -222,7 +223,7 @@ function DraggableSearchResult({ result }: { result: PlanSearchResult }) {
   return (
     <li
       ref={setNodeRef}
-      className={`flex flex-col gap-1 rounded-lg bg-slate-50 px-2 py-1.5 text-xs ${isDragging ? 'opacity-50' : ''}`}
+      className={`flex flex-col gap-1 rounded-lg bg-slate-50 px-2 py-1.5 text-xs transition-opacity duration-300 ${isDragging ? 'opacity-25' : 'opacity-100'}`}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
@@ -373,7 +374,11 @@ const WAYS_REQUIREMENTS = [
   { code: 'WAY-SMA', label: 'SMA', title: 'Science, Math & Application', required: 2 },
 ] as const
 
-type GerEntry = { gers: string[]; subjectCode: string; codeNumber: number }
+/** Converts a quarter key like "2024-Autumn" to the DB academic year string "2024-2025". */
+function quarterKeyToDbYear(key: string): string {
+  const calYear = parseInt(key.split('-')[0]!, 10)
+  return `${calYear}-${calYear + 1}`
+}
 
 function RequirementsPanel({
   totalUnits,
@@ -384,7 +389,7 @@ function RequirementsPanel({
   onWayOverridesChange,
 }: {
   totalUnits: number
-  coursesGers: Record<string, GerEntry>
+  coursesGers: Record<string, Record<string, GerEntry>>
   planned: Record<string, PlannedCourse[]>
   planId: string | null
   savedWayOverrides: Record<string, string>
@@ -394,11 +399,12 @@ function RequirementsPanel({
   const defaultAttribution = useMemo(() => {
     const result: Record<string, string> = {}
     const seen = new Set<string>()
-    for (const courses of Object.values(planned)) {
+    for (const [key, courses] of Object.entries(planned)) {
+      const dbYear = quarterKeyToDbYear(key)
       for (const c of courses) {
         if (seen.has(c.code)) continue
         seen.add(c.code)
-        const entry = coursesGers[c.code]
+        const entry = coursesGers[dbYear]?.[c.code]
         if (entry == null) continue
         const firstWay = WAYS_REQUIREMENTS.find((w) => entry.gers.includes(w.code))
         if (firstWay) result[c.code] = firstWay.code
@@ -452,30 +458,44 @@ function RequirementsPanel({
   }, [allPlannedCodesSet])
 
   // Effective attribution = defaults merged with valid user overrides
+  // Build a reverse map from courseCode → dbYear so override validation can look up the right year.
+  const courseDbYearMap = useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const [key, courses] of Object.entries(planned)) {
+      const dbYear = quarterKeyToDbYear(key)
+      for (const c of courses) {
+        if (!(c.code in map)) map[c.code] = dbYear
+      }
+    }
+    return map
+  }, [planned])
+
   const courseAttribution = useMemo(() => {
     const result: Record<string, string> = { ...defaultAttribution }
     for (const [code, wayCode] of Object.entries(userOverrides)) {
-      const entry = coursesGers[code]
-      if (defaultAttribution[code] !== undefined && entry?.gers.includes(wayCode)) {
+      const dbYear = courseDbYearMap[code]
+      const entry = dbYear != null ? coursesGers[dbYear]?.[code] : undefined
+      if (defaultAttribution[code] !== undefined && entry != null && entry.gers.includes(wayCode)) {
         result[code] = wayCode
       }
     }
     return result
-  }, [defaultAttribution, userOverrides, coursesGers])
+  }, [defaultAttribution, userOverrides, coursesGers, courseDbYearMap])
 
   // All courses qualifying for each WAY (for display — may exceed unit threshold)
   const waysQualifying = useMemo(() => {
-    const map: Record<string, { code: string; units: number }[]> = {}
+    const map: Record<string, { code: string; units: number; dbYear: string }[]> = {}
     for (const w of WAYS_REQUIREMENTS) map[w.code] = []
     const seen = new Set<string>()
-    for (const courses of Object.values(planned)) {
+    for (const [key, courses] of Object.entries(planned)) {
+      const dbYear = quarterKeyToDbYear(key)
       for (const c of courses) {
         if (seen.has(c.code)) continue
         seen.add(c.code)
-        const entry = coursesGers[c.code]
+        const entry = coursesGers[dbYear]?.[c.code]
         if (entry == null) continue
         for (const w of WAYS_REQUIREMENTS) {
-          if (entry.gers.includes(w.code)) map[w.code]!.push({ code: c.code, units: c.units })
+          if (entry.gers.includes(w.code)) map[w.code]!.push({ code: c.code, units: c.units, dbYear })
         }
       }
     }
@@ -502,21 +522,30 @@ function RequirementsPanel({
   const hasPwr1 = allPlannedCodes.some((code) => /^PWR\s+1/i.test(code))
   const hasPwr2 = allPlannedCodes.some((code) => /^PWR\s+2/i.test(code))
 
-  // COLLEGE: subject_code = 'COLLEGE'
-  const collegeCount = useMemo(
-    () => Object.values(coursesGers).filter((e) => e.subjectCode === 'COLLEGE').length,
-    [coursesGers],
-  )
+  // COLLEGE: subject_code = 'COLLEGE' — deduplicated across years
+  const collegeCount = useMemo(() => {
+    const seen = new Set<string>()
+    let count = 0
+    for (const [key, courses] of Object.entries(planned)) {
+      const dbYear = quarterKeyToDbYear(key)
+      for (const c of courses) {
+        if (seen.has(c.code)) continue
+        seen.add(c.code)
+        if (coursesGers[dbYear]?.[c.code]?.subjectCode === 'COLLEGE') count++
+      }
+    }
+    return count
+  }, [planned, coursesGers])
 
   const unitsPercent = Math.min((totalUnits / 180) * 100, 100)
   const waysCompleted = WAYS_REQUIREMENTS.filter((w) => (waysEarned[w.code] ?? 0) >= w.required).length
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+    <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
       <h2 className="text-sm font-semibold tracking-[0.18em] text-slate-500 uppercase">Requirements</h2>
 
       {/* Units */}
-      <div className="mt-3 rounded-xl bg-slate-50 p-2.5">
+      <div className="mt-3 min-w-0 overflow-hidden rounded-xl bg-slate-50 p-2.5">
         <div className="flex items-baseline justify-between">
           <p className="text-xs font-semibold text-slate-700">Units</p>
           <p
@@ -525,7 +554,7 @@ function RequirementsPanel({
             {totalUnits} / 180
           </p>
         </div>
-        <div className="mt-1.5 h-1.5 w-full rounded-full bg-slate-200">
+        <div className="mt-1.5 h-1.5 w-full min-w-0 overflow-hidden rounded-full bg-slate-200">
           <div
             className={`h-1.5 rounded-full transition-all ${totalUnits >= 180 ? 'bg-emerald-500' : 'bg-primary'}`}
             style={{ width: `${unitsPercent}%` }}
@@ -534,7 +563,7 @@ function RequirementsPanel({
       </div>
 
       {/* Gen Ed */}
-      <div className="mt-2 rounded-xl bg-slate-50 p-2.5">
+      <div className="mt-2 min-w-0 overflow-hidden rounded-xl bg-slate-50 p-2.5">
         <div className="flex items-baseline justify-between">
           <p className="text-xs font-semibold text-slate-700">Gen Ed</p>
           <p className="text-[10px] text-slate-400">{waysCompleted}/8 WAYS</p>
@@ -548,7 +577,11 @@ function RequirementsPanel({
             const done = earned >= w.required
             const pct = Math.min((earned / w.required) * 100, 100)
             return (
-              <div key={w.code} title={`${w.title}: ${earned}/${w.required} courses`}>
+              <div
+                key={w.code}
+                className="flex flex-col"
+                title={`${w.title}: ${earned}/${w.required} courses`}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <div
@@ -567,18 +600,21 @@ function RequirementsPanel({
                   </span>
                 </div>
                 {!done && earned > 0 && (
-                  <div className="mt-0.5 ml-5.5 h-1 w-full rounded-full bg-red-100">
-                    <div
-                      className="h-1 rounded-full bg-red-400/70 transition-all"
-                      style={{ width: `${pct}%` }}
-                    />
+                  <div className="mt-0.5 flex">
+                    <div className="w-5.5 shrink-0" aria-hidden />
+                    <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-red-100">
+                      <div
+                        className="h-1 rounded-full bg-red-400/70 transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
                   </div>
                 )}
                 {qualifying.length > 0 && (
-                  <div className="mt-0.5 ml-5.5 flex flex-wrap gap-0.5">
+                  <div className="mt-1.5 ml-5.5 flex flex-wrap gap-0.5">
                     {qualifying.map((c) => {
                       const isActive = courseAttribution[c.code] === w.code
-                      const qualifiesElsewhere = Object.values(coursesGers[c.code]?.gers ?? []).some(
+                      const qualifiesElsewhere = (coursesGers[c.dbYear]?.[c.code]?.gers ?? []).some(
                         (g) => g !== w.code && WAYS_REQUIREMENTS.some((wr) => wr.code === g),
                       )
                       return (
@@ -818,9 +854,20 @@ function PlanPage() {
     [planned],
   )
 
+  // Group planned course codes by academic year for year-aware GER lookups.
+  const coursesByYear = useMemo(() => {
+    const map: Record<string, Set<string>> = {}
+    for (const [key, courses] of Object.entries(planned)) {
+      const dbYear = quarterKeyToDbYear(key)
+      if (map[dbYear] === undefined) map[dbYear] = new Set()
+      for (const c of courses) map[dbYear]!.add(c.code)
+    }
+    return Object.entries(map).map(([year, codes]) => ({ year, courseCodes: [...codes] }))
+  }, [planned])
+
   const { data: coursesGers = {} } = useQuery({
-    queryKey: ['courses-gers', allPlannedCodes],
-    queryFn: () => getCoursesGers({ data: { courseCodes: allPlannedCodes } }),
+    queryKey: ['courses-gers', coursesByYear],
+    queryFn: () => getCoursesGers({ data: { entries: coursesByYear } }),
     staleTime: 1000 * 60 * 10,
     enabled: allPlannedCodes.length > 0,
   })
@@ -1219,7 +1266,7 @@ function PlanPage() {
           </main>
 
           {/* Right: Requirements + Notes */}
-          <aside className="hidden w-64 shrink-0 xl:block">
+          <aside className="hidden w-64 shrink-0 overflow-hidden xl:block">
             <div className="sticky top-[var(--header-height)] space-y-3 pt-1">
               <RequirementsPanel
                 totalUnits={totalUnits}
@@ -1235,7 +1282,7 @@ function PlanPage() {
         </div>
       </div>
 
-      <DragOverlay>
+      <DragOverlay dropAnimation={null}>
         {activeCourse ? (
           <div className="inline-flex items-center gap-1 rounded-md border border-slate-400 bg-white px-2 py-0.5 text-[11px] font-medium shadow-lg">
             <span className="tracking-wide">{activeCourse.course.code}</span>
