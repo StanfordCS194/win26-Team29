@@ -82,12 +82,3 @@ bunx shadcn@latest add <component-name>
 ## Environment Variables
 
 Create a `.env` file in the `app/` directory for environment-specific configuration.
-
-### Google Login (Stanford only)
-
-To enable "Sign in with Google" restricted to `@stanford.edu` addresses:
-
-1. Create a project in [Firebase Console](https://console.firebase.google.com/).
-2. Enable **Authentication** → **Sign-in method** → **Google**.
-3. Copy the config into `app/.env` (see `app/.env.example`). All `VITE_FIREBASE_*` variables are required for login to work.
-4. Users who sign in with a non-Stanford email will see an error and be signed out; Stanford accounts are redirected through Stanford SSO when they enter their `@stanford.edu` email at the Google prompt.
