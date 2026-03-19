@@ -264,7 +264,7 @@ export const searchUsers = createServerFn({ method: 'GET' })
     const db = await getDb()
     const pattern = `%${data.query.trim()}%`
 
-    const rows = await db
+    let query = db
       .selectFrom('users as u')
       .select(['u.id', 'u.display_name', 'u.description', 'u.avatar_url', 'u.friends_only'])
       .where((eb) =>
@@ -274,8 +274,13 @@ export const searchUsers = createServerFn({ method: 'GET' })
           eb('u.sunet', 'ilike', pattern),
         ]),
       )
-      .limit(20)
-      .execute()
+
+    // Don't show ourselves in social search
+    if (meId != null) {
+      query = query.where('u.id', '!=', meId)
+    }
+
+    const rows = await query.limit(20).execute()
 
     // Batch-fetch follow relationships for current user
     const userIds = rows.map((r) => r.id)
@@ -635,6 +640,104 @@ export const getCourseClassmates = createServerFn({ method: 'GET' })
 
     const rows = await query.limit(20).execute()
     return rows.map((r) => ({ userId: r.userId, displayName: r.displayName, avatarUrl: r.avatarUrl }))
+  })
+
+export const getFollowingForCourse = createServerFn({ method: 'GET' })
+  .inputValidator(
+    z.object({
+      subjectCode: z.string(),
+      codeNumber: z.number(),
+      codeSuffix: z.string().nullable().optional(),
+    }),
+  )
+  .handler(async ({ data }): Promise<{ taken: CourseClassmate[]; planning: CourseClassmate[] }> => {
+    const meId = await getAuthUserId()
+    if (meId == null) return { taken: [], planning: [] }
+
+    const db = await getDb()
+
+    const followedRows = await db
+      .selectFrom('friendships')
+      .select(['recipient_id'])
+      .where('requester_id', '=', meId)
+      .where('status', '=', 'accepted')
+      .execute()
+
+    const followedIds = followedRows.map((r) => r.recipient_id)
+    if (followedIds.length === 0) return { taken: [], planning: [] }
+
+    const subject = await db
+      .selectFrom('subjects')
+      .select(['id'])
+      .where('code', '=', data.subjectCode)
+      .executeTakeFirst()
+    if (!subject) return { taken: [], planning: [] }
+
+    let query = db
+      .selectFrom('plan_quarter_courses as pqc')
+      .innerJoin('plan_quarters as pq', 'pq.id', 'pqc.plan_quarter_id')
+      .innerJoin('plans as p', 'p.id', 'pq.plan_id')
+      .innerJoin('users as u', 'u.id', 'p.user_id')
+      .select([
+        'u.id as userId',
+        'u.display_name as displayName',
+        'u.avatar_url as avatarUrl',
+        'pq.year',
+        'pq.quarter',
+      ])
+      .where('pqc.subject_id', '=', subject.id)
+      .where('pqc.code_number', '=', data.codeNumber)
+      .where('pqc.stashed', '=', false)
+      .where('p.user_id', 'in', followedIds)
+
+    if (data.codeSuffix != null && data.codeSuffix !== '') {
+      query = query.where('pqc.code_suffix', '=', data.codeSuffix)
+    }
+
+    const rows = await query.execute()
+
+    const now = new Date()
+    const quarterStartDate = (year: number, quarter: string): Date => {
+      switch (quarter) {
+        case 'Autumn':
+          return new Date(year, 8, 1) // Sep 1 of pq.year
+        case 'Winter':
+          return new Date(year + 1, 0, 1) // Jan 1 of pq.year+1
+        case 'Spring':
+          return new Date(year + 1, 3, 1) // Apr 1 of pq.year+1
+        case 'Summer':
+          return new Date(year + 1, 6, 1) // Jul 1 of pq.year+1
+        default:
+          return new Date(year + 1, 11, 1)
+      }
+    }
+
+    const taken = new Map<string, CourseClassmate>()
+    const planning = new Map<string, CourseClassmate>()
+
+    for (const row of rows) {
+      const startDate = quarterStartDate(Number(row.year), row.quarter)
+      const classmate: CourseClassmate = {
+        userId: row.userId,
+        displayName: row.displayName,
+        avatarUrl: row.avatarUrl,
+      }
+      if (startDate <= now) {
+        taken.set(row.userId, classmate)
+      } else if (!taken.has(row.userId)) {
+        planning.set(row.userId, classmate)
+      }
+    }
+
+    // Users already in taken should not appear in planning
+    for (const userId of taken.keys()) {
+      planning.delete(userId)
+    }
+
+    return {
+      taken: [...taken.values()].slice(0, 10),
+      planning: [...planning.values()].slice(0, 10),
+    }
   })
 
 export const getSocialFeed = createServerFn({ method: 'GET' }).handler(async (): Promise<FeedEntry[]> => {
