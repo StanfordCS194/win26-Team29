@@ -16,6 +16,7 @@ import {
   getCourseTextReviews,
   getInstructorProfile,
 } from '@/data/search/search'
+import { getFollowingForCourse } from '@/data/social/social-server'
 
 import type { SearchParams, SearchCourseResult, SearchCourseResultStub } from '@/data/search/search.params'
 
@@ -222,6 +223,20 @@ export function instructorProfileQueryOptions(sunet: string, years: string[]) {
     refetchOnReconnect: false,
     retry: false,
     enabled: sunet.length > 0,
+  }
+}
+
+export function followingForCourseQueryOptions(
+  subjectCode: string,
+  codeNumber: number,
+  codeSuffix: string | null | undefined,
+) {
+  return {
+    queryKey: ['following-for-course', subjectCode, codeNumber, codeSuffix ?? null] as const,
+    queryFn: () => getFollowingForCourse({ data: { subjectCode, codeNumber, codeSuffix } }),
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   }
 }
 

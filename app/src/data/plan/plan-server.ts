@@ -2,64 +2,80 @@ import { createServerFn } from '@tanstack/react-start'
 import { sql } from 'kysely'
 import { z } from 'zod'
 
+export type GerEntry = { gers: string[]; subjectCode: string; codeNumber: number }
+
 /**
- * Given a list of display-format course codes (e.g. "CS 106A"),
- * returns a map of code → GER strings array from the course offerings MV.
- * Also returns subject_code for each course so callers can detect PWR/COLLEGE by subject.
+ * Given a list of per-academic-year course code groups (e.g. [{ year: "2024-2025", courseCodes: ["CS 106A"] }]),
+ * returns a nested map of dbYear → courseCode → GER data from the course offerings MV.
+ * Using the year the course is placed in ensures GER tags reflect the correct offering year.
  */
 export const getCoursesGers = createServerFn({ method: 'GET' })
-  .inputValidator(z.object({ courseCodes: z.array(z.string()), year: z.string().optional() }))
-  .handler(
-    async ({
-      data,
-    }): Promise<Record<string, { gers: string[]; subjectCode: string; codeNumber: number }>> => {
-      if (data.courseCodes.length === 0) return {}
-      try {
-        const { getServerDb } = await import('@/lib/server-db')
-        const { DEFAULT_YEAR } = await import('@/data/search/search.params')
-        const db = getServerDb()
-        const year = data.year ?? DEFAULT_YEAR
-
-        const parsed = data.courseCodes
-          .map((code) => parseCourseCode(code))
-          .filter((p): p is NonNullable<typeof p> => p !== null)
-
-        if (parsed.length === 0) return {}
-
-        const rows = await db
-          .selectFrom('course_offerings_full_mv')
-          .select(['subject_code', 'code_number', 'code_suffix', 'gers'])
-          .where('year', '=', year)
-          .where((eb) =>
-            eb.or(
-              parsed.map((p) =>
-                eb.and([
-                  eb('subject_code', '=', p.subjectCode),
-                  eb('code_number', '=', p.codeNumber),
-                  p.codeSuffix != null ? eb('code_suffix', '=', p.codeSuffix) : eb('code_suffix', 'is', null),
-                ]),
-              ),
-            ),
-          )
-          .execute()
-
-        const result: Record<string, { gers: string[]; subjectCode: string; codeNumber: number }> = {}
-        for (const row of rows) {
-          const suffix = row.code_suffix != null && row.code_suffix !== '' ? String(row.code_suffix) : ''
-          const code = `${row.subject_code} ${row.code_number}${suffix}`
-          result[code] = {
-            gers: (row.gers as string[]) ?? [],
-            subjectCode: row.subject_code,
-            codeNumber: row.code_number,
-          }
-        }
-        return result
-      } catch (err) {
-        console.error('[getCoursesGers] error:', err)
-        return {}
-      }
-    },
+  .inputValidator(
+    z.object({
+      entries: z.array(z.object({ year: z.string(), courseCodes: z.array(z.string()) })),
+    }),
   )
+  .handler(async ({ data }): Promise<Record<string, Record<string, GerEntry>>> => {
+    const allEntries = data.entries.filter((e) => e.courseCodes.length > 0)
+    if (allEntries.length === 0) return {}
+    try {
+      const { getServerDb } = await import('@/lib/server-db')
+      const db = getServerDb()
+
+      const yearParsed = allEntries
+        .map(({ year, courseCodes }) => ({
+          year,
+          parsed: courseCodes
+            .map((code) => parseCourseCode(code))
+            .filter((p): p is NonNullable<typeof p> => p !== null),
+        }))
+        .filter((e) => e.parsed.length > 0)
+
+      if (yearParsed.length === 0) return {}
+
+      const rows = await db
+        .selectFrom('course_offerings_full_mv')
+        .select(['subject_code', 'code_number', 'code_suffix', 'gers', 'year'])
+        .where((eb) =>
+          eb.or(
+            yearParsed.map(({ year, parsed }) =>
+              eb.and([
+                eb('year', '=', year),
+                eb.or(
+                  parsed.map((p) =>
+                    eb.and([
+                      eb('subject_code', '=', p.subjectCode),
+                      eb('code_number', '=', p.codeNumber),
+                      p.codeSuffix != null
+                        ? eb('code_suffix', '=', p.codeSuffix)
+                        : eb('code_suffix', 'is', null),
+                    ]),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        )
+        .execute()
+
+      const result: Record<string, Record<string, GerEntry>> = {}
+      for (const row of rows) {
+        const suffix = row.code_suffix != null && row.code_suffix !== '' ? String(row.code_suffix) : ''
+        const code = `${row.subject_code} ${row.code_number}${suffix}`
+        const yr = row.year as string
+        if (result[yr] === undefined) result[yr] = {}
+        result[yr]![code] = {
+          gers: (row.gers as string[]) ?? [],
+          subjectCode: row.subject_code,
+          codeNumber: row.code_number,
+        }
+      }
+      return result
+    } catch (err) {
+      console.error('[getCoursesGers] error:', err)
+      return {}
+    }
+  })
 
 export type PlanCourseData = { dbId: string; code: string; units: number }
 

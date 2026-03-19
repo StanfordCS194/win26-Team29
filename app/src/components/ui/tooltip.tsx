@@ -34,16 +34,21 @@ function ArrowSvg(props: React.ComponentProps<'svg'>) {
   )
 }
 
+type TooltipContentProps = TooltipPrimitive.Popup.Props &
+  Pick<TooltipPrimitive.Positioner.Props, 'align' | 'alignOffset' | 'side' | 'sideOffset'> & {
+    arrowClassName?: string
+  }
+
 function TooltipContent({
   className,
   side = 'top',
   sideOffset = 10,
   align = 'center',
   alignOffset = 0,
+  arrowClassName,
   children,
   ...props
-}: TooltipPrimitive.Popup.Props &
-  Pick<TooltipPrimitive.Positioner.Props, 'align' | 'alignOffset' | 'side' | 'sideOffset'>) {
+}: TooltipContentProps) {
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Positioner
@@ -63,7 +68,7 @@ function TooltipContent({
         >
           {children}
           <TooltipPrimitive.Arrow className="flex data-[side=bottom]:-top-2 data-[side=bottom]:rotate-0 data-[side=left]:right-[-13px] data-[side=left]:rotate-90 data-[side=right]:left-[-13px] data-[side=right]:-rotate-90 data-[side=top]:-bottom-2 data-[side=top]:rotate-180">
-            <ArrowSvg />
+            <ArrowSvg className={arrowClassName ?? undefined} />
           </TooltipPrimitive.Arrow>
         </TooltipPrimitive.Popup>
       </TooltipPrimitive.Positioner>

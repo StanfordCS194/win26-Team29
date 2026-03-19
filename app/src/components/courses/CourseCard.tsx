@@ -2,20 +2,23 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import '../../routeTree.gen'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ExternalLink } from 'lucide-react'
+import { Check, ExternalLink, Minus, Plus } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Badge } from '@/components/ui/badge'
 import { DescriptionClamp } from '@/components/courses/DescriptionClamp'
 import { renderDescriptionWithLinks } from '@/components/courses/render-description-links'
 import { getEvalMetricMeta, getEvalSlugFromQuestionText, getEvalValueColor } from '@/data/search/eval-metrics'
 import { formatCourseCodeFromParts, toCourseCodeSlug } from '@/lib/course-code'
-import { courseByCodeQueryOptions } from './courses-query-options'
+import { planQueryOptions } from '@/data/plan/plan-query-options'
+import { addPlanCourse, getUserPlan, removePlanCourse } from '@/data/plan/plan-server'
+import { courseByCodeQueryOptions, followingForCourseQueryOptions } from './courses-query-options'
 import { FINAL_EXAM_LABELS } from './final-exam-labels'
 
 import type { Quarter, SearchCourseResult, SearchResultSections } from '@/data/search/search.params'
 import type { EvalSlug } from '@/data/search/eval-questions'
 import type { AllMetricSlug } from '@/data/search/eval-metrics'
 import type { MvSection } from '@courses/db/db-postgres-js'
+import type { CourseClassmate } from '@/data/social/social-server'
 
 const QUARTER_ORDER: Quarter[] = ['Autumn', 'Winter', 'Spring', 'Summer']
 
@@ -317,6 +320,9 @@ function QuarterSlot({
   showSchedule,
   courseUnitsMin,
   courseUnitsMax,
+  onAddToQuarter,
+  plannedInQuarter,
+  onRemoveFromQuarter,
 }: {
   quarter: Quarter
   sections: MvSection[]
@@ -325,9 +331,15 @@ function QuarterSlot({
   showSchedule: boolean
   courseUnitsMin: number
   courseUnitsMax: number
+  onAddToQuarter?: () => Promise<void>
+  plannedInQuarter?: { dbId: string }
+  onRemoveFromQuarter?: (dbId: string) => Promise<void>
 }) {
   const [expanded, setExpanded] = useState(false)
   const [accompanyingExpanded, setAccompanyingExpanded] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const [added, setAdded] = useState(false)
+  const [isHovered, setHovered] = useState(false)
   const active = sections.length > 0
   const colors = QUARTER_COLORS[quarter]
   const shouldCollapse = sections.length >= 3
@@ -335,6 +347,27 @@ function QuarterSlot({
     sections.length >= MANY_SECTIONS_THRESHOLD ? VISIBLE_SECTIONS_WHEN_MANY : VISIBLE_SECTIONS_BEFORE_COLLAPSE
   const visibleSections = shouldCollapse && !expanded ? sections.slice(0, visibleWhenCollapsed) : sections
   const hiddenCount = Math.max(0, sections.length - visibleSections.length)
+
+  async function handleAddClick(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (adding || !onAddToQuarter) return
+    setAdding(true)
+    try {
+      await onAddToQuarter()
+      setAdded(true)
+      setTimeout(() => setAdded(false), 1500)
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  async function handleRemoveClick(e: React.MouseEvent) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!plannedInQuarter || !onRemoveFromQuarter) return
+    await onRemoveFromQuarter(plannedInQuarter.dbId)
+  }
 
   return (
     <div
@@ -347,6 +380,50 @@ function QuarterSlot({
           className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${active ? colors.dot : 'bg-slate-200'}`}
         />
         <span className="font-semibold">{quarter}</span>
+        {active && (onAddToQuarter || plannedInQuarter) && (
+          <Tooltip>
+            <TooltipTrigger className="ml-auto">
+              <button
+                type="button"
+                onClick={
+                  plannedInQuarter && isHovered
+                    ? (e) => void handleRemoveClick(e)
+                    : !plannedInQuarter
+                      ? (e) => void handleAddClick(e)
+                      : undefined
+                }
+                onMouseEnter={() => plannedInQuarter && setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
+                className="group rounded p-0.5 transition-colors hover:opacity-80"
+                aria-label={
+                  plannedInQuarter ? (isHovered ? `Remove from ${quarter}` : `In plan`) : `Add to ${quarter}`
+                }
+              >
+                {plannedInQuarter ? (
+                  isHovered ? (
+                    <Minus className="size-4 text-red-600" />
+                  ) : (
+                    <Check className="size-4 text-emerald-600" />
+                  )
+                ) : added ? (
+                  <Check className="size-4 text-emerald-600" />
+                ) : (
+                  <Plus
+                    className={`size-4 ${adding ? 'opacity-40' : 'text-slate-600 group-hover:text-emerald-600'}`}
+                  />
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              sideOffset={4}
+              arrowClassName="[&_path]:fill-slate-50"
+              className="bg-slate-50/95 px-2 py-1 text-[11px] text-slate-500 shadow-sm ring-0"
+            >
+              {plannedInQuarter ? `Remove from ${quarter}` : `Add to ${quarter}`}
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
       {active && (
         <div className="divide-y divide-black/10">
@@ -415,12 +492,18 @@ function QuarterTower({
   visibleEvalSlugs,
   courseUnitsMin,
   courseUnitsMax,
+  onAddToQuarter,
+  plannedByQuarter,
+  onRemoveFromQuarter,
 }: {
   sections: SearchResultSections
   selectedQuarters: Quarter[]
   visibleEvalSlugs: AllMetricSlug[]
   courseUnitsMin: number
   courseUnitsMax: number
+  onAddToQuarter?: (quarter: Quarter) => Promise<void>
+  plannedByQuarter: Record<Quarter, { dbId: string } | undefined>
+  onRemoveFromQuarter?: (dbId: string) => Promise<void>
 }) {
   return (
     <div className="flex shrink-0 flex-col gap-1">
@@ -439,8 +522,50 @@ function QuarterTower({
           visibleEvalSlugs={visibleEvalSlugs}
           courseUnitsMin={courseUnitsMin}
           courseUnitsMax={courseUnitsMax}
+          onAddToQuarter={onAddToQuarter ? () => onAddToQuarter(quarter) : undefined}
+          plannedInQuarter={plannedByQuarter[quarter]}
+          onRemoveFromQuarter={onRemoveFromQuarter}
         />
       ))}
+    </div>
+  )
+}
+
+function ClassmateAvatar({ src, name }: { src: string | null; name: string }) {
+  const initial = name.charAt(0).toUpperCase()
+  if (src != null) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className="h-6 w-6 shrink-0 rounded-full object-cover ring-2 ring-white"
+        referrerPolicy="no-referrer"
+      />
+    )
+  }
+  return (
+    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary ring-2 ring-white">
+      {initial}
+    </div>
+  )
+}
+
+function ClassmateAvatarRow({ label, classmates }: { label: string; classmates: CourseClassmate[] }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="shrink-0 text-xs text-slate-400">{label}</span>
+      <div className="flex items-center">
+        {classmates.map((c, i) => (
+          <Tooltip key={c.userId}>
+            <TooltipTrigger className={i > 0 ? '-ml-1.5' : ''}>
+              <Link to="/profile/$userId" params={{ userId: c.userId }} onClick={(e) => e.stopPropagation()}>
+                <ClassmateAvatar src={c.avatarUrl} name={c.displayName} />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent>{c.displayName}</TooltipContent>
+          </Tooltip>
+        ))}
+      </div>
     </div>
   )
 }
@@ -502,6 +627,64 @@ export function CourseCard({
     placeholderData: keepPreviousData,
   })
   const activeCourse = selectedOfferingId === course.id ? course : (fetchedCourse ?? course)
+
+  const { data: plan } = useQuery(planQueryOptions)
+
+  const plannedByQuarter = useMemo(() => {
+    if (!plan) return {} as Record<Quarter, { dbId: string } | undefined>
+    const result: Record<Quarter, { dbId: string } | undefined> = {} as Record<
+      Quarter,
+      { dbId: string } | undefined
+    >
+    const courseCode = `${selectedCode.subjectCode} ${selectedCode.codeNumber}${selectedCode.codeSuffix ?? ''}`
+    const actualYear = parseInt(year.slice(0, 4), 10)
+    const yearOffset = actualYear - plan.startYear
+    for (const q of QUARTER_ORDER) {
+      const key = `${yearOffset}-${q}`
+      const courses = plan.planned[key] ?? []
+      const match = courses.find((c) => c.code === courseCode)
+      result[q] = match ? { dbId: match.dbId } : undefined
+    }
+    return result
+  }, [plan, selectedCode, year])
+
+  const handleRemoveFromQuarter = useCallback(
+    async (dbId: string) => {
+      await removePlanCourse({ data: { courseDbId: dbId } })
+      void queryClient.invalidateQueries({ queryKey: planQueryOptions.queryKey })
+    },
+    [queryClient],
+  )
+
+  const handleAddToQuarter = useCallback(
+    async (quarter: Quarter) => {
+      const planData = await getUserPlan()
+      if (!planData) return
+      const code = `${selectedCode.subjectCode} ${selectedCode.codeNumber}${selectedCode.codeSuffix ?? ''}`
+      const actualYear = parseInt(year.slice(0, 4), 10)
+      await addPlanCourse({
+        data: {
+          planId: planData.planId,
+          actualYear,
+          quarter,
+          courseCode: code,
+          units: activeCourse.units_max,
+        },
+      })
+      void queryClient.invalidateQueries({ queryKey: planQueryOptions.queryKey })
+    },
+    [selectedCode, year, activeCourse.units_max, queryClient],
+  )
+
+  const { data: followingForCourse } = useQuery(
+    followingForCourseQueryOptions(
+      selectedCode.subjectCode,
+      selectedCode.codeNumber,
+      selectedCode.codeSuffix,
+    ),
+  )
+  const followingTaken = followingForCourse?.taken ?? []
+  const followingPlanning = followingForCourse?.planning ?? []
 
   useLayoutEffect(() => {
     if (descriptionExpanded) return
@@ -658,6 +841,16 @@ export function CourseCard({
               renderText={(t) => renderDescriptionWithLinks(t, validSubjects, year)}
             />
           )}
+          {(followingTaken.length > 0 || followingPlanning.length > 0) && (
+            <div className="flex flex-col gap-1.5">
+              {followingTaken.length > 0 && (
+                <ClassmateAvatarRow label="Taken by" classmates={followingTaken} />
+              )}
+              {followingPlanning.length > 0 && (
+                <ClassmateAvatarRow label="Planning" classmates={followingPlanning} />
+              )}
+            </div>
+          )}
         </div>
 
         <div ref={rightRef}>
@@ -667,6 +860,9 @@ export function CourseCard({
             visibleEvalSlugs={visibleEvalSlugs}
             courseUnitsMin={activeCourse.units_min}
             courseUnitsMax={activeCourse.units_max}
+            onAddToQuarter={handleAddToQuarter}
+            plannedByQuarter={plannedByQuarter}
+            onRemoveFromQuarter={handleRemoveFromQuarter}
           />
         </div>
       </article>

@@ -20,6 +20,7 @@ import { followUser, unfollowUser, updateProfile } from '@/data/social/social-se
 import type { UserCourse } from '@/data/social/social-server'
 import { userQueryOptions } from '@/data/auth'
 import { toCourseCodeSlug } from '@/lib/course-code'
+import { getCurrentQuarter, getCurrentAcademicStartYear } from '@/lib/quarter-utils'
 
 export const Route = createFileRoute('/profile/$userId')({
   loader: ({ params, context }) => {
@@ -402,17 +403,22 @@ function ProfilePage() {
     },
   })
 
-  // Derive all quarters spanning the full year range of the user's courses
+  // Derive all quarters spanning the full year range of the user's courses.
+  // Extend at least 1 academic year beyond the user's last course so viewers can navigate to future quarters.
   const quarters = useMemo(() => {
+    const now = new Date()
+    const currentAcademicYear = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1
+    const minFutureYears = 1 // allow navigating at least this many years beyond current AY
+    const extendedMaxYear = currentAcademicYear + minFutureYears
+
     if (!courses || courses.length === 0) {
-      // Default to current academic year when no courses exist
-      const now = new Date()
-      const year = now.getFullYear()
+      const year = currentAcademicYear
       return QUARTER_ORDER.map((q) => `${q} ${year}`)
     }
     const years = courses.map((c) => c.year)
     const minYear = Math.min(...years)
-    const maxYear = Math.max(...years)
+    const maxYearFromCourses = Math.max(...years)
+    const maxYear = Math.max(maxYearFromCourses, extendedMaxYear)
     const all: string[] = []
     for (let y = minYear; y <= maxYear; y++) {
       for (const q of QUARTER_ORDER) {
@@ -422,12 +428,15 @@ function ProfilePage() {
     return all
   }, [courses])
 
-  // Default to most recent quarter
+  // Default to current quarter (or most recent if current not in list)
+  const currentQuarterStr = `${getCurrentQuarter()} ${getCurrentAcademicStartYear()}`
   const [selectedQuarter, setSelectedQuarter] = useState<string | null>(null)
   const activeQuarter =
     selectedQuarter != null && quarters.includes(selectedQuarter)
       ? selectedQuarter
-      : (quarters[quarters.length - 1] ?? null)
+      : quarters.includes(currentQuarterStr)
+        ? currentQuarterStr
+        : (quarters[quarters.length - 1] ?? null)
 
   const followMutation = useMutation({
     mutationFn: () => followUser({ data: { targetUserId: userId } }),

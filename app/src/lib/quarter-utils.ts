@@ -2,6 +2,15 @@ import type { Quarter } from '@/data/search/search.params'
 
 const QUARTER_ORDER: Quarter[] = ['Autumn', 'Winter', 'Spring', 'Summer']
 
+/** Academic year start (e.g. 2024 for AY 2024-2025). Boundary: Aug 25. */
+export function getCurrentAcademicStartYear(): number {
+  const now = new Date()
+  const month = now.getMonth()
+  const date = now.getDate()
+  const onOrAfterAug25 = month > 7 || (month === 7 && date >= 25)
+  return onOrAfterAug25 ? now.getFullYear() : now.getFullYear() - 1
+}
+
 export function getCurrentQuarter(): Quarter {
   const now = new Date()
   const month = now.getMonth() + 1
