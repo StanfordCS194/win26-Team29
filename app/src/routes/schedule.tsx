@@ -8,16 +8,8 @@ import { planQueryOptions } from '@/data/plan/plan-query-options'
 import { userQueryOptions } from '@/data/auth'
 import { getCourseByCode } from '@/data/search/search'
 import { toCourseCodeSlug } from '@/lib/course-code'
-import { getCurrentQuarter } from '@/lib/quarter-utils'
+import { getCurrentQuarter, getCurrentAcademicStartYear } from '@/lib/quarter-utils'
 import { SLUG_TO_QUESTION_TEXT } from '@/data/search/eval-questions'
-
-function getCurrentAcademicStartYear(): number {
-  const now = new Date()
-  const month = now.getMonth()
-  const date = now.getDate()
-  const onOrAfterAug25 = month > 7 || (month === 7 && date >= 25)
-  return onOrAfterAug25 ? now.getFullYear() : now.getFullYear() - 1
-}
 
 const scheduleSearchSchema = z.object({
   year: z.coerce.number().int().optional().catch(undefined),
